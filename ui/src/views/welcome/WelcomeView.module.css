@@ -1,0 +1,257 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+/* Floating rune decorations */
+.runesBg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.rune {
+  position: absolute;
+  font-size: 1.8rem;
+  color: var(--gold-600);
+  opacity: .15;
+  animation: runeFloat 12s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 1.5s);
+}
+.rune:nth-child(1)  { top: 8%;  left: 7%;  }
+.rune:nth-child(2)  { top: 18%; right: 9%; }
+.rune:nth-child(3)  { top: 55%; left: 4%;  }
+.rune:nth-child(4)  { top: 75%; right: 6%; }
+.rune:nth-child(5)  { top: 40%; left: 3%;  }
+.rune:nth-child(6)  { top: 82%; left: 12%; }
+.rune:nth-child(7)  { top: 25%; right: 3%; }
+.rune:nth-child(8)  { top: 65%; right: 12%;}
+
+@keyframes runeFloat {
+  0%, 100% { transform: translateY(0)   rotate(0deg);   opacity: .12; }
+  50%       { transform: translateY(-12px) rotate(8deg); opacity: .22; }
+}
+
+/* Main panel */
+.panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2.5rem 2rem;
+  box-shadow: var(--shadow-lg),
+              0 0 60px rgba(196,144,64,.06);
+  animation: panelIn .4s cubic-bezier(.22,.68,0,1.2) both;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(20px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+/* Header */
+.header { text-align: center; margin-bottom: .5rem; }
+
+.logoMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background: var(--bg-raised);
+  border: 1px solid var(--gold-600);
+  border-radius: 50%;
+  color: var(--gold-400);
+  margin-bottom: .75rem;
+  box-shadow: 0 0 20px rgba(196,144,64,.15);
+}
+
+.title {
+  font-size: 1.8rem;
+  letter-spacing: .12em;
+  margin-bottom: .15rem;
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: .9rem;
+  color: var(--text-muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: .3rem;
+}
+
+.version {
+  font-size: .75rem;
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+}
+
+/* Ornament divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin: 1.25rem 0;
+  color: var(--gold-600);
+  font-size: 1.1rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 60%);
+}
+.divider::after { transform: scaleX(-1); }
+
+/* Error banner */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: rgba(196,64,64,.12);
+  border: 1px solid var(--crimson-600);
+  border-radius: var(--radius-sm);
+  padding: .6rem .85rem;
+  color: var(--crimson-400);
+  font-size: .9rem;
+  margin-bottom: 1rem;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .72rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-family: var(--font-display);
+  font-size: .9rem;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: all .15s ease;
+  width: 100%;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.btnPrimary {
+  background: linear-gradient(160deg, var(--gold-600), var(--gold-500));
+  color: var(--ink-950);
+  border-color: var(--gold-500);
+  font-weight: 600;
+}
+.btnPrimary:hover:not(:disabled) {
+  background: linear-gradient(160deg, var(--gold-500), var(--gold-400));
+  box-shadow: 0 0 16px rgba(196,144,64,.3);
+}
+
+.btnSecondary {
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.btnSecondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--ink-500);
+}
+
+.btnGhost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+.btnGhost:hover:not(:disabled) {
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+}
+
+/* New campaign form */
+.newForm { display: flex; flex-direction: column; gap: .9rem; }
+.formTitle {
+  font-size: 1rem;
+  color: var(--text-accent);
+  margin-bottom: -.2rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-size: .85rem;
+  color: var(--text-muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: .55rem .75rem;
+  outline: none;
+  transition: border-color .15s;
+}
+.input::placeholder { color: var(--ink-500); font-style: italic; }
+.input:focus { border-color: var(--gold-600); box-shadow: 0 0 0 2px rgba(196,144,64,.12); }
+
+.formRow { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.formActions { display: flex; gap: .6rem; margin-top: .25rem; }
+.formActions .btn { flex: 1; }
+
+/* Recent campaigns */
+.recent { margin-top: 1.4rem; }
+.recentTitle {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-500);
+  margin-bottom: .65rem;
+}
+
+.hint { font-size: .9rem; color: var(--text-muted); font-style: italic; }
+
+.recentList { list-style: none; display: flex; flex-direction: column; gap: .3rem; }
+
+.recentItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: .5rem .75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all .15s;
+}
+.recentItem:hover:not(:disabled) {
+  background: var(--bg-raised);
+  border-color: var(--border);
+}
+.recentItem:disabled { opacity: .5; cursor: not-allowed; }
+
+.recentIcon  { color: var(--gold-600); flex-shrink: 0; }
+.recentName  { font-size: .95rem; color: var(--text-primary); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recentPath  { font-size: .72rem; color: var(--ink-500); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recentArrow { color: var(--ink-600); }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .8s linear infinite; }

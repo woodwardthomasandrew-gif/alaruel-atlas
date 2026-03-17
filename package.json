@@ -1,0 +1,22 @@
+{
+  "name": "alaruel-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modular offline campaign management system for tabletop RPGs",
+  "scripts": {
+    "dev": "npm run dev --prefix apps/desktop",
+    "build": "npm run make --prefix apps/desktop",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.0.0",
+    "electron": "^30.0.0"
+  },
+  "type": "module",
+  "main": "apps/desktop/.vite/build/main.js"
+}

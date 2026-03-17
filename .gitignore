@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+data/campaigns/
+data/assets/
+data/logs/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+*.js.map

@@ -1,0 +1,5 @@
+{
+  "_comment": "Default light theme tokens. TODO: define colour, spacing, and typography values.",
+  "name": "default-light",
+  "colors": {}
+}

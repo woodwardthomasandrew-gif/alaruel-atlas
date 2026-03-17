@@ -1,0 +1,5 @@
+{
+  "_comment": "Default dark theme tokens. TODO: define colour, spacing, and typography values.",
+  "name": "default-dark",
+  "colors": {}
+}

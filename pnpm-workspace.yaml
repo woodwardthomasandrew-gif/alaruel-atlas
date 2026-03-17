@@ -1,0 +1,6 @@
+packages:
+  - 'core/*'
+  - 'modules/*'
+  - 'ui'
+  - 'shared'
+  - 'apps/desktop'

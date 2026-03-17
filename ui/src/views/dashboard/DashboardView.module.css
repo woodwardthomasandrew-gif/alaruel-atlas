@@ -1,0 +1,129 @@
+.root {
+  padding: 2rem 2.5rem;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.headerLeft { display: flex; flex-direction: column; gap: .25rem; }
+.headerLabel {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-500);
+}
+.campaignTitle { color: var(--text-accent); font-size: 2rem; }
+.filePath { font-size: .78rem; color: var(--ink-500); font-family: var(--font-mono); }
+.headerRight { padding-top: .25rem; }
+.versionBadge {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--ink-600);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  padding: .2rem .5rem;
+  border-radius: 20px;
+}
+
+.ornamentLine {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: var(--gold-600);
+  font-size: 1rem;
+}
+.ornamentLine::before, .ornamentLine::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 70%);
+}
+.ornamentLine::after { transform: scaleX(-1); }
+.ornamentGlyph { flex-shrink: 0; }
+
+.section { display: flex; flex-direction: column; gap: .85rem; }
+.sectionTitle {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-500);
+}
+
+.tileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: .65rem;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .85rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all .15s ease;
+  color: inherit;
+}
+.tile:hover {
+  background: var(--bg-raised);
+  border-color: var(--gold-600);
+  box-shadow: 0 0 12px rgba(196,144,64,.1);
+}
+
+.tileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  color: var(--gold-500);
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+.tile:hover .tileIcon { color: var(--gold-300); background: var(--bg-hover); }
+
+.tileName {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: .875rem;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+}
+.tile:hover .tileName { color: var(--text-primary); }
+.tileArrow { color: var(--ink-600); flex-shrink: 0; }
+.tile:hover .tileArrow { color: var(--gold-500); }
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .65rem;
+}
+.infoCard {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  padding: .75rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.infoLabel {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-500);
+}
+.infoValue { font-size: .9rem; color: var(--text-secondary); font-family: var(--font-mono); }

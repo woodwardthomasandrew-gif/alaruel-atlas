@@ -1,0 +1,8 @@
+{
+  "name": "@alaruel/module-framework",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abstract base classes and loader for the Alaruel Atlas module system",
+  "main": "src/index.ts",
+  "type": "module"
+}

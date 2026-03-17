@@ -1,0 +1,332 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Icon }             from '../../components/ui/Icon';
+import { atlas }            from '../../bridge/atlas';
+import { useCampaignStore } from '../../store/campaign.store';
+import type { Location, CampaignMap, LocationPin } from '../../types/location';
+import styles               from './AtlasView.module.css';
+
+const TYPE_COLOUR: Record<string,string> = {
+  city:'#e0b060', town:'#c49040', village:'#a07030', dungeon:'#c44040',
+  nation:'#6090c0', region:'#5070a0', landmark:'#60a080', building:'#8080a0',
+  default:'#888780',
+};
+
+type Tool = 'select' | 'pin';
+
+export default function AtlasView() {
+  const campaign = useCampaignStore(s => s.campaign);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [maps,      setMaps]      = useState<CampaignMap[]>([]);
+  const [activeMap, setActiveMap] = useState<CampaignMap|null>(null);
+  const [pins,      setPins]      = useState<LocationPin[]>([]);
+  const [tool,      setTool]      = useState<Tool>('select');
+  const [selected,  setSelected]  = useState<Location|null>(null);
+  const [zoom,      setZoom]      = useState(1);
+  const [pan,       setPan]       = useState({x:0,y:0});
+  const [dragging,  setDragging]  = useState(false);
+  const [dragStart, setDragStart] = useState({x:0,y:0,px:0,py:0});
+  const [showSidebar,setShowSidebar] = useState(true);
+  const [newLocName, setNewLocName]  = useState('');
+  const [newLocType, setNewLocType]  = useState('city');
+  const [error,     setError]     = useState<string|null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  type RawLoc = Record<string,unknown>;
+  type RawMap = Record<string,unknown>;
+  type RawPin = Record<string,unknown>;
+
+  const loadAll = useCallback(async () => {
+    if (!campaign) return;
+    try {
+      const [lrows, mrows] = await Promise.all([
+        atlas.db.query<RawLoc>('SELECT * FROM locations WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
+        atlas.db.query<RawMap>('SELECT * FROM maps WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
+      ]);
+      setLocations(lrows.map(r => ({
+        id:r['id'] as string, name:r['name'] as string,
+        description:r['description'] as string ?? '',
+        locationType: r['location_type'] as Location['locationType'],
+        status: r['status'] as string ?? 'active',
+        parentLocationId: r['parent_location_id'] as string|null,
+        childLocationIds: [], controllingFactionId: r['controlling_faction_id'] as string|null,
+        thumbnailAssetId: r['thumbnail_asset_id'] as string|null,
+        tags: JSON.parse(r['tags'] as string ?? '[]') as string[],
+        createdAt:r['created_at'] as string, updatedAt:r['updated_at'] as string,
+      })));
+      setMaps(mrows.map(r => ({
+        id:r['id'] as string, name:r['name'] as string,
+        description:r['description'] as string ?? '',
+        imageAssetId:r['image_asset_id'] as string,
+        widthPx:r['width_px'] as number ?? 800,
+        heightPx:r['height_px'] as number ?? 600,
+        subjectLocationId: r['subject_location_id'] as string|null,
+        scale: r['scale'] as string|null,
+        tags: JSON.parse(r['tags'] as string ?? '[]') as string[],
+        createdAt:r['created_at'] as string, updatedAt:r['updated_at'] as string,
+      })));
+    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
+  }, [campaign]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  async function loadPins(mapId: string) {
+    const rows = await atlas.db.query<RawPin>(
+      'SELECT * FROM location_pins WHERE map_id=?', [mapId],
+    );
+    setPins(rows.map(r => ({
+      id:r['id'] as string, mapId:r['map_id'] as string,
+      locationId:r['location_id'] as string,
+      posX:r['pos_x'] as number, posY:r['pos_y'] as number,
+      label:r['label'] as string|null,
+    })));
+  }
+
+  async function selectMap(m: CampaignMap) {
+    setActiveMap(m); await loadPins(m.id);
+    setZoom(1); setPan({x:0,y:0});
+  }
+
+  async function createLocation() {
+    if (!newLocName.trim() || !campaign) return;
+    const id = crypto.randomUUID(), now = new Date().toISOString();
+    await atlas.db.run(
+      `INSERT INTO locations (id,campaign_id,name,description,location_type,tags,created_at,updated_at)
+       VALUES (?,?,?,?,?,'[]',?,?)`,
+      [id, campaign.id, newLocName.trim(), '', newLocType, now, now],
+    );
+    setNewLocName('');
+    await loadAll();
+  }
+
+  async function handleMapClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (!activeMap || tool !== 'pin' || !selected) return;
+    const svg = svgRef.current!;
+    const rect = svg.getBoundingClientRect();
+    const x = (e.clientX - rect.left - pan.x) / zoom;
+    const y = (e.clientY - rect.top  - pan.y) / zoom;
+    const id = crypto.randomUUID();
+    await atlas.db.run(
+      `INSERT INTO location_pins (id,map_id,location_id,pos_x,pos_y) VALUES (?,?,?,?,?)
+       ON CONFLICT(map_id,location_id) DO UPDATE SET pos_x=excluded.pos_x,pos_y=excluded.pos_y`,
+      [id, activeMap.id, selected.id, Math.round(x), Math.round(y)],
+    );
+    await loadPins(activeMap.id);
+    setTool('select');
+  }
+
+  function onMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    if (tool !== 'select') return;
+    setDragging(true);
+    setDragStart({x:e.clientX, y:e.clientY, px:pan.x, py:pan.y});
+  }
+  function onMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!dragging) return;
+    setPan({x:dragStart.px+(e.clientX-dragStart.x), y:dragStart.py+(e.clientY-dragStart.y)});
+  }
+  function onMouseUp() { setDragging(false); }
+  function onWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault();
+    setZoom(z => Math.min(4, Math.max(0.25, z * (e.deltaY < 0 ? 1.12 : 0.89))));
+  }
+
+  const pinsByLocation = Object.fromEntries(pins.map(p => [p.locationId, p]));
+
+  return (
+    <div className={styles.root}>
+      <header className={styles.toolbar}>
+        <div className={styles.toolbarLeft}>
+          <h2 className={styles.title}>World Atlas</h2>
+          <span className={styles.count}>{locations.length} locations · {maps.length} maps</span>
+        </div>
+        {activeMap && (
+          <div className={styles.toolbarCenter}>
+            <button className={`${styles.toolBtn} ${tool==='select'?styles.toolActive:''}`}
+              onClick={() => setTool('select')} title="Pan / Select">
+              <Icon name="home" size={14}/>
+            </button>
+            <button className={`${styles.toolBtn} ${tool==='pin'?styles.toolActive:''} ${!selected?styles.toolDisabled:''}`}
+              onClick={() => selected && setTool('pin')} title={selected?"Place pin for selected location":"Select a location first"}>
+              <Icon name="pin" size={14}/>
+            </button>
+            <span className={styles.zoomLabel}>{Math.round(zoom*100)}%</span>
+            <button className={styles.toolBtn} onClick={() => { setZoom(1); setPan({x:0,y:0}); }}>Reset</button>
+          </div>
+        )}
+        <button className={styles.sidebarToggle} onClick={() => setShowSidebar(v=>!v)}>
+          <Icon name="chevron-right" size={16} style={{transform:showSidebar?'rotate(180deg)':undefined}}/>
+        </button>
+      </header>
+
+      {error && <div className={styles.errorBar}><Icon name="alert" size={15}/> {error}</div>}
+
+      <div className={styles.body}>
+        {/* Map list / canvas */}
+        <div className={styles.canvasArea}>
+          {!activeMap ? (
+            <div className={styles.mapPicker}>
+              <Icon name="map" size={48} className={styles.emptyIcon}/>
+              <h3>Select a map to explore</h3>
+              <div className={styles.mapGrid}>
+                {maps.map(m => (
+                  <button key={m.id} className={styles.mapCard} onClick={() => selectMap(m)}>
+                    <Icon name="map" size={24} className={styles.mapCardIcon}/>
+                    <span>{m.name}</span>
+                    <span className={styles.mapDims}>{m.widthPx}×{m.heightPx}px</span>
+                  </button>
+                ))}
+                {maps.length === 0 && (
+                  <p className={styles.hint}>No maps yet. Add a map image via Assets, then create a map here.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <svg
+              ref={svgRef}
+              className={`${styles.canvas} ${tool==='pin'&&selected?styles.cursorPin:styles.cursorPan} ${dragging?styles.cursorGrab:''}`}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
+              onClick={handleMapClick}
+              onWheel={onWheel}
+            >
+              <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
+                {/* Map background — grid pattern when no image */}
+                <rect x={0} y={0} width={activeMap.widthPx} height={activeMap.heightPx}
+                  fill="var(--bg-raised)" stroke="var(--border)" strokeWidth={1}/>
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M40 0H0V40" fill="none" stroke="var(--border-subtle)" strokeWidth="0.5"/>
+                  </pattern>
+                </defs>
+                <rect width={activeMap.widthPx} height={activeMap.heightPx} fill="url(#grid)"/>
+
+                {/* Scale label */}
+                {activeMap.scale && (
+                  <text x={8} y={activeMap.heightPx-8} fontSize="10" fill="var(--ink-500)">{activeMap.scale}</text>
+                )}
+
+                {/* Pins */}
+                {pins.map(pin => {
+                  const loc = locations.find(l => l.id === pin.locationId);
+                  const col = TYPE_COLOUR[loc?.locationType ?? 'default'] ?? TYPE_COLOUR['default'];
+                  return (
+                    <g key={pin.id} style={{cursor:'pointer'}}
+                      onClick={e => { e.stopPropagation(); if(loc) setSelected(loc); }}>
+                      <circle cx={pin.posX} cy={pin.posY} r={10/zoom+2}
+                        fill={col} fillOpacity={0.9} stroke="var(--bg-base)" strokeWidth={1.5/zoom}/>
+                      <circle cx={pin.posX} cy={pin.posY} r={4/zoom}
+                        fill="var(--bg-base)" fillOpacity={0.8}/>
+                      {zoom > 0.5 && (
+                        <text x={pin.posX} y={pin.posY-14/zoom}
+                          fontSize={11/zoom} fill="var(--text-primary)"
+                          textAnchor="middle" dominantBaseline="auto"
+                          style={{pointerEvents:'none', textShadow:'0 1px 3px var(--bg-base)'}}>
+                          {pin.label ?? loc?.name ?? ''}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* Ghost pin while placing */}
+                {tool === 'pin' && selected && (
+                  <circle cx={-100} cy={-100} r={12}
+                    fill={(TYPE_COLOUR[selected.locationType] ?? TYPE_COLOUR['default'])}
+                    fillOpacity={0.5} stroke="var(--gold-400)" strokeWidth={1.5}
+                    strokeDasharray="4 2"/>
+                )}
+              </g>
+            </svg>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        {showSidebar && (
+          <div className={styles.sidebar}>
+            {/* Map selector */}
+            <div className={styles.sideSection}>
+              <h3 className={styles.sideSectionTitle}>Maps</h3>
+              {maps.map(m => (
+                <button key={m.id}
+                  className={`${styles.sideItem} ${activeMap?.id===m.id?styles.sideItemActive:''}`}
+                  onClick={() => selectMap(m)}>
+                  <Icon name="map" size={14}/>
+                  <span>{m.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.sideDivider}/>
+
+            {/* Locations list */}
+            <div className={`${styles.sideSection} ${styles.locSection}`}>
+              <h3 className={styles.sideSectionTitle}>Locations</h3>
+              {/* Add location */}
+              <div className={styles.addLocRow}>
+                <input className={styles.sideInput} placeholder="New location…"
+                  value={newLocName} onChange={e => setNewLocName(e.target.value)}
+                  onKeyDown={e => e.key==='Enter' && createLocation()}/>
+                <select className={styles.sideInput} value={newLocType}
+                  onChange={e => setNewLocType(e.target.value)}>
+                  {['world','continent','region','nation','city','town','village','district','building','dungeon','wilderness','landmark','other']
+                    .map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <button className={styles.addBtn} onClick={createLocation} disabled={!newLocName.trim()}>
+                  <Icon name="plus" size={14}/>
+                </button>
+              </div>
+              <ul className={styles.locList}>
+                {locations.map(loc => {
+                  const isPinned = activeMap ? !!pinsByLocation[loc.id] : false;
+                  const col = TYPE_COLOUR[loc.locationType] ?? TYPE_COLOUR['default'];
+                  return (
+                    <li key={loc.id}>
+                      <button
+                        className={`${styles.locItem} ${selected?.id===loc.id?styles.locActive:''}`}
+                        onClick={() => setSelected(s => s?.id===loc.id ? null : loc)}>
+                        <span className={styles.locDot} style={{background:col}}/>
+                        <span className={styles.locName}>{loc.name}</span>
+                        <span className={styles.locType}>{loc.locationType}</span>
+                        {isPinned && <Icon name="pin" size={11} className={styles.pinIcon}/>}
+                      </button>
+                    </li>
+                  );
+                })}
+                {locations.length === 0 && <p className={styles.hint}>No locations yet.</p>}
+              </ul>
+            </div>
+
+            {/* Selected location detail */}
+            {selected && (
+              <div className={styles.locDetail}>
+                <div className={styles.locDetailHeader}>
+                  <span className={styles.locDetailName}>{selected.name}</span>
+                  <span className={styles.locDetailType}>{selected.locationType}</span>
+                </div>
+                {activeMap && (
+                  <div className={styles.locDetailActions}>
+                    {!pinsByLocation[selected.id] ? (
+                      <button className={styles.pinBtn} onClick={() => setTool('pin')}>
+                        <Icon name="pin" size={13}/> Place on map
+                      </button>
+                    ) : (
+                      <button className={`${styles.pinBtn} ${styles.pinBtnRemove}`}
+                        onClick={async () => {
+                          await atlas.db.run('DELETE FROM location_pins WHERE map_id=? AND location_id=?',
+                            [activeMap.id, selected.id]);
+                          await loadPins(activeMap.id);
+                        }}>
+                        <Icon name="x" size={13}/> Remove pin
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
