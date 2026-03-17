@@ -1,11 +1,8 @@
 node_modules/
 dist/
-out/
-data/campaigns/
+build/
+.env
 data/assets/
+data/campaigns/
 data/logs/
-*.db
-*.db-shm
-*.db-wal
-.DS_Store
-*.js.map
+apps/desktop/.vite/
