@@ -25,7 +25,7 @@
 // module init(); migrations run when the DB is first connected.
 // =============================================================================
 
-import { app, Menu }         from 'electron';
+import { app, Menu, protocol, net } from 'electron';
 import * as path              from 'node:path';
 import * as fs                from 'node:fs';
 
@@ -149,6 +149,29 @@ async function boot(): Promise<void> {
   }
 
   // ── Step 6: BrowserWindow ─────────────────────────────────────────────────
+
+  // Register atlas:// protocol so the renderer can load asset images directly
+  // from disk without routing large files through IPC.
+  // atlas://asset/<encodedVirtualPath>  →  serves the file at its disk_path
+  // NOTE: assets are stored in the campaign 'assets' table (via ipc.ts),
+  // not in core_assets (via assetManager), so we query the DB directly.
+  protocol.handle('atlas', (request) => {
+    try {
+      const url         = new URL(request.url);
+      // URL format: atlas://asset/<percent-encoded virtualPath>
+      const virtualPath = decodeURIComponent(url.host + url.pathname).replace(/^asset\//, 'asset://');
+      const rows = databaseManager.query<{ disk_path: string; mime_type: string }>(
+        'SELECT disk_path, mime_type FROM assets WHERE virtual_path = ? LIMIT 1',
+        [virtualPath],
+      );
+      if (!rows[0]) return new Response('Asset not found', { status: 404 });
+      return net.fetch(`file://${rows[0].disk_path.replace(/\\/g, '/')}`);
+    } catch (err) {
+      log.error('atlas:// protocol error', { error: err instanceof Error ? err.message : String(err) });
+      return new Response('Internal error', { status: 500 });
+    }
+  });
+
   const preloadPath = path.join(__dirname, 'preload.js');
   const rendererUrl = isDev ? 'http://localhost:5173' : undefined;
 
@@ -307,7 +330,13 @@ app.on('will-quit', async (event: Electron.Event) => {
   app.quit();
 });
 
-// ── Single instance lock ──────────────────────────────────────────────────────
+// ── Custom protocol registration ───────────────────────────────────────────────
+// Must be called before app.whenReady().
+// atlas://asset/<virtualPath> → serves the asset file directly from disk,
+// bypassing the sandbox restriction on file:// URLs in the renderer.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'atlas', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true } },
+]);
 
 const gotLock = app.requestSingleInstanceLock();
 

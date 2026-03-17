@@ -209,15 +209,20 @@ function registerAssetHandlers(paths: AppPaths): void {
 
   ipcMain.handle('assets:resolve', (_event: Electron.IpcMainInvokeEvent, { virtualPath }: { virtualPath: string }) => {
     const record = assetManager.loadAsset(virtualPath);
-    if (!record) return null;
-    // Return a base64 data URL — file:// URLs are blocked in sandboxed renderers.
-    try {
-      const data     = fs.readFileSync(record.diskPath);
-      const mimeType = getMimeType(record.diskPath);
-      return `data:${mimeType};base64,${data.toString('base64')}`;
-    } catch {
-      return null;
+    if (!record) {
+      // Also check the campaign assets table (used by ipc.ts import handler)
+      try {
+        const rows = databaseManager.query<{ disk_path: string }>(
+          'SELECT disk_path FROM assets WHERE virtual_path = ? LIMIT 1',
+          [virtualPath],
+        );
+        if (!rows[0]) return null;
+      } catch { return null; }
     }
+    // Return an atlas:// URL served by the custom protocol handler in main.ts.
+    // Format: atlas://asset/<percent-encoded virtualPath stripped of "asset://">
+    const stripped = virtualPath.replace(/^asset:\/\//, '');
+    return `atlas://asset/${encodeURIComponent(stripped)}`;
   });
 
   ipcMain.handle('assets:import', async (_event: Electron.IpcMainInvokeEvent, options: {
