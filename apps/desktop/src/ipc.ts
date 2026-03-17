@@ -210,7 +210,14 @@ function registerAssetHandlers(paths: AppPaths): void {
   ipcMain.handle('assets:resolve', (_event: Electron.IpcMainInvokeEvent, { virtualPath }: { virtualPath: string }) => {
     const record = assetManager.loadAsset(virtualPath);
     if (!record) return null;
-    return `file://${record.diskPath.replace(/\\/g, '/')}`;
+    // Return a base64 data URL — file:// URLs are blocked in sandboxed renderers.
+    try {
+      const data     = fs.readFileSync(record.diskPath);
+      const mimeType = getMimeType(record.diskPath);
+      return `data:${mimeType};base64,${data.toString('base64')}`;
+    } catch {
+      return null;
+    }
   });
 
   ipcMain.handle('assets:import', async (_event: Electron.IpcMainInvokeEvent, options: {
