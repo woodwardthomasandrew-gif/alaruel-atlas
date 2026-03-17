@@ -1,0 +1,117 @@
+From 2b1e106a07f03ad0eb483520d887b4f4692484be Mon Sep 17 00:00:00 2001
+From: Claude <fix@alaruel>
+Date: Tue, 17 Mar 2026 23:43:05 +0000
+Subject: [PATCH] =?UTF-8?q?Fix=20atlas://=20URL=20round-trip=20=E2=80=94?=
+ =?UTF-8?q?=20use=20asset=20ID=20not=20virtualPath=20encoding?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Previous attempt encoded the virtualPath into the atlas:// URL which
+caused parsing ambiguity (slashes in path vs URL structure). Simplified:
+
+- assets:resolve now queries assets table by virtual_path, returns
+  atlas://asset/<uuid> using just the asset's ID (no encoding needed)
+- protocol.handle('atlas') extracts uuid from url.pathname and queries
+  assets table by ID to get disk_path, then serves via net.fetch(file://)
+- Removed spurious (atlas as any) cast in AtlasView.tsx
+---
+ apps/desktop/src/ipc.ts          | 26 ++++++++++++--------------
+ apps/desktop/src/main.ts         | 20 ++++++++++----------
+ ui/src/views/atlas/AtlasView.tsx |  5 ++---
+ 3 files changed, 24 insertions(+), 27 deletions(-)
+
+diff --git a/apps/desktop/src/ipc.ts b/apps/desktop/src/ipc.ts
+index 1a437ef..a7bcf1e 100644
+--- a/apps/desktop/src/ipc.ts
++++ b/apps/desktop/src/ipc.ts
+@@ -208,21 +208,19 @@ function getMimeType(filePath: string): string {
+ function registerAssetHandlers(paths: AppPaths): void {
+ 
+   ipcMain.handle('assets:resolve', (_event: Electron.IpcMainInvokeEvent, { virtualPath }: { virtualPath: string }) => {
+-    const record = assetManager.loadAsset(virtualPath);
+-    if (!record) {
+-      // Also check the campaign assets table (used by ipc.ts import handler)
+-      try {
+-        const rows = databaseManager.query<{ disk_path: string }>(
+-          'SELECT disk_path FROM assets WHERE virtual_path = ? LIMIT 1',
+-          [virtualPath],
+-        );
+-        if (!rows[0]) return null;
+-      } catch { return null; }
++    try {
++      // Assets are stored in the campaign-scoped 'assets' table by ipc.ts.
++      // Query by virtual_path and return the asset id for the atlas:// URL.
++      const rows = databaseManager.query<{ id: string }>(
++        'SELECT id FROM assets WHERE virtual_path = ? LIMIT 1',
++        [virtualPath],
++      );
++      if (!rows[0]) return null;
++      return `atlas://asset/${rows[0].id}`;
++    } catch (err) {
++      log.error('assets:resolve failed', { error: err instanceof Error ? err.message : String(err) });
++      return null;
+     }
+-    // Return an atlas:// URL served by the custom protocol handler in main.ts.
+-    // Format: atlas://asset/<percent-encoded virtualPath stripped of "asset://">
+-    const stripped = virtualPath.replace(/^asset:\/\//, '');
+-    return `atlas://asset/${encodeURIComponent(stripped)}`;
+   });
+ 
+   ipcMain.handle('assets:import', async (_event: Electron.IpcMainInvokeEvent, options: {
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index 1fa506e..5049ae2 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -152,20 +152,20 @@ async function boot(): Promise<void> {
+ 
+   // Register atlas:// protocol so the renderer can load asset images directly
+   // from disk without routing large files through IPC.
+-  // atlas://asset/<encodedVirtualPath>  →  serves the file at its disk_path
+-  // NOTE: assets are stored in the campaign 'assets' table (via ipc.ts),
+-  // not in core_assets (via assetManager), so we query the DB directly.
++  // URL format: atlas://asset/<assetId>
++  // Looks up disk_path in the campaign 'assets' table by asset ID.
+   protocol.handle('atlas', (request) => {
+     try {
+-      const url         = new URL(request.url);
+-      // URL format: atlas://asset/<percent-encoded virtualPath>
+-      const virtualPath = decodeURIComponent(url.host + url.pathname).replace(/^asset\//, 'asset://');
+-      const rows = databaseManager.query<{ disk_path: string; mime_type: string }>(
+-        'SELECT disk_path, mime_type FROM assets WHERE virtual_path = ? LIMIT 1',
+-        [virtualPath],
++      const url     = new URL(request.url);
++      // url.host = "asset", url.pathname = "/<uuid>"
++      const assetId = url.pathname.replace(/^\//, '');
++      const rows    = databaseManager.query<{ disk_path: string }>(
++        'SELECT disk_path FROM assets WHERE id = ? LIMIT 1',
++        [assetId],
+       );
+       if (!rows[0]) return new Response('Asset not found', { status: 404 });
+-      return net.fetch(`file://${rows[0].disk_path.replace(/\\/g, '/')}`);
++      const diskUrl = 'file://' + rows[0].disk_path.replace(/\\/g, '/');
++      return net.fetch(diskUrl);
+     } catch (err) {
+       log.error('atlas:// protocol error', { error: err instanceof Error ? err.message : String(err) });
+       return new Response('Internal error', { status: 500 });
+diff --git a/ui/src/views/atlas/AtlasView.tsx b/ui/src/views/atlas/AtlasView.tsx
+index e806884..e7c8ef8 100644
+--- a/ui/src/views/atlas/AtlasView.tsx
++++ b/ui/src/views/atlas/AtlasView.tsx
+@@ -100,11 +100,10 @@ export default function AtlasView() {
+     } catch { /* ignore */ }
+   }
+ 
+-  // Resolve a virtualPath to a file:// URL via the IPC bridge
++  // Resolve a virtualPath to an atlas:// URL via the IPC bridge
+   async function resolveImageUrl(virtualPath: string): Promise<string|null> {
+     try {
+-      // atlas.assets.resolve is the IPC bridge for assets:resolve
+-      const url = await (atlas as any).assets.resolve(virtualPath);
++      const url = await atlas.assets.resolve(virtualPath);
+       return url ?? null;
+     } catch { return null; }
+   }
+-- 
+2.43.0
+

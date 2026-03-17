@@ -152,20 +152,20 @@ async function boot(): Promise<void> {
 
   // Register atlas:// protocol so the renderer can load asset images directly
   // from disk without routing large files through IPC.
-  // atlas://asset/<encodedVirtualPath>  →  serves the file at its disk_path
-  // NOTE: assets are stored in the campaign 'assets' table (via ipc.ts),
-  // not in core_assets (via assetManager), so we query the DB directly.
+  // URL format: atlas://asset/<assetId>
+  // Looks up disk_path in the campaign 'assets' table by asset ID.
   protocol.handle('atlas', (request) => {
     try {
-      const url         = new URL(request.url);
-      // URL format: atlas://asset/<percent-encoded virtualPath>
-      const virtualPath = decodeURIComponent(url.host + url.pathname).replace(/^asset\//, 'asset://');
-      const rows = databaseManager.query<{ disk_path: string; mime_type: string }>(
-        'SELECT disk_path, mime_type FROM assets WHERE virtual_path = ? LIMIT 1',
-        [virtualPath],
+      const url     = new URL(request.url);
+      // url.host = "asset", url.pathname = "/<uuid>"
+      const assetId = url.pathname.replace(/^\//, '');
+      const rows    = databaseManager.query<{ disk_path: string }>(
+        'SELECT disk_path FROM assets WHERE id = ? LIMIT 1',
+        [assetId],
       );
       if (!rows[0]) return new Response('Asset not found', { status: 404 });
-      return net.fetch(`file://${rows[0].disk_path.replace(/\\/g, '/')}`);
+      const diskUrl = 'file://' + rows[0].disk_path.replace(/\\/g, '/');
+      return net.fetch(diskUrl);
     } catch (err) {
       log.error('atlas:// protocol error', { error: err instanceof Error ? err.message : String(err) });
       return new Response('Internal error', { status: 500 });

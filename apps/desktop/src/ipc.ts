@@ -208,21 +208,19 @@ function getMimeType(filePath: string): string {
 function registerAssetHandlers(paths: AppPaths): void {
 
   ipcMain.handle('assets:resolve', (_event: Electron.IpcMainInvokeEvent, { virtualPath }: { virtualPath: string }) => {
-    const record = assetManager.loadAsset(virtualPath);
-    if (!record) {
-      // Also check the campaign assets table (used by ipc.ts import handler)
-      try {
-        const rows = databaseManager.query<{ disk_path: string }>(
-          'SELECT disk_path FROM assets WHERE virtual_path = ? LIMIT 1',
-          [virtualPath],
-        );
-        if (!rows[0]) return null;
-      } catch { return null; }
+    try {
+      // Assets are stored in the campaign-scoped 'assets' table by ipc.ts.
+      // Query by virtual_path and return the asset id for the atlas:// URL.
+      const rows = databaseManager.query<{ id: string }>(
+        'SELECT id FROM assets WHERE virtual_path = ? LIMIT 1',
+        [virtualPath],
+      );
+      if (!rows[0]) return null;
+      return `atlas://asset/${rows[0].id}`;
+    } catch (err) {
+      log.error('assets:resolve failed', { error: err instanceof Error ? err.message : String(err) });
+      return null;
     }
-    // Return an atlas:// URL served by the custom protocol handler in main.ts.
-    // Format: atlas://asset/<percent-encoded virtualPath stripped of "asset://">
-    const stripped = virtualPath.replace(/^asset:\/\//, '');
-    return `atlas://asset/${encodeURIComponent(stripped)}`;
   });
 
   ipcMain.handle('assets:import', async (_event: Electron.IpcMainInvokeEvent, options: {

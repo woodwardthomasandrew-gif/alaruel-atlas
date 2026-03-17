@@ -100,11 +100,10 @@ export default function AtlasView() {
     } catch { /* ignore */ }
   }
 
-  // Resolve a virtualPath to a file:// URL via the IPC bridge
+  // Resolve a virtualPath to an atlas:// URL via the IPC bridge
   async function resolveImageUrl(virtualPath: string): Promise<string|null> {
     try {
-      // atlas.assets.resolve is the IPC bridge for assets:resolve
-      const url = await (atlas as any).assets.resolve(virtualPath);
+      const url = await atlas.assets.resolve(virtualPath);
       return url ?? null;
     } catch { return null; }
   }
