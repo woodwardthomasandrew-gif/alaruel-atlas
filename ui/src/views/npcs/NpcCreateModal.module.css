@@ -69,3 +69,5 @@
 
 @keyframes spin { to { transform:rotate(360deg); } }
 .spin { animation:spin .8s linear infinite; }
+.optional { font-size:.7rem; color:var(--ink-600); text-transform:none; letter-spacing:0; font-style:italic; }
+.hint { font-size:.72rem; color:var(--ink-600); font-style:italic; margin-top:.15rem; }

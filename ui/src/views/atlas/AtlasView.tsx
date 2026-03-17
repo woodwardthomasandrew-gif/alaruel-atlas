@@ -13,27 +13,40 @@ const TYPE_COLOUR: Record<string,string> = {
 
 type Tool = 'select' | 'pin';
 
+interface Asset { id: string; name: string; virtualPath: string; widthPx: number|null; heightPx: number|null; }
+
 export default function AtlasView() {
   const campaign = useCampaignStore(s => s.campaign);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [maps,      setMaps]      = useState<CampaignMap[]>([]);
-  const [activeMap, setActiveMap] = useState<CampaignMap|null>(null);
-  const [pins,      setPins]      = useState<LocationPin[]>([]);
-  const [tool,      setTool]      = useState<Tool>('select');
-  const [selected,  setSelected]  = useState<Location|null>(null);
-  const [zoom,      setZoom]      = useState(1);
-  const [pan,       setPan]       = useState({x:0,y:0});
-  const [dragging,  setDragging]  = useState(false);
-  const [dragStart, setDragStart] = useState({x:0,y:0,px:0,py:0});
-  const [showSidebar,setShowSidebar] = useState(true);
-  const [newLocName, setNewLocName]  = useState('');
-  const [newLocType, setNewLocType]  = useState('city');
-  const [error,     setError]     = useState<string|null>(null);
+  const [locations,    setLocations]    = useState<Location[]>([]);
+  const [maps,         setMaps]         = useState<CampaignMap[]>([]);
+  const [activeMap,    setActiveMap]    = useState<CampaignMap|null>(null);
+  const [pins,         setPins]         = useState<LocationPin[]>([]);
+  const [tool,         setTool]         = useState<Tool>('select');
+  const [selected,     setSelected]     = useState<Location|null>(null);
+  const [zoom,         setZoom]         = useState(1);
+  const [pan,          setPan]          = useState({x:0,y:0});
+  const [dragging,     setDragging]     = useState(false);
+  const [dragStart,    setDragStart]    = useState({x:0,y:0,px:0,py:0});
+  const [showSidebar,  setShowSidebar]  = useState(true);
+  const [newLocName,   setNewLocName]   = useState('');
+  const [newLocType,   setNewLocType]   = useState('city');
+  const [error,        setError]        = useState<string|null>(null);
+
+  // Create-map form state
+  const [showCreateMap, setShowCreateMap] = useState(false);
+  const [mapAssets,     setMapAssets]     = useState<Asset[]>([]);
+  const [mapForm,       setMapForm]       = useState({ name: '', imageAssetId: '', widthPx: '1200', heightPx: '900', scale: '' });
+  const [mapSaving,     setMapSaving]     = useState(false);
+
+  // Resolved image URLs for the SVG canvas (virtualPath → file:// URL)
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+
   const svgRef = useRef<SVGSVGElement>(null);
 
-  type RawLoc = Record<string,unknown>;
-  type RawMap = Record<string,unknown>;
-  type RawPin = Record<string,unknown>;
+  type RawLoc   = Record<string,unknown>;
+  type RawMap   = Record<string,unknown>;
+  type RawPin   = Record<string,unknown>;
+  type RawAsset = Record<string,unknown>;
 
   const loadAll = useCallback(async () => {
     if (!campaign) return;
@@ -56,7 +69,7 @@ export default function AtlasView() {
       setMaps(mrows.map(r => ({
         id:r['id'] as string, name:r['name'] as string,
         description:r['description'] as string ?? '',
-        imageAssetId:r['image_asset_id'] as string,
+        imageAssetId:r['image_asset_id'] as string|null,
         widthPx:r['width_px'] as number ?? 800,
         heightPx:r['height_px'] as number ?? 600,
         subjectLocationId: r['subject_location_id'] as string|null,
@@ -68,6 +81,33 @@ export default function AtlasView() {
   }, [campaign]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Load map-category assets for the asset picker
+  async function loadMapAssets() {
+    if (!campaign) return;
+    try {
+      const rows = await atlas.db.query<RawAsset>(
+        "SELECT id, name, virtual_path, width_px, height_px FROM assets WHERE campaign_id=? AND category='maps' ORDER BY name ASC",
+        [campaign.id],
+      );
+      setMapAssets(rows.map(r => ({
+        id:          r['id']           as string,
+        name:        r['name']         as string,
+        virtualPath: r['virtual_path'] as string,
+        widthPx:     r['width_px']     as number|null,
+        heightPx:    r['height_px']    as number|null,
+      })));
+    } catch { /* ignore */ }
+  }
+
+  // Resolve a virtualPath to a file:// URL via the IPC bridge
+  async function resolveImageUrl(virtualPath: string): Promise<string|null> {
+    try {
+      // atlas.assets.resolve is the IPC bridge for assets:resolve
+      const url = await (atlas as any).assets.resolve(virtualPath);
+      return url ?? null;
+    } catch { return null; }
+  }
 
   async function loadPins(mapId: string) {
     const rows = await atlas.db.query<RawPin>(
@@ -82,8 +122,20 @@ export default function AtlasView() {
   }
 
   async function selectMap(m: CampaignMap) {
-    setActiveMap(m); await loadPins(m.id);
+    setActiveMap(m);
+    await loadPins(m.id);
     setZoom(1); setPan({x:0,y:0});
+    // Resolve image URL if map has an image asset
+    if (m.imageAssetId && !imageUrls[m.imageAssetId]) {
+      const asset = await atlas.db.query<RawAsset>(
+        'SELECT virtual_path FROM assets WHERE id=?', [m.imageAssetId],
+      );
+      if (asset[0]) {
+        const vp = asset[0]['virtual_path'] as string;
+        const url = await resolveImageUrl(vp);
+        if (url) setImageUrls(prev => ({ ...prev, [m.imageAssetId!]: url }));
+      }
+    }
   }
 
   async function createLocation() {
@@ -96,6 +148,41 @@ export default function AtlasView() {
     );
     setNewLocName('');
     await loadAll();
+  }
+
+  async function openCreateMap() {
+    await loadMapAssets();
+    setMapForm({ name: '', imageAssetId: '', widthPx: '1200', heightPx: '900', scale: '' });
+    setShowCreateMap(true);
+  }
+
+  async function handleCreateMap() {
+    if (!mapForm.name.trim() || !campaign) return;
+    setMapSaving(true);
+    setError(null);
+    try {
+      const id = crypto.randomUUID(), now = new Date().toISOString();
+      // Auto-fill dimensions from selected image asset if available
+      let w = parseInt(mapForm.widthPx)  || 1200;
+      let h = parseInt(mapForm.heightPx) || 900;
+      if (mapForm.imageAssetId) {
+        const chosen = mapAssets.find(a => a.id === mapForm.imageAssetId);
+        if (chosen?.widthPx)  w = chosen.widthPx;
+        if (chosen?.heightPx) h = chosen.heightPx;
+      }
+      await atlas.db.run(
+        `INSERT INTO maps (id,campaign_id,name,description,image_asset_id,width_px,height_px,scale,tags,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?,'[]',?,?)`,
+        [id, campaign.id, mapForm.name.trim(), '',
+         mapForm.imageAssetId || null,
+         w, h,
+         mapForm.scale.trim() || null,
+         now, now],
+      );
+      setShowCreateMap(false);
+      await loadAll();
+    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally    { setMapSaving(false); }
   }
 
   async function handleMapClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -174,10 +261,10 @@ export default function AtlasView() {
                     <span className={styles.mapDims}>{m.widthPx}×{m.heightPx}px</span>
                   </button>
                 ))}
-                {maps.length === 0 && (
-                  <p className={styles.hint}>No maps yet. Add a map image via Assets, then create a map here.</p>
-                )}
               </div>
+              <button className={styles.createMapBtn} onClick={openCreateMap}>
+                <Icon name="plus" size={15}/> Create Map
+              </button>
             </div>
           ) : (
             <svg
@@ -191,15 +278,36 @@ export default function AtlasView() {
               onWheel={onWheel}
             >
               <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-                {/* Map background — grid pattern when no image */}
+                {/* Map background */}
                 <rect x={0} y={0} width={activeMap.widthPx} height={activeMap.heightPx}
                   fill="var(--bg-raised)" stroke="var(--border)" strokeWidth={1}/>
-                <defs>
-                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M40 0H0V40" fill="none" stroke="var(--border-subtle)" strokeWidth="0.5"/>
-                  </pattern>
-                </defs>
-                <rect width={activeMap.widthPx} height={activeMap.heightPx} fill="url(#grid)"/>
+
+                {/* Render map image if assigned */}
+                {activeMap.imageAssetId && imageUrls[activeMap.imageAssetId] ? (
+                  <image
+                    href={imageUrls[activeMap.imageAssetId]}
+                    x={0} y={0}
+                    width={activeMap.widthPx}
+                    height={activeMap.heightPx}
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+                ) : (
+                  // Fallback grid when no image assigned
+                  <>
+                    <defs>
+                      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M40 0H0V40" fill="none" stroke="var(--border-subtle)" strokeWidth="0.5"/>
+                      </pattern>
+                    </defs>
+                    <rect width={activeMap.widthPx} height={activeMap.heightPx} fill="url(#grid)"/>
+                    {!activeMap.imageAssetId && (
+                      <text x={activeMap.widthPx/2} y={activeMap.heightPx/2}
+                        fontSize="13" fill="var(--ink-600)" textAnchor="middle" dominantBaseline="middle">
+                        No image assigned — add one via Assets, then edit this map
+                      </text>
+                    )}
+                  </>
+                )}
 
                 {/* Scale label */}
                 {activeMap.scale && (
@@ -246,7 +354,12 @@ export default function AtlasView() {
           <div className={styles.sidebar}>
             {/* Map selector */}
             <div className={styles.sideSection}>
-              <h3 className={styles.sideSectionTitle}>Maps</h3>
+              <div className={styles.sideSectionHeader}>
+                <h3 className={styles.sideSectionTitle}>Maps</h3>
+                <button className={styles.sideAddBtn} onClick={openCreateMap} title="Create map">
+                  <Icon name="plus" size={12}/>
+                </button>
+              </div>
               {maps.map(m => (
                 <button key={m.id}
                   className={`${styles.sideItem} ${activeMap?.id===m.id?styles.sideItemActive:''}`}
@@ -255,6 +368,9 @@ export default function AtlasView() {
                   <span>{m.name}</span>
                 </button>
               ))}
+              {maps.length === 0 && (
+                <p className={styles.hint}>No maps yet.</p>
+              )}
             </div>
 
             <div className={styles.sideDivider}/>
@@ -327,6 +443,77 @@ export default function AtlasView() {
           </div>
         )}
       </div>
+
+      {/* Create Map Modal */}
+      {showCreateMap && (
+        <div className={styles.modalBackdrop} onClick={e => e.target===e.currentTarget && setShowCreateMap(false)}>
+          <div className={styles.modal}>
+            <header className={styles.modalHeader}>
+              <h3>Create Map</h3>
+              <button className={styles.modalClose} onClick={() => setShowCreateMap(false)}>
+                <Icon name="x" size={16}/>
+              </button>
+            </header>
+
+            <div className={styles.modalBody}>
+              <label className={styles.formLabel}>
+                Name <span className={styles.required}>*</span>
+                <input className={styles.formInput} autoFocus placeholder="World Map…"
+                  value={mapForm.name} onChange={e => setMapForm(f => ({...f, name: e.target.value}))}/>
+              </label>
+
+              <label className={styles.formLabel}>
+                Map Image <span className={styles.formHint}>(optional — can be added later)</span>
+                <select className={styles.formInput}
+                  value={mapForm.imageAssetId}
+                  onChange={e => setMapForm(f => ({...f, imageAssetId: e.target.value}))}>
+                  <option value="">— No image —</option>
+                  {mapAssets.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}
+                      {a.widthPx && a.heightPx ? ` (${a.widthPx}×${a.heightPx})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {mapAssets.length === 0 && (
+                  <span className={styles.formHint}>No map images imported yet. Go to Assets → Import to add one.</span>
+                )}
+              </label>
+
+              {!mapForm.imageAssetId && (
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>
+                    Width (px)
+                    <input className={styles.formInput} type="number" min={100} max={8000}
+                      value={mapForm.widthPx} onChange={e => setMapForm(f => ({...f, widthPx: e.target.value}))}/>
+                  </label>
+                  <label className={styles.formLabel}>
+                    Height (px)
+                    <input className={styles.formInput} type="number" min={100} max={8000}
+                      value={mapForm.heightPx} onChange={e => setMapForm(f => ({...f, heightPx: e.target.value}))}/>
+                  </label>
+                </div>
+              )}
+
+              <label className={styles.formLabel}>
+                Scale <span className={styles.formHint}>(optional, e.g. "1 hex = 6 miles")</span>
+                <input className={styles.formInput} placeholder="1 hex = 6 miles"
+                  value={mapForm.scale} onChange={e => setMapForm(f => ({...f, scale: e.target.value}))}/>
+              </label>
+            </div>
+
+            <footer className={styles.modalFooter}>
+              <button className={styles.cancelBtn} onClick={() => setShowCreateMap(false)}>Cancel</button>
+              <button className={styles.submitBtn}
+                onClick={handleCreateMap}
+                disabled={mapSaving || !mapForm.name.trim()}>
+                {mapSaving
+                  ? <><Icon name="loader" size={14} className={styles.spin}/> Creating…</>
+                  : <><Icon name="plus" size={14}/> Create Map</>}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

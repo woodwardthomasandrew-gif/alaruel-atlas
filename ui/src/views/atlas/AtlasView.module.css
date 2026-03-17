@@ -58,3 +58,30 @@ p{color:var(--text-muted);font-size:.9rem}
 .pinBtn{display:flex;align-items:center;gap:.35rem;padding:.32rem .65rem;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-muted);font-size:.78rem;cursor:pointer;transition:all .15s}
 .pinBtn:hover{border-color:var(--gold-600);color:var(--gold-400)}
 .pinBtnRemove:hover{border-color:var(--crimson-600);color:var(--crimson-400)}
+.createMapBtn{display:flex;align-items:center;gap:.45rem;padding:.5rem 1.1rem;background:var(--gold-600);border:none;border-radius:var(--radius-sm);color:var(--ink-950);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.createMapBtn:hover{background:var(--gold-500)}
+.sideSectionHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:.15rem}
+.sideAddBtn{display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:transparent;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--ink-500);cursor:pointer;transition:all .12s;flex-shrink:0}
+.sideAddBtn:hover{background:var(--bg-raised);border-color:var(--gold-600);color:var(--gold-400)}
+.modalBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);width:440px;max-width:calc(100vw - 2rem);display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.modalHeader{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid var(--border-subtle)}
+.modalHeader h3{font-size:.95rem;color:var(--text-accent);margin:0}
+.modalClose{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:none;border-radius:var(--radius-sm);color:var(--ink-500);cursor:pointer;transition:all .12s}
+.modalClose:hover{background:var(--bg-raised);color:var(--text-primary)}
+.modalBody{padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.85rem}
+.modalFooter{display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1.1rem;border-top:1px solid var(--border-subtle)}
+.formLabel{display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;color:var(--text-muted)}
+.formInput{background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);font-size:.85rem;padding:.38rem .6rem;outline:none;transition:border-color .15s;width:100%;box-sizing:border-box}
+.formInput:focus{border-color:var(--gold-600)}
+.formHint{font-size:.72rem;color:var(--ink-600);font-style:italic}
+.formRow{display:flex;gap:.65rem}
+.formRow .formLabel{flex:1}
+.required{color:var(--crimson-400)}
+.cancelBtn{padding:.38rem .85rem;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-muted);font-size:.83rem;cursor:pointer;transition:all .12s}
+.cancelBtn:hover{background:var(--bg-hover);color:var(--text-primary)}
+.submitBtn{display:flex;align-items:center;gap:.4rem;padding:.38rem .9rem;background:var(--gold-600);border:none;border-radius:var(--radius-sm);color:var(--ink-950);font-size:.83rem;font-weight:600;cursor:pointer;transition:all .15s}
+.submitBtn:hover:not(:disabled){background:var(--gold-500)}
+.submitBtn:disabled{opacity:.45;cursor:not-allowed}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite}

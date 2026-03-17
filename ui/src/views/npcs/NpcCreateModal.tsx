@@ -1,6 +1,6 @@
 // ui/src/views/npcs/NpcCreateModal.tsx — New NPC form modal
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { atlas }    from '../../bridge/atlas';
 import { Icon }     from '../../components/ui/Icon';
 import type { NPC } from '../../types/npc';
@@ -12,12 +12,23 @@ interface Props {
   onClose:    () => void;
 }
 
+interface PortraitAsset { id: string; name: string; }
+
 export function NpcCreateModal({ campaignId, onCreated, onClose }: Props) {
-  const [name,   setName]   = useState('');
-  const [alias,  setAlias]  = useState('');
-  const [role,   setRole]   = useState('neutral');
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState<string | null>(null);
+  const [name,            setName]            = useState('');
+  const [alias,           setAlias]           = useState('');
+  const [role,            setRole]            = useState('neutral');
+  const [portraitAssetId, setPortraitAssetId] = useState('');
+  const [portraitAssets,  setPortraitAssets]  = useState<PortraitAsset[]>([]);
+  const [saving,          setSaving]          = useState(false);
+  const [error,           setError]           = useState<string | null>(null);
+
+  useEffect(() => {
+    atlas.db.query<{ id: string; name: string }>(
+      "SELECT id, name FROM assets WHERE campaign_id=? AND category='portraits' ORDER BY name ASC",
+      [campaignId],
+    ).then(setPortraitAssets).catch(() => {});
+  }, [campaignId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,16 +42,18 @@ export function NpcCreateModal({ campaignId, onCreated, onClose }: Props) {
       await atlas.db.run(
         `INSERT INTO npcs
            (id, campaign_id, name, alias, description, role, vital_status,
-            disposition_towards_players, tags, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'alive', 'neutral', '[]', ?, ?)`,
-        [id, campaignId, name.trim(), alias.trim() || null, '', role, now, now],
+            disposition_towards_players, portrait_asset_id, tags, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'alive', 'neutral', ?, '[]', ?, ?)`,
+        [id, campaignId, name.trim(), alias.trim() || null, '', role,
+         portraitAssetId || null, now, now],
       );
       const newNpc: NPC = {
         id, name: name.trim(), alias: alias.trim() || undefined, description: '',
         role: role as NPC['role'], vitalStatus: 'alive', dispositionTowardsPlayers: 'neutral',
         currentLocationId: null, locationIds: [], primaryFactionId: null, factionIds: [],
         relationships: [], questIds: [], sessionIds: [], plotThreadIds: [], notes: [],
-        portraitAssetId: null, tags: [],
+        portraitAssetId: portraitAssetId || null,
+        tags: [],
         createdAt: now as NPC['createdAt'], updatedAt: now as NPC['updatedAt'],
       };
       onCreated(newNpc);
@@ -92,6 +105,22 @@ export function NpcCreateModal({ campaignId, onCreated, onClose }: Props) {
               {['ally','antagonist','neutral','informant','questgiver','merchant','recurring','minor']
                 .map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
             </select>
+          </label>
+
+          <label className={styles.label}>
+            Portrait <span className={styles.optional}>(optional)</span>
+            <select className={styles.input} value={portraitAssetId}
+              onChange={e => setPortraitAssetId(e.target.value)}>
+              <option value="">— No portrait —</option>
+              {portraitAssets.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            {portraitAssets.length === 0 && (
+              <span className={styles.hint}>
+                No portrait images yet. Import one under Assets → portraits first.
+              </span>
+            )}
           </label>
 
           <div className={styles.actions}>

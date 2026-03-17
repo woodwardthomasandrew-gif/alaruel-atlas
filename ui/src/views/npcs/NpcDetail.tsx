@@ -16,13 +16,20 @@ interface Props {
   onDeleted: (id: string) => void;
 }
 
+interface PortraitAsset { id: string; name: string; virtualPath: string; }
+
 export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
-  const [editing,   setEditing]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [deleting,  setDeleting]  = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', alias: '', description: '', role: 'neutral',
-    vitalStatus: 'alive', dispositionTowardsPlayers: 'neutral' });
+  const [editing,         setEditing]         = useState(false);
+  const [saving,          setSaving]          = useState(false);
+  const [deleting,        setDeleting]        = useState(false);
+  const [error,           setError]           = useState<string | null>(null);
+  const [portraitAssets,  setPortraitAssets]  = useState<PortraitAsset[]>([]);
+  const [portraitUrl,     setPortraitUrl]     = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '', alias: '', description: '', role: 'neutral',
+    vitalStatus: 'alive', dispositionTowardsPlayers: 'neutral',
+    portraitAssetId: '' as string,
+  });
 
   useEffect(() => {
     if (!npc) return;
@@ -33,10 +40,46 @@ export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
       role:                      npc.role,
       vitalStatus:               npc.vitalStatus,
       dispositionTowardsPlayers: npc.dispositionTowardsPlayers,
+      portraitAssetId:           npc.portraitAssetId ?? '',
     });
     setEditing(false);
     setError(null);
   }, [npc?.id]);
+
+  // Resolve portrait URL whenever the NPC's portraitAssetId changes
+  useEffect(() => {
+    setPortraitUrl(null);
+    if (!npc?.portraitAssetId) return;
+    atlas.db.query<{ virtual_path: string }>(
+      'SELECT virtual_path FROM assets WHERE id=?', [npc.portraitAssetId],
+    ).then(rows => {
+      if (!rows[0]) return;
+      return atlas.assets.resolve(rows[0].virtual_path);
+    }).then(url => {
+      if (url) setPortraitUrl(url);
+    }).catch(() => {});
+  }, [npc?.portraitAssetId]);
+
+  // Load portrait-category assets when entering edit mode
+  async function loadPortraitAssets() {
+    if (!npc) return;
+    try {
+      // Get campaign_id from any campaign-scoped table via the NPC's id
+      const rows = await atlas.db.query<{ id: string; name: string; virtual_path: string }>(
+        `SELECT id, name, virtual_path FROM assets
+         WHERE campaign_id = (SELECT campaign_id FROM npcs WHERE id=?)
+           AND category = 'portraits'
+         ORDER BY name ASC`,
+        [npc.id],
+      );
+      setPortraitAssets(rows.map(r => ({ id: r.id, name: r.name, virtualPath: r.virtual_path })));
+    } catch { /* ignore */ }
+  }
+
+  function startEditing() {
+    loadPortraitAssets();
+    setEditing(true);
+  }
 
   if (!npc) {
     return (
@@ -57,16 +100,24 @@ export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
       const now = new Date().toISOString();
       await atlas.db.run(
         `UPDATE npcs SET name=?, alias=?, description=?, role=?,
-         vital_status=?, disposition_towards_players=?, updated_at=?
+         vital_status=?, disposition_towards_players=?, portrait_asset_id=?, updated_at=?
          WHERE id=?`,
         [form.name.trim(), form.alias.trim() || null, form.description,
-         form.role, form.vitalStatus, form.dispositionTowardsPlayers, now, npc.id],
+         form.role, form.vitalStatus, form.dispositionTowardsPlayers,
+         form.portraitAssetId || null,
+         now, npc.id],
       );
-      onUpdated({ ...npc, ...form, alias: form.alias.trim() || undefined,
-                  vitalStatus: form.vitalStatus as NPC['vitalStatus'],
-                  role: form.role as NPC['role'],
-                  dispositionTowardsPlayers: form.dispositionTowardsPlayers as NPC['dispositionTowardsPlayers'],
-                  updatedAt: now as NPC['updatedAt'] });
+      onUpdated({
+        ...npc,
+        name:                      form.name.trim(),
+        alias:                     form.alias.trim() || undefined,
+        description:               form.description,
+        role:                      form.role as NPC['role'],
+        vitalStatus:               form.vitalStatus as NPC['vitalStatus'],
+        dispositionTowardsPlayers: form.dispositionTowardsPlayers as NPC['dispositionTowardsPlayers'],
+        portraitAssetId:           form.portraitAssetId || null,
+        updatedAt:                 now as NPC['updatedAt'],
+      });
       setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -97,7 +148,13 @@ export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <div className={styles.headerAvatar}>{npc.name.slice(0,1).toUpperCase()}</div>
+        {/* Portrait avatar — shows image if available, else initial */}
+        <div className={styles.headerAvatar}>
+          {portraitUrl
+            ? <img src={portraitUrl} alt={npc.name} className={styles.portraitImg}/>
+            : npc.name.slice(0,1).toUpperCase()
+          }
+        </div>
         <div className={styles.headerInfo}>
           <h2 className={styles.headerName}>{npc.name}</h2>
           {npc.alias && <span className={styles.headerAlias}>"{npc.alias}"</span>}
@@ -105,7 +162,7 @@ export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
         <div className={styles.headerActions}>
           {!editing ? (
             <>
-              <button className={styles.iconBtn} onClick={() => setEditing(true)} title="Edit">
+              <button className={styles.iconBtn} onClick={startEditing} title="Edit">
                 <Icon name="scroll" size={16} />
               </button>
               <button className={`${styles.iconBtn} ${styles.danger}`}
@@ -153,6 +210,22 @@ export function NpcDetail({ npc, onUpdated, onDeleted }: Props) {
                 onChange={e => setForm(f => ({...f, dispositionTowardsPlayers: e.target.value}))}>
                 {DISPS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
               </select>
+            )}
+            {field('Portrait',
+              <>
+                <select className={styles.input} value={form.portraitAssetId}
+                  onChange={e => setForm(f => ({...f, portraitAssetId: e.target.value}))}>
+                  <option value="">— No portrait —</option>
+                  {portraitAssets.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                {portraitAssets.length === 0 && (
+                  <span className={styles.fieldHint}>
+                    No portrait images imported yet. Go to Assets → Import (category: portraits).
+                  </span>
+                )}
+              </>
             )}
             {field('Description',
               <textarea className={`${styles.input} ${styles.textarea}`}

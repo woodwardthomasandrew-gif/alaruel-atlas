@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS maps (
     campaign_id         TEXT     NOT NULL REFERENCES campaigns(id)  ON DELETE CASCADE,
     name                TEXT     NOT NULL,
     description         TEXT     NOT NULL DEFAULT '',
-    image_asset_id      TEXT     NOT NULL REFERENCES assets(id)     ON DELETE RESTRICT,
+    image_asset_id      TEXT     REFERENCES assets(id)     ON DELETE SET NULL,
     width_px            INTEGER  NOT NULL DEFAULT 0,
     height_px           INTEGER  NOT NULL DEFAULT 0,
     -- The Location this map primarily depicts (e.g. a city map → the city)
