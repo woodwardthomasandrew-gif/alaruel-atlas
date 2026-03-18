@@ -103,9 +103,14 @@ export default function AtlasView() {
   // Resolve a virtualPath to an atlas:// URL via the IPC bridge
   async function resolveImageUrl(virtualPath: string): Promise<string|null> {
     try {
+      console.log('[DEBUG] resolveImageUrl called with:', virtualPath);
       const url = await atlas.assets.resolve(virtualPath);
+      console.log('[DEBUG] resolveImageUrl got back:', url);
       return url ?? null;
-    } catch { return null; }
+    } catch (e) {
+      console.error('[DEBUG] resolveImageUrl threw:', e);
+      return null;
+    }
   }
 
   async function loadPins(mapId: string) {

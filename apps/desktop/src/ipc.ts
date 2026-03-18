@@ -209,14 +209,16 @@ function registerAssetHandlers(paths: AppPaths): void {
 
   ipcMain.handle('assets:resolve', (_event: Electron.IpcMainInvokeEvent, { virtualPath }: { virtualPath: string }) => {
     try {
-      // Assets are stored in the campaign-scoped 'assets' table by ipc.ts.
-      // Query by virtual_path and return the asset id for the atlas:// URL.
+      log.info('[DEBUG] assets:resolve called', { virtualPath });
       const rows = databaseManager.query<{ id: string }>(
         'SELECT id FROM assets WHERE virtual_path = ? LIMIT 1',
         [virtualPath],
       );
+      log.info('[DEBUG] assets:resolve query result', { found: rows.length, id: rows[0]?.id });
       if (!rows[0]) return null;
-      return `atlas://asset/${rows[0].id}`;
+      const url = `atlas://asset/${rows[0].id}`;
+      log.info('[DEBUG] assets:resolve returning', { url });
+      return url;
     } catch (err) {
       log.error('assets:resolve failed', { error: err instanceof Error ? err.message : String(err) });
       return null;
