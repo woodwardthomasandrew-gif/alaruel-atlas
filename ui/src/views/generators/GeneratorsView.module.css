@@ -1,0 +1,98 @@
+/* ui/src/views/generators/GeneratorsView.module.css */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  padding: .9rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.headerLeft {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+}
+.title {
+  font-size: 1.1rem;
+  color: var(--text-accent);
+}
+.subtitle {
+  font-family: var(--font-body);
+  font-size: .78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+  padding: 0 1rem;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .15rem;
+  padding: .7rem 1.1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: left;
+  min-width: 150px;
+}
+.tab:hover {
+  background: var(--bg-raised);
+}
+
+.tabActive {
+  border-bottom-color: var(--gold-500);
+  background: var(--bg-raised);
+}
+
+.tabIcon {
+  color: var(--text-muted);
+  margin-bottom: .1rem;
+}
+.tabActive .tabIcon {
+  color: var(--gold-400);
+}
+
+.tabLabel {
+  font-family: var(--font-display);
+  font-size: .8rem;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.tabActive .tabLabel {
+  color: var(--gold-400);
+}
+
+.tabDesc {
+  font-family: var(--font-body);
+  font-size: .72rem;
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* ── Panel ─────────────────────────────────────────────────── */
+.panel {
+  flex: 1;
+  overflow: hidden;
+}

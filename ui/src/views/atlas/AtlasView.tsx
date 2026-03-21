@@ -23,8 +23,9 @@ export default function AtlasView() {
   const [pins,         setPins]         = useState<LocationPin[]>([]);
   const [tool,         setTool]         = useState<Tool>('select');
   const [selected,     setSelected]     = useState<Location|null>(null);
-  const [zoom,         setZoom]         = useState(1);
-  const [pan,          setPan]          = useState({x:0,y:0});
+  const [viewport,     setViewport]     = useState({zoom:1, px:0, py:0});
+  const zoom = viewport.zoom;
+  const pan  = {x: viewport.px, y: viewport.py};
   const [dragging,     setDragging]     = useState(false);
   const [dragStart,    setDragStart]    = useState({x:0,y:0,px:0,py:0});
   const [showSidebar,  setShowSidebar]  = useState(true);
@@ -128,7 +129,7 @@ export default function AtlasView() {
   async function selectMap(m: CampaignMap) {
     setActiveMap(m);
     await loadPins(m.id);
-    setZoom(1); setPan({x:0,y:0});
+    setViewport({zoom:1, px:0, py:0});
     // Resolve image URL if map has an image asset
     if (m.imageAssetId && !imageUrls[m.imageAssetId]) {
       const asset = await atlas.db.query<RawAsset>(
@@ -208,16 +209,31 @@ export default function AtlasView() {
   function onMouseDown(e: React.MouseEvent<SVGSVGElement>) {
     if (tool !== 'select') return;
     setDragging(true);
-    setDragStart({x:e.clientX, y:e.clientY, px:pan.x, py:pan.y});
+    setDragStart({x:e.clientX, y:e.clientY, px:viewport.px, py:viewport.py});
   }
   function onMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     if (!dragging) return;
-    setPan({x:dragStart.px+(e.clientX-dragStart.x), y:dragStart.py+(e.clientY-dragStart.y)});
+    setViewport(v => ({...v, px:dragStart.px+(e.clientX-dragStart.x), py:dragStart.py+(e.clientY-dragStart.y)}));
   }
   function onMouseUp() { setDragging(false); }
   function onWheel(e: React.WheelEvent<SVGSVGElement>) {
     e.preventDefault();
-    setZoom(z => Math.min(4, Math.max(0.25, z * (e.deltaY < 0 ? 1.12 : 0.89))));
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect   = svg.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    // Single atomic update — zoom and pan change together so they
+    // are never out of sync between renders.
+    setViewport(v => {
+      const newZoom = Math.min(4, Math.max(0.25, v.zoom * factor));
+      return {
+        zoom: newZoom,
+        px: mouseX - (mouseX - v.px) * (newZoom / v.zoom),
+        py: mouseY - (mouseY - v.py) * (newZoom / v.zoom),
+      };
+    });
   }
 
   const pinsByLocation = Object.fromEntries(pins.map(p => [p.locationId, p]));
@@ -240,7 +256,7 @@ export default function AtlasView() {
               <Icon name="pin" size={14}/>
             </button>
             <span className={styles.zoomLabel}>{Math.round(zoom*100)}%</span>
-            <button className={styles.toolBtn} onClick={() => { setZoom(1); setPan({x:0,y:0}); }}>Reset</button>
+            <button className={styles.toolBtn} onClick={() => setViewport({zoom:1, px:0, py:0})}>Reset</button>
           </div>
         )}
         <button className={styles.sidebarToggle} onClick={() => setShowSidebar(v=>!v)}>

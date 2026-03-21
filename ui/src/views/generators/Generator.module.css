@@ -1,0 +1,298 @@
+/* ui/src/views/generators/Generator.module.css */
+/* Shared styles for all four generator suites */
+
+/* ── Layout ──────────────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  padding: 1.25rem 1rem;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  overflow-y: auto;
+}
+
+.sidebarTitle {
+  font-family: var(--font-display);
+  font-size: .78rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: .25rem;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: .72rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+  margin-top: .35rem;
+}
+
+.select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: .875rem;
+  padding: .4rem .6rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+  width: 100%;
+}
+.select:focus { border-color: var(--gold-600); }
+
+.radioGroup {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.radioLabel input { accent-color: var(--gold-500); cursor: pointer; }
+
+.generateBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: .55rem .9rem;
+  background: var(--gold-600);
+  border: 1px solid var(--gold-500);
+  border-radius: var(--radius-sm);
+  color: var(--ink-950);
+  font-family: var(--font-display);
+  font-size: .82rem;
+  letter-spacing: .04em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  margin-top: .5rem;
+}
+.generateBtn:hover {
+  background: var(--gold-500);
+  box-shadow: 0 0 12px rgba(196,144,64,.3);
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: .45rem .9rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: .82rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.saveBtn:hover {
+  border-color: var(--gold-600);
+  color: var(--gold-400);
+}
+
+/* ── Saved list ──────────────────────────────────────────────── */
+.savedList {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  margin-top: .5rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: .75rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+.savedTitle {
+  font-family: var(--font-display);
+  font-size: .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: .25rem;
+}
+.savedItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .1rem;
+  padding: .4rem .55rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: all .12s;
+  width: 100%;
+}
+.savedItem:hover {
+  background: var(--bg-raised);
+  border-color: var(--border-subtle);
+}
+.savedItemActive {
+  background: var(--bg-raised);
+  border-color: var(--gold-600) !important;
+}
+.savedName {
+  font-family: var(--font-body);
+  font-size: .82rem;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.savedRarity {
+  font-size: .72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Result panel ────────────────────────────────────────────── */
+.result {
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  background: var(--bg-base);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1rem;
+  opacity: .35;
+}
+.emptyIcon { color: var(--gold-600); }
+.emptyText {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: .95rem;
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 720px;
+}
+
+.cardHeader {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1rem;
+}
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--gold-400);
+  letter-spacing: .04em;
+  line-height: 1.2;
+  margin-bottom: .6rem;
+}
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+.metaTag {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  padding: .18rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  letter-spacing: .04em;
+}
+
+/* ── Stat block ──────────────────────────────────────────────── */
+.statBlock {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: .85rem 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  flex: 1;
+  min-width: 90px;
+}
+.statLabel {
+  font-family: var(--font-display);
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+}
+.statValue {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Sections ────────────────────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+.sectionLabel {
+  font-family: var(--font-display);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+}
+.sectionText {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.traitList {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding-left: 0;
+  list-style: none;
+}
+.traitItem {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  padding-left: 1rem;
+  position: relative;
+}
+.traitItem::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--gold-600);
+  font-size: .75rem;
+  top: .3rem;
+}

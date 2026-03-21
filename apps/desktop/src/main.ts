@@ -34,6 +34,7 @@ import { configureLogger, createLogger } from '../../../core/logger/src/index';
 import { configManager }                 from '../../../core/config/src/index';
 import { assetManager }                  from '../../../core/assets/src/index';
 import { pluginLoader }                  from '../../../core/plugins/src/index';
+import { databaseManager }               from '../../../core/database/src/index';
 
 // ── Module framework ──────────────────────────────────────────────────────────
 import { moduleLoader }  from '../../../modules/_framework/src/index';
@@ -156,15 +157,18 @@ async function boot(): Promise<void> {
   // Looks up disk_path in the campaign 'assets' table by asset ID.
   protocol.handle('atlas', (request) => {
     try {
+      log.info('[DEBUG] atlas:// request', { url: request.url });
       const url     = new URL(request.url);
-      // url.host = "asset", url.pathname = "/<uuid>"
       const assetId = url.pathname.replace(/^\//, '');
+      log.info('[DEBUG] atlas:// assetId extracted', { assetId });
       const rows    = databaseManager.query<{ disk_path: string }>(
         'SELECT disk_path FROM assets WHERE id = ? LIMIT 1',
         [assetId],
       );
+      log.info('[DEBUG] atlas:// db result', { found: rows.length, disk_path: rows[0]?.disk_path });
       if (!rows[0]) return new Response('Asset not found', { status: 404 });
       const diskUrl = 'file://' + rows[0].disk_path.replace(/\\/g, '/');
+      log.info('[DEBUG] atlas:// fetching', { diskUrl });
       return net.fetch(diskUrl);
     } catch (err) {
       log.error('atlas:// protocol error', { error: err instanceof Error ? err.message : String(err) });

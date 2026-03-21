@@ -5,13 +5,14 @@
 // the sidebar and router read from this registry automatically.
 
 import type { ComponentType } from 'react';
-import NpcsView   from '../views/npcs/NpcsView';
-import QuestsView   from '../views/quests/QuestsView';
-import SessionsView from '../views/sessions/SessionsView';
-import TimelineView from '../views/timeline/TimelineView';
-import AtlasView    from '../views/atlas/AtlasView';
-import GraphView    from '../views/graph/GraphView';
-import AssetsView   from '../views/assets/AssetsView';
+import NpcsView          from '../views/npcs/NpcsView';
+import QuestsView        from '../views/quests/QuestsView';
+import SessionsView      from '../views/sessions/SessionsView';
+import TimelineView      from '../views/timeline/TimelineView';
+import AtlasView         from '../views/atlas/AtlasView';
+import GraphView         from '../views/graph/GraphView';
+import AssetsView        from '../views/assets/AssetsView';
+import GeneratorsView    from '../views/generators/GeneratorsView';
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -78,6 +79,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'folder',
     route:            '/assets',
     component:        AssetsView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'generators',
+    displayName:      'Generators',
+    icon:             'scroll',
+    route:            '/generators',
+    component:        GeneratorsView,
     requiresCampaign: true,
   },
 ];
