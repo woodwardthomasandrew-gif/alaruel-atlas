@@ -22,6 +22,10 @@ const ITEM_TYPES = [
   'Gauntlets','Helm','Shield','Tome','Orb','Bow','Axe','Spear',
   'Bracers','Belt','Chalice','Mirror','Lantern','Horn','Quiver','Locket',
   'Siege Club','Chargepack','Sidearm','Firearm','Sending Stone','Soul Vial',
+  // Realm of Alaruel additions
+  'Leviton Transit Crystal','AG-Unit Core Fragment','Unity Inquisitor Seal','House Delaque Cipher Key',
+  'Warclan Thule Trophy Weapon','Cochumat Crystal Focus','Ambersoul Cathedral Relic','ATC Cargo Brand',
+  'Department of War Field Kit','Moon Rat Cogitator Device','Cahill Deep-Mine Lantern','Beeford Mead Flask (enchanted)',
   // Generic fantasy additions
   'Mace','Flail','Rapier','Scimitar','Halberd','Trident','Sling','Crossbow',
   'Buckler','Greatsword','Glaive','Whip','Shortbow','Handaxe','Quarterstaff',
@@ -36,6 +40,11 @@ const ITEM_MATERIALS = [
   'ancient oak from the Cochumat jungle','void-touched iron','living coral','petrified lightning',
   'soul-steel','House Cahill mined deepstone','salt-fused volcanic rock from the Saltfire Flats',
   'resin-hardened rootwood','Unity-consecrated bone','Conglomerate-forged arcane alloy',
+  // Realm of Alaruel additions
+  'House Cahill mined black granite','Leviton levitation crystal lattice','Immortal Oak heartwood',
+  'Cochumat jungle ironwood (crystal-laced)','Formene elven-cast silver','Warclan Thule giant-bone',
+  'Chogrove salvage-iron','Tenebrous Fen bog-iron (corroded but dense)',
+  'Moon Rat precision-machined brass','White Reaper Barony vampire-tempered steel',
   // Generic fantasy additions
   'cold iron','witch-silver','basilisk hide','phoenix feather-bound oak','sea-glass',
   'thunderstruck copper','runite','wyvern scale','black pearl','angel bone',
@@ -50,6 +59,9 @@ const ITEM_ADJECTIVES = [
   'Soulbound','Hungering','Celestial','Infernal','Storm-wrought','Tide-kissed',
   'Unity-marked','Far-touched','Corrupted','Purified','Conglomerate-issued',
   'ATC-branded','Soul-Steel','AmberSoul','Brine-kissed','Root-blessed',
+  // Realm of Alaruel additions
+  'Leviton-issued','Cahill-forged','Society-marked','Warclan-tempered','Formene-crafted',
+  'Idol-touched','Carnivora-scaled','Thule-war-scarred','Delaque-traced','Selene-aligned',
   // Generic fantasy additions
   'Rusted','Undying','Eldritch','Forsaken','Gilded','Obsidian','Ivory',
   'Spectral','Desolate','Thunderous','Arcane','Savage','Iron','Verdant',
@@ -191,6 +203,9 @@ const MONSTER_PREFIXES = [
   'Shadow','Bonecrown','Dread','Ashglass','Thornback','Feral','Crystalline','Wraithborn',
   'AmberSoul','Root-touched','Far-warped','Unity-raised','Brine-scaled',
   'Salt-crusted','Soul-steel','Storm-giant','Warclan','Hive-marked',
+  // Realm of Alaruel additions
+  'Cahill-deep','Idol-touched','Leviton-fused','Delaque-contracted','Thule-bred',
+  'Formene-exiled','Selene-marked','Chogrove-salvaged','Carnivora-blooded','Cochumat-crystal',
   // Generic fantasy additions
   'Rotting','Gibbering','Iron','Grave','Ember','Frost','Blighted','Withered',
   'Monstrous','Accursed','Fell','Ruinous','Forsaken','Nightborn','Spectral',
@@ -205,6 +220,12 @@ const MONSTER_TYPES = [
   'Burnout','Vampire Thrall','Boneless Husk','Bee-Rex','Raptoroid','Cliff-Strider',
   'Root-Lost Predator','Echo Fragment','Hive Drone','Saltfire Drake','Twig Blight',
   'Animated Seraph Armour','Giant Snapping Turtle','Swarm of Slaughter-Fish',
+  // Realm of Alaruel additions
+  'AG-Series Prototype (Department of War)','Moon Rat Prime Intelligence','Idol-Touched Thrall',
+  'Leviton Levitation Engine (animate)','House Delaque Arcane Enforcer','Warclan Thule Berserker',
+  'Cahill Deep-Miner (transformed)','Carnivora Coastal Spawnling','Cochumat Crystal Elemental',
+  'Formene Exile Blade-Singer','Chogrove Pirate Construct','Tenebrous Fen Warden',
+  'Duke Bayle Contract-Bound Servant','Immortal Oak Eladrin (hostile)','Maddox Kobold Champion',
   // Generic fantasy additions
   'Ogre','Gnoll','Kobold','Hobgoblin','Bugbear','Werewolf','Banshee','Lich',
   'Vampire','Ghoul','Skeleton Knight','Zombie Horde','Flesh Golem','Iron Golem',
@@ -627,6 +648,16 @@ const SETTLEMENT_PROBLEMS = [
   'Taxes have been raised to fund a war in a region most residents cannot locate on a map.',
   'The local temple has declared a tithing increase that the congregation regards as extortionate.',
   'Something large is living in the forest outside town. It has not attacked anyone yet. The "yet" is doing significant work.',
+  // Realm of Alaruel additions
+  'A Leviton transit crystal hub has gone offline, cutting the settlement off from the trade network. House Leviton has sent a repair team. The team arrived, looked at something, and has not sent word since.',
+  'Moon Rats have been seen in unusually high numbers during the last three full moons. The local cat population has taken a notably more cautious approach to life.',
+  'A Department of War classified shipment passed through and one of the crates is unaccounted for. The DoW investigators who arrived to look for it are being very careful about what questions they ask.',
+  'The Warclan Thule tribute demand has increased for the third consecutive month. The local garrison does not have the personnel to contest it.',
+  'House Delaque has called in a significant debt held by the largest local employer. The employer is scrambling. So is everyone who works for them.',
+  'An ATC route auditor arrived three weeks ago, began asking pointed questions about cargo manifests from the last two years, and then stopped being seen in public.',
+  'The Cochumat crystal corruption is appearing in the local water supply in trace amounts. The effects are mild and inconsistent, which may be worse than if they were severe and obvious.',
+  'Warclan Thule scouts have been spotted conducting what look like survey operations rather than raiding operations. The difference is alarming.',
+  'House Cahill has submitted a mineral rights claim on land beneath the settlement. The claim is legally sound. The implications are not.',
 ];
 
 const SETTLEMENT_ATMOSPHERES = [
