@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type React from 'react';
 import { Icon }             from '../../components/ui/Icon';
 import { atlas }            from '../../bridge/atlas';
 import { useCampaignStore } from '../../store/campaign.store';
@@ -50,6 +51,61 @@ function parseEncounter(scene: SessionScene): Encounter {
 
 function encodeEncounter(e: { type: string; objective: string; setup: string; reward: string }): string {
   return JSON.stringify({ type: e.type, objective: e.objective, setup: e.setup, reward: e.reward });
+}
+
+// ── SceneFormPanel lives outside SessionsView so React never recreates its
+// component identity on re-render — prevents autoFocus stealing focus on every keystroke.
+interface SceneFormPanelProps {
+  sceneForm:    { title: string; encounterType: string; objective: string; setup: string; reward: string };
+  setSceneForm: React.Dispatch<React.SetStateAction<{ title: string; encounterType: string; objective: string; setup: string; reward: string }>>;
+  editingId:    string | null;
+  onSave:       () => void;
+  onCancel:     () => void;
+}
+
+function SceneFormPanel({ sceneForm, setSceneForm, editingId, onSave, onCancel }: SceneFormPanelProps) {
+  return (
+    <div className={styles.sceneForm}>
+      <div className={styles.sceneFormRow}>
+        <div className={styles.sceneFormField} style={{flex:2}}>
+          <label className={styles.sceneFormLabel}>Title <span className={styles.req}>*</span></label>
+          <input className={styles.sceneFormInput} autoFocus placeholder="The Ambush at Thornwall…"
+            value={sceneForm.title} onChange={e => setSceneForm(f => ({...f, title: e.target.value}))}/>
+        </div>
+        <div className={styles.sceneFormField} style={{flex:1}}>
+          <label className={styles.sceneFormLabel}>Type</label>
+          <select className={styles.sceneFormInput} value={sceneForm.encounterType}
+            onChange={e => setSceneForm(f => ({...f, encounterType: e.target.value}))}>
+            {ENCOUNTER_TYPES.map(t => (
+              <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className={styles.sceneFormField}>
+        <label className={styles.sceneFormLabel}>Objective</label>
+        <input className={styles.sceneFormInput} placeholder="What should the players accomplish or decide?"
+          value={sceneForm.objective} onChange={e => setSceneForm(f => ({...f, objective: e.target.value}))}/>
+      </div>
+      <div className={styles.sceneFormField}>
+        <label className={styles.sceneFormLabel}>Setup / Notes</label>
+        <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={3}
+          placeholder="Key details, enemy stats, read-aloud text, contingencies…"
+          value={sceneForm.setup} onChange={e => setSceneForm(f => ({...f, setup: e.target.value}))}/>
+      </div>
+      <div className={styles.sceneFormField}>
+        <label className={styles.sceneFormLabel}>Reward / Outcome</label>
+        <input className={styles.sceneFormInput} placeholder="XP, loot, story consequence…"
+          value={sceneForm.reward} onChange={e => setSceneForm(f => ({...f, reward: e.target.value}))}/>
+      </div>
+      <div className={styles.sceneFormActions}>
+        <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
+        <button className={styles.saveSceneBtn} onClick={onSave} disabled={!sceneForm.title.trim()}>
+          <Icon name="plus" size={14}/> {editingId ? 'Save Changes' : 'Add Encounter'}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SessionsView() {
@@ -277,49 +333,6 @@ export default function SessionsView() {
 
   const typeInfo = (val: string) => ENCOUNTER_TYPES.find(t => t.value === val) ?? ENCOUNTER_TYPES[ENCOUNTER_TYPES.length-1];
 
-  const SceneFormPanel = ({ onCancel }: { onCancel: () => void }) => (
-    <div className={styles.sceneForm}>
-      <div className={styles.sceneFormRow}>
-        <div className={styles.sceneFormField} style={{flex:2}}>
-          <label className={styles.sceneFormLabel}>Title <span className={styles.req}>*</span></label>
-          <input className={styles.sceneFormInput} autoFocus placeholder="The Ambush at Thornwall…"
-            value={sceneForm.title} onChange={e => setSceneForm(f => ({...f, title: e.target.value}))}/>
-        </div>
-        <div className={styles.sceneFormField} style={{flex:1}}>
-          <label className={styles.sceneFormLabel}>Type</label>
-          <select className={styles.sceneFormInput} value={sceneForm.encounterType}
-            onChange={e => setSceneForm(f => ({...f, encounterType: e.target.value}))}>
-            {ENCOUNTER_TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className={styles.sceneFormField}>
-        <label className={styles.sceneFormLabel}>Objective</label>
-        <input className={styles.sceneFormInput} placeholder="What should the players accomplish or decide?"
-          value={sceneForm.objective} onChange={e => setSceneForm(f => ({...f, objective: e.target.value}))}/>
-      </div>
-      <div className={styles.sceneFormField}>
-        <label className={styles.sceneFormLabel}>Setup / Notes</label>
-        <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={3}
-          placeholder="Key details, enemy stats, read-aloud text, contingencies…"
-          value={sceneForm.setup} onChange={e => setSceneForm(f => ({...f, setup: e.target.value}))}/>
-      </div>
-      <div className={styles.sceneFormField}>
-        <label className={styles.sceneFormLabel}>Reward / Outcome</label>
-        <input className={styles.sceneFormInput} placeholder="XP, loot, story consequence…"
-          value={sceneForm.reward} onChange={e => setSceneForm(f => ({...f, reward: e.target.value}))}/>
-      </div>
-      <div className={styles.sceneFormActions}>
-        <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
-        <button className={styles.saveSceneBtn} onClick={saveScene} disabled={!sceneForm.title.trim()}>
-          <Icon name="plus" size={14}/> {editingId ? 'Save Changes' : 'Add Encounter'}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className={styles.root}>
       <header className={styles.toolbar}>
@@ -437,7 +450,12 @@ export default function SessionsView() {
 
                   {/* Add form */}
                   {addingScene && (
-                    <SceneFormPanel onCancel={() => { setAddingScene(false); setSceneForm({ title:'', encounterType:'combat', objective:'', setup:'', reward:'' }); }}/>
+                    <SceneFormPanel
+                      sceneForm={sceneForm}
+                      setSceneForm={setSceneForm}
+                      editingId={editingId}
+                      onSave={saveScene}
+                      onCancel={() => { setAddingScene(false); setSceneForm({ title:'', encounterType:'combat', objective:'', setup:'', reward:'' }); }}/>
                   )}
 
                   {/* Encounter cards */}
@@ -498,7 +516,12 @@ export default function SessionsView() {
                           {isExpanded && (
                             <div className={styles.encounterCardBody}>
                               {isEditing ? (
-                                <SceneFormPanel onCancel={() => { setEditingId(null); setExpandedId(enc.id); }}/>
+                                <SceneFormPanel
+                                  sceneForm={sceneForm}
+                                  setSceneForm={setSceneForm}
+                                  editingId={editingId}
+                                  onSave={saveScene}
+                                  onCancel={() => { setEditingId(null); setExpandedId(enc.id); }}/>
                               ) : (
                                 <div className={styles.encounterDetail}>
                                   {enc.objective && (

@@ -32,6 +32,9 @@ export type AppEventMap = {
   'plugin:loaded':    { pluginId: string };
   'plugin:unloaded':  { pluginId: string };
 
+  // -- Dungeon --
+  'dungeon:generated': { dungeonId: string };
+
   // -- App lifecycle --
   'app:campaign-opened': { campaignId: string };
   'app:campaign-closed': { campaignId: string };

@@ -12,6 +12,7 @@ export const ROUTES = {
   graph:      '/graph',
   assets:     '/assets',
   generators: '/generators',
+  dungeons:   '/dungeons',
 } as const;
 
 export type AppRoute = typeof ROUTES[keyof typeof ROUTES];

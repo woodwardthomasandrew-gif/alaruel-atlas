@@ -47,6 +47,7 @@ import { SessionsModule } from '../../../modules/sessions/src/index';
 import { TimelineModule } from '../../../modules/timeline/src/index';
 import { GraphModule }    from '../../../modules/graph/src/index';
 import { AssetsUiModule } from '../../../modules/assets-ui/src/index';
+import { DungeonModule }  from '../../../modules/dungeon/src/index';
 
 // ── Desktop-local modules ─────────────────────────────────────────────────────
 import { createMainWindow, isWindowAvailable, focusWindow } from './window';
@@ -137,6 +138,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new TimelineModule());
   moduleLoader.register(new GraphModule());
   moduleLoader.register(new AssetsUiModule());
+  moduleLoader.register(new DungeonModule());
 
   const summary = await moduleLoader.initAll();
   log.info('Module boot complete', {
