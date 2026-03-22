@@ -1,0 +1,86 @@
+/* ui/src/views/inspiration/VisionItem.module.css */
+
+/* ── Base vision item ───────────────────────────────────────────────────── */
+.vision {
+  /* Absolutely positioned inside the orb's visionArea */
+  position: absolute;
+  left:       var(--v-left,      50%);
+  top:        var(--v-top,       50%);
+  transform:  translate(-50%, -50%);
+
+  /* Randomised per-instance values */
+  font-size:  var(--v-font-size, 0.95rem);
+
+  /* Appearance */
+  max-width: 72%;
+  text-align: center;
+  line-height: 1.5;
+  color: var(--gold-300, #e8c97a);
+  font-family: var(--font-body, serif);
+  letter-spacing: 0.025em;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  /* Glow */
+  text-shadow:
+    0 0 8px  rgba(232, 201, 122, 0.60),
+    0 0 20px rgba(196, 144,  64, 0.35),
+    0 0 40px rgba(160, 100,  30, 0.20);
+
+  /* Default invisible; opacity driven by phase classes */
+  opacity: 0;
+  transition: opacity 0.9s ease, text-shadow 0.3s ease, transform 0.3s ease;
+
+  /* Floating animation always running — opacity controls visibility */
+  animation: visionFloat var(--v-float-dur, 7s) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* ── Fade phases ────────────────────────────────────────────────────────── */
+.in {
+  opacity: var(--v-opacity, 0.9);
+  transition: opacity 0.9s ease;
+}
+
+.hold {
+  opacity: var(--v-opacity, 0.9);
+  transition: none;
+}
+
+.out {
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+/* ── Hover — pause fade, add bright glow ───────────────────────────────── */
+.hovered {
+  text-shadow:
+    0 0 10px rgba(255, 220, 120, 0.90),
+    0 0 24px rgba(220, 160,  50, 0.70),
+    0 0 48px rgba(196, 144,  64, 0.50);
+  transform: translate(-50%, -50%) scale(1.06);
+  transition: opacity 0.9s ease, text-shadow 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+}
+
+/* ── Captured — brief golden flash ────────────────────────────────────── */
+.captured {
+  color: #fff;
+  text-shadow:
+    0 0 12px rgba(255, 240, 180, 1.00),
+    0 0 32px rgba(220, 170,  60, 0.90),
+    0 0 60px rgba(196, 144,  64, 0.70);
+  transition: color 0.15s ease, text-shadow 0.15s ease;
+}
+
+/* ── Float keyframe ─────────────────────────────────────────────────────── */
+/* Uses CSS custom properties so each item has unique drift values */
+@keyframes visionFloat {
+  0%   { transform: translate(calc(-50% + 0px),               calc(-50% + 0px)); }
+  25%  { transform: translate(calc(-50% + var(--v-float-dx, 6px)),  calc(-50% - var(--v-float-dy, 10px))); }
+  50%  { transform: translate(calc(-50% - var(--v-float-dx, 6px)),  calc(-50% - calc(var(--v-float-dy, 10px) * 0.4))); }
+  75%  { transform: translate(calc(-50% + calc(var(--v-float-dx, 6px) * 0.5)), calc(-50% + calc(var(--v-float-dy, 10px) * 0.6))); }
+  100% { transform: translate(calc(-50% + 0px),               calc(-50% + 0px)); }
+}

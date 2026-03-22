@@ -27,6 +27,7 @@ import { assetManager }     from '../../../core/assets/src/index';
 import { configManager }    from '../../../core/config/src/index';
 import { eventBus }         from '../../../core/events/src/index';
 import { createLogger }     from '../../../core/logger/src/index';
+import { registerInspirationHandlers } from '../../../modules/inspiration/index';
 
 const log = createLogger('desktop:ipc');
 
@@ -59,6 +60,7 @@ export function registerIpcHandlers(win: BrowserWindow, paths: AppPaths): void {
   registerDbHandlers();
   registerAssetHandlers(paths);
   registerAppHandlers(paths);
+  registerInspirationHandlers({ log });
   log.info('IPC handlers registered');
 }
 

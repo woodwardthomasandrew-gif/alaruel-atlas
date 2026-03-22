@@ -3,7 +3,6 @@
 // Maps module IDs to their route path, display name, icon name, and
 // the React component to render. New modules add an entry here only —
 // the sidebar and router read from this registry automatically.
-
 import type { ComponentType } from 'react';
 import NpcsView          from '../views/npcs/NpcsView';
 import QuestsView        from '../views/quests/QuestsView';
@@ -15,6 +14,7 @@ import AssetsView        from '../views/assets/AssetsView';
 import GeneratorsView    from '../views/generators/GeneratorsView';
 import DungeonView       from '../views/dungeon/DungeonView';
 import BestiaryView      from '../views/bestiary/BestiaryView';
+import InspirationView   from '../views/inspiration/InspirationView';
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -25,7 +25,6 @@ export interface ModuleRegistryEntry {
   /** Whether this module requires an open campaign to function. */
   requiresCampaign: boolean;
 }
-
 export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   {
     id:               'atlas',
@@ -107,8 +106,15 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     component:        BestiaryView,
     requiresCampaign: true,
   },
+  {
+    id:               'inspiration',
+    displayName:      'Inspiration',
+    icon:             'sparkles',
+    route:            '/inspiration',
+    component:        InspirationView,
+    requiresCampaign: true,
+  },
 ];
-
 export function getModuleById(id: string): ModuleRegistryEntry | undefined {
   return MODULE_REGISTRY.find(m => m.id === id);
 }

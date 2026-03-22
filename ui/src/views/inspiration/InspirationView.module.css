@@ -1,0 +1,44 @@
+/* ui/src/views/inspiration/InspirationView.module.css */
+
+.root{display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg-base)}
+.toolbar{display:flex;align-items:center;gap:.75rem;padding:.65rem 1.5rem;border-bottom:1px solid var(--border-subtle);flex-shrink:0;background:var(--bg-surface)}
+.title{display:flex;align-items:center;gap:.5rem;font-size:1rem;font-weight:600;color:var(--text-accent);margin:0}
+.campaignBadge{font-size:.72rem;font-family:var(--font-mono);color:var(--ink-500);background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:20px;padding:.15rem .65rem}
+
+/* ── Body layout ─────────────────────────────────────────────── */
+.body{display:flex;flex:1;overflow:hidden;gap:0}
+
+/* ── Controls sidebar ────────────────────────────────────────── */
+.controls{display:flex;flex-direction:column;gap:1rem;padding:1.25rem 1.4rem;width:240px;flex-shrink:0;border-right:1px solid var(--border-subtle);background:var(--bg-surface);overflow-y:auto}
+.controlLabel{display:flex;flex-direction:column;gap:.3rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500)}
+.select{background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);font-size:.85rem;padding:.38rem .6rem;outline:none;transition:border-color .15s;cursor:pointer}
+.select:focus{border-color:var(--gold-600)}
+
+/* ── Speed slider ────────────────────────────────────────────── */
+.sliderRow{display:flex;align-items:center;gap:.5rem;margin-top:.2rem}
+.sliderMin,.sliderMax{font-size:.9rem;flex-shrink:0;line-height:1}
+.slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--border-subtle);outline:none;cursor:pointer;transition:background .2s}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--gold-600);cursor:pointer;border:2px solid var(--ink-950);transition:background .15s,transform .15s}
+.slider::-webkit-slider-thumb:hover{background:var(--gold-400);transform:scale(1.2)}
+.slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--gold-600);cursor:pointer;border:2px solid var(--ink-950)}
+.sliderLabel{font-size:.72rem;color:var(--gold-400);font-family:var(--font-mono);letter-spacing:.06em;text-align:center}
+
+.hint{font-size:.8rem;color:var(--ink-500);font-style:italic;margin:0}
+.error{font-size:.8rem;color:var(--crimson-400);margin:0}
+
+/* ── Captured Visions Panel ──────────────────────────────────── */
+.capturedPanel{display:flex;flex-direction:column;gap:.4rem;margin-top:.25rem;padding-top:.85rem;border-top:1px solid var(--border-subtle);flex:1;min-height:0;overflow-y:auto}
+.capturedTitle{display:flex;align-items:center;gap:.35rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-500);margin:0 0 .2rem;flex-shrink:0}
+.capturedCount{font-size:.65rem;font-family:var(--font-mono);background:rgba(196,144,64,.15);border:1px solid var(--gold-700);border-radius:20px;color:var(--gold-400);padding:.05rem .45rem;margin-left:auto}
+.capturedEmpty{font-size:.78rem;color:var(--ink-600);font-style:italic;margin:0;line-height:1.5}
+.capturedItem{display:flex;align-items:flex-start;gap:.4rem;padding:.35rem .45rem;background:var(--bg-raised);border:1px solid var(--border-subtle);border-left:2px solid var(--gold-700);border-radius:var(--radius-sm);transition:border-color .15s;flex-shrink:0}
+.capturedItem:hover{border-color:var(--border);border-left-color:var(--gold-500)}
+.capturedText{flex:1;font-size:.78rem;color:var(--text-secondary);line-height:1.5;word-break:break-word}
+.capturedRemove{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:18px;height:18px;background:transparent;border:none;border-radius:var(--radius-sm);color:var(--ink-600);cursor:pointer;transition:all .12s;margin-top:.1rem}
+.capturedRemove:hover{background:var(--bg-hover);color:var(--crimson-400)}
+.capturedClearAll{font-size:.72rem;color:var(--ink-600);background:transparent;border:none;cursor:pointer;padding:.15rem 0;text-align:left;transition:color .12s;margin-top:.1rem;flex-shrink:0}
+.capturedClearAll:hover{color:var(--crimson-400)}
+
+/* ── Orb display area ────────────────────────────────────────── */
+.orbWrapper{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;padding:2rem;background:radial-gradient(ellipse 70% 55% at 50% 52%, rgba(50,20,100,.22) 0%, rgba(20,8,50,.10) 55%, transparent 100%), var(--bg-base);overflow:hidden}
+.orbCaption{font-size:.75rem;color:var(--ink-500);font-style:italic;letter-spacing:.04em;text-align:center}

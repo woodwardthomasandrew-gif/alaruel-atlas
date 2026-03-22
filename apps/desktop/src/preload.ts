@@ -96,6 +96,12 @@ export interface AtlasBridge {
     pickFile:     (category?: string)        => Promise<string | null>;
   };
 
+  // ── Inspiration ───────────────────────────────────────────────────────────
+  inspiration: {
+    /** Generate inspiration results from random tables. */
+    generate:     (params: InspirationGenerateParams) => Promise<InspirationResult[]>;
+  };
+
   // ── App ───────────────────────────────────────────────────────────────────
   app: {
     /** Return the current app version string. */
@@ -173,6 +179,18 @@ interface ModuleEventPayload {
   payload: Record<string, unknown>;
 }
 
+interface InspirationGenerateParams {
+  campaignId: string;
+  category?:  string;
+  count?:     number;
+}
+
+interface InspirationResult {
+  text:      string;
+  category:  string;
+  tags:      string[];
+}
+
 // ── contextBridge exposure ────────────────────────────────────────────────────
 
 const bridge: AtlasBridge = {
@@ -202,6 +220,10 @@ const bridge: AtlasBridge = {
     resolve:  (virtualPath)     => invoke('assets:resolve',  { virtualPath }),
     import:   (options)         => invoke('assets:import',   options),
     pickFile: (category)        => invoke('assets:pickFile', { category }),
+  },
+
+  inspiration: {
+    generate: (params) => invoke('inspiration:generate', params),
   },
 
   app: {

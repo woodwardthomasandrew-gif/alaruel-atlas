@@ -2,31 +2,26 @@
 //
 // Typed accessor for window.atlas (the contextBridge API).
 // Provides a dev-mode mock so the renderer runs in a browser without Electron.
-
 export interface CampaignOpenResult {
   ok: boolean;
   campaignId?: string;
   error?: string;
 }
-
 export interface CampaignCreateOptions {
   name: string;
   filePath: string;
   gmName?: string;
   system?: string;
 }
-
 export interface RecentCampaign {
   filePath: string;
 }
-
 export interface AssetImportOptions {
   sourcePath: string;
   name: string;
   category: string;
   tags?: string[];
 }
-
 export interface AppPaths {
   userData: string;
   campaigns: string;
@@ -35,7 +30,6 @@ export interface AppPaths {
   plugins: string;
   config: string;
 }
-
 export interface AtlasBridge {
   campaign: {
     open(dbPath: string): Promise<CampaignOpenResult>;
@@ -54,6 +48,13 @@ export interface AtlasBridge {
     import(options: AssetImportOptions): Promise<{ ok: boolean; assetId?: string; error?: string }>;
     pickFile(category?: string): Promise<string | null>;
   };
+  inspiration: {
+    generate(params: {
+      campaignId: string;
+      category?: string;
+      count?: number;
+    }): Promise<Array<{ text: string; category: string; tags: string[] }>>;
+  };
   app: {
     getVersion(): Promise<string>;
     getPaths(): Promise<AppPaths>;
@@ -65,9 +66,7 @@ export interface AtlasBridge {
     moduleEvent(handler: (payload: { event: string; payload: Record<string, unknown> }) => void): () => void;
   };
 }
-
 // ── Dev mock ──────────────────────────────────────────────────────────────────
-
 const devMock: AtlasBridge = {
   campaign: {
     open:       async () => ({ ok: false, error: 'Running in browser — no Electron' }),
@@ -86,6 +85,9 @@ const devMock: AtlasBridge = {
     import:   async () => ({ ok: false, error: 'Running in browser' }),
     pickFile: async () => null,
   },
+  inspiration: {
+    generate: async () => [],
+  },
   app: {
     getVersion:   async () => '0.1.0-dev',
     getPaths:     async () => ({ userData: '', campaigns: '', assets: '', logs: '', plugins: '', config: '' }),
@@ -97,11 +99,9 @@ const devMock: AtlasBridge = {
     moduleEvent:    () => () => {},
   },
 };
-
 declare global {
   interface Window { atlas?: AtlasBridge; }
 }
-
 /**
  * The single accessor for the IPC bridge throughout the renderer.
  * Uses the real Electron bridge when running in Electron, falls back to a

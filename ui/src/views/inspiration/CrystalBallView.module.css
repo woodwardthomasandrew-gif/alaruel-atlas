@@ -1,0 +1,219 @@
+/* ui/src/views/inspiration/CrystalBallView.module.css */
+
+/* ── Orb container ──────────────────────────────────────────────────────── */
+.orb {
+  position: relative;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  /* Deep dark glass */
+  background: radial-gradient(
+    circle at 38% 35%,
+    rgba(38, 26, 72, 0.96)  0%,
+    rgba(14,  9, 32, 0.99) 52%,
+    rgba( 4,  2, 12, 1.00) 100%
+  );
+
+  /* Layered outer glow */
+  box-shadow:
+    0 0 0   2px rgba(196, 144,  64, 0.16),
+    0 0  20px  7px rgba(130,  65, 210, 0.22),
+    0 0  52px 14px rgba( 90,  35, 170, 0.18),
+    0 0  96px 26px rgba( 55,  18, 120, 0.12),
+    0 0 160px 40px rgba( 30,   8,  80, 0.08),
+    inset 0 0  70px 14px rgba(18,  8, 44, 0.90),
+    inset 0 0  20px  4px rgba( 8,  4, 20, 0.60);
+
+  transition: box-shadow 0.7s ease;
+  overflow: hidden;
+}
+
+/* Active — gold-tinged surge */
+.orbActive {
+  box-shadow:
+    0 0 0   2px rgba(196, 144,  64, 0.50),
+    0 0  24px  9px rgba(196, 144,  64, 0.30),
+    0 0  58px 20px rgba(130,  65, 210, 0.34),
+    0 0 105px 32px rgba( 90,  35, 170, 0.24),
+    0 0 170px 48px rgba( 55,  18, 120, 0.14),
+    inset 0 0  70px 14px rgba(18,  8, 44, 0.90),
+    inset 0 0  20px  4px rgba( 8,  4, 20, 0.60);
+}
+
+/* ── Glow ring ──────────────────────────────────────────────────────────── */
+.glowRing {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(196, 144, 64, 0.20);
+  box-shadow: 0 0 12px 2px rgba(196, 144, 64, 0.10);
+  pointer-events: none;
+}
+
+/* ── Mist layers ────────────────────────────────────────────────────────── */
+
+/* Layer 1 — blue-purple base, bottom-weighted */
+.mist {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 85% 60% at 50% 75%,
+    rgba(100, 55, 210, 0.20) 0%,
+    rgba( 60, 20, 130, 0.12) 50%,
+    transparent 100%
+  );
+  filter: blur(12px);
+  opacity: 0.65;
+  pointer-events: none;
+  animation: mistDrift 8s ease-in-out infinite alternate;
+}
+
+/* Layer 2 — slow large purple, top-weighted */
+.mistSlow {
+  background: radial-gradient(
+    ellipse 75% 50% at 50% 28%,
+    rgba( 80, 30, 170, 0.14) 0%,
+    rgba( 50, 15, 110, 0.08) 55%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  opacity: 0.50;
+  animation: mistDrift 15s ease-in-out infinite alternate-reverse;
+}
+
+/* Layer 3 — warm gold wisp, centre-right */
+.mistGold {
+  background: radial-gradient(
+    ellipse 50% 35% at 62% 50%,
+    rgba(196, 144, 64, 0.12) 0%,
+    rgba(160, 110, 40, 0.06) 55%,
+    transparent 100%
+  );
+  filter: blur(16px);
+  opacity: 0.45;
+  animation: mistGoldPulse 11s ease-in-out infinite alternate;
+}
+
+/* Layer 4 — deep dark interior swirl */
+.mistDeep {
+  background: radial-gradient(
+    ellipse 60% 60% at 42% 55%,
+    rgba(20, 8, 50, 0.45) 0%,
+    transparent 70%
+  );
+  filter: blur(8px);
+  opacity: 0.70;
+  animation: mistDrift 20s ease-in-out infinite alternate;
+}
+
+@keyframes mistDrift {
+  0%   { transform: translateY(0px)   translateX(0px)   scale(1.00); opacity: 0.55; }
+  30%  { transform: translateY(-10px) translateX(5px)   scale(1.05); opacity: 0.72; }
+  65%  { transform: translateY(-4px)  translateX(-6px)  scale(1.02); opacity: 0.60; }
+  100% { transform: translateY(7px)   translateX(3px)   scale(0.97); opacity: 0.44; }
+}
+
+@keyframes mistGoldPulse {
+  0%   { transform: translateX(0px)  scale(1.00); opacity: 0.35; }
+  40%  { transform: translateX(8px)  scale(1.08); opacity: 0.55; }
+  100% { transform: translateX(-5px) scale(0.95); opacity: 0.28; }
+}
+
+/* ── Vignette ───────────────────────────────────────────────────────────── */
+.vignette {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 38%,
+    rgba( 4,  2, 14, 0.55) 70%,
+    rgba( 2,  1,  8, 0.85) 100%
+  );
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ── Vision text area ───────────────────────────────────────────────────── */
+/* Items are absolute-positioned inside here, so this is just a bounds layer */
+.visionArea {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.idleHint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.85rem;
+  color: rgba(196, 144, 64, 0.32);
+  font-style: italic;
+  font-family: var(--font-body, serif);
+  text-align: center;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: idlePulse 3.8s ease-in-out infinite;
+}
+
+.summoning {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.83rem;
+  color: rgba(196, 144, 64, 0.58);
+  font-style: italic;
+  font-family: var(--font-body, serif);
+  text-align: center;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: idlePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes idlePulse {
+  0%, 100% { opacity: 0.38; }
+  50%       { opacity: 1.00; }
+}
+
+/* ── Shine arcs ─────────────────────────────────────────────────────────── */
+.shine {
+  position: absolute;
+  top: 9%;
+  left: 16%;
+  width: 42%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 38% 38%,
+    rgba(255, 255, 255, 0.10) 0%,
+    transparent 68%
+  );
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* Smaller inner catch-light */
+.shineInner {
+  position: absolute;
+  top: 14%;
+  left: 22%;
+  width: 18%;
+  height: 10%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 40% 40%,
+    rgba(255, 255, 255, 0.07) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 6;
+}
