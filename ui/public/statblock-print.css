@@ -1,0 +1,340 @@
+/* =============================================================================
+   statblock-print.css  —  Alaruel Atlas
+   Global print stylesheet for monster statblocks.
+
+   HOW IT WORKS
+   ─────────────
+   The StatblockPrintModal mounts a #statblock-print-root element outside the
+   React tree (document.body). When window.print() is called:
+
+     • @media screen  →  only #statblock-print-root is hidden, everything else
+                         visible as normal.
+
+     • @media print   →  ONLY #statblock-print-root is shown. Every other
+                         child of <body> is hidden. The statblock fills the
+                         page with tabletop-readable typography and no chrome.
+
+   This avoids any modifications to the main app layout CSS.
+   ============================================================================= */
+
+/* ── SCREEN: keep the print root invisible ─────────────────────────────────── */
+@media screen {
+  #statblock-print-root {
+    display: none !important;
+  }
+}
+
+/* ── PRINT: show only the statblock, hide everything else ─────────────────── */
+@media print {
+
+  /* Hide every direct child of body EXCEPT our print root */
+  body > *:not(#statblock-print-root) {
+    display: none !important;
+  }
+
+  /* Reset body to a clean white page */
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  #statblock-print-root {
+    display: block !important;
+    position: static !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ── Page setup ──────────────────────────────────────────────────────────── */
+
+  @page {
+    size: A4 portrait;
+    margin: 14mm 16mm 14mm 16mm;
+  }
+
+  /* Avoid breaks inside a block (action, trait, etc.) */
+  .sb-block-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ── Statblock card reset ──────────────────────────────────────────────── */
+
+  .sb-card {
+    background: #ffffff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    font-family: 'Crimson Pro', 'Georgia', 'Times New Roman', serif !important;
+    font-size: 9.5pt !important;
+    color: #1a1008 !important;
+  }
+
+  /* ── Banner ──────────────────────────────────────────────────────────────── */
+
+  .sb-banner {
+    background: #7a1f1f !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    padding: 5pt 10pt 4pt !important;
+    margin-bottom: 0 !important;
+  }
+
+  .sb-monster-name {
+    font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif !important;
+    font-size: 16pt !important;
+    font-weight: 700 !important;
+    color: #fdf6ee !important;
+    margin: 0 0 1pt !important;
+    line-height: 1.15 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .sb-type-line {
+    font-style: italic !important;
+    font-size: 9pt !important;
+    color: rgba(255,255,255,.85) !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Gold ruler ──────────────────────────────────────────────────────────── */
+
+  .sb-ruler-gold {
+    height: 4pt !important;
+    background: linear-gradient(90deg, #6b3a0a 0%, #c49040 35%, #e0b060 50%, #c49040 65%, #6b3a0a 100%) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .sb-ruler-crimson {
+    height: 1pt !important;
+    background: #7a1f1f !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 10pt !important;
+    opacity: 0.6 !important;
+  }
+
+  /* ── Section ─────────────────────────────────────────────────────────────── */
+
+  .sb-section {
+    padding: 4pt 10pt !important;
+    border-bottom: 0.5pt solid #d4c9b8 !important;
+  }
+  .sb-section:last-child { border-bottom: none !important; }
+
+  /* ── Section heading (ACTIONS, REACTIONS…) ──────────────────────────────── */
+
+  .sb-heading {
+    font-family: 'Cinzel', 'Georgia', serif !important;
+    font-size: 8.5pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .12em !important;
+    color: #7a1f1f !important;
+    border-bottom: 1pt solid #7a1f1f !important;
+    padding-bottom: 1pt !important;
+    margin-bottom: 4pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Core stats row ──────────────────────────────────────────────────────── */
+
+  .sb-core-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 14pt !important;
+  }
+
+  .sb-core-stat {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+
+  .sb-core-label {
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .07em !important;
+    color: #52452f !important;
+    font-weight: 600 !important;
+  }
+
+  .sb-core-value {
+    font-size: 10pt !important;
+    color: #1a1008 !important;
+    font-weight: 700 !important;
+  }
+
+  /* ── Ability scores ──────────────────────────────────────────────────────── */
+
+  .sb-ability-grid {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 3pt !important;
+    text-align: center !important;
+  }
+
+  .sb-ability-cell {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    padding: 2pt 1pt !important;
+    border: 0.5pt solid #d4c9b8 !important;
+    border-radius: 2pt !important;
+  }
+
+  .sb-ability-label {
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    color: #52452f !important;
+    font-weight: 600 !important;
+  }
+
+  .sb-ability-score {
+    font-size: 11pt !important;
+    color: #1a1008 !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+  }
+
+  .sb-ability-mod {
+    font-size: 8pt !important;
+    color: #7a1f1f !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Property rows ───────────────────────────────────────────────────────── */
+
+  .sb-prop-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2pt !important;
+  }
+
+  .sb-prop {
+    font-size: 9pt !important;
+    line-height: 1.4 !important;
+  }
+
+  .sb-prop-label {
+    font-weight: 700 !important;
+    color: #7a1f1f !important;
+    margin-right: 2pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .sb-prop-value {
+    color: #1a1008 !important;
+  }
+
+  /* ── CR row ──────────────────────────────────────────────────────────────── */
+
+  .sb-cr-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 4pt !important;
+    flex-wrap: wrap !important;
+    font-size: 9pt !important;
+  }
+
+  .sb-cr-label {
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .07em !important;
+    color: #52452f !important;
+    font-weight: 600 !important;
+  }
+
+  .sb-cr-value {
+    font-family: 'Cinzel', 'Georgia', serif !important;
+    font-size: 10.5pt !important;
+    color: #7a1f1f !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .sb-cr-xp {
+    font-size: 8pt !important;
+    color: #52452f !important;
+  }
+
+  .sb-cr-sep { color: #b3a48d !important; margin: 0 2pt !important; }
+
+  /* ── Block items (traits, actions, reactions, legendary) ─────────────────── */
+
+  .sb-block-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4pt !important;
+  }
+
+  .sb-block-body {
+    font-size: 9pt !important;
+    color: #2a2318 !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+  }
+
+  .sb-block-name {
+    font-family: 'Cinzel', 'Georgia', serif !important;
+    font-style: italic !important;
+    font-weight: 700 !important;
+    color: #1a1008 !important;
+    font-size: 9pt !important;
+  }
+
+  .sb-block-attack {
+    font-size: 8pt !important;
+    color: #52452f !important;
+  }
+
+  /* ── Legendary preamble ──────────────────────────────────────────────────── */
+
+  .sb-legendary-preamble {
+    font-size: 9pt !important;
+    color: #52452f !important;
+    font-style: italic !important;
+    line-height: 1.45 !important;
+    margin: 0 0 4pt !important;
+  }
+
+  /* ── Lore / description text ─────────────────────────────────────────────── */
+
+  .sb-lore-text {
+    font-size: 9pt !important;
+    color: #2a2318 !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+    white-space: pre-wrap !important;
+  }
+
+  /* ── Tags: hidden in print ────────────────────────────────────────────────── */
+
+  .sb-tags { display: none !important; }
+
+  /* ── Homebrew watermark (optional, shown when .sb-homebrew present) ─────── */
+
+  .sb-homebrew-badge {
+    font-size: 7pt !important;
+    color: #52452f !important;
+    text-align: right !important;
+    padding: 2pt 10pt !important;
+    font-style: italic !important;
+  }
+}

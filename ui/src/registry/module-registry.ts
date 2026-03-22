@@ -14,6 +14,7 @@ import GraphView         from '../views/graph/GraphView';
 import AssetsView        from '../views/assets/AssetsView';
 import GeneratorsView    from '../views/generators/GeneratorsView';
 import DungeonView       from '../views/dungeon/DungeonView';
+import BestiaryView      from '../views/bestiary/BestiaryView';
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -96,6 +97,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'network',
     route:            '/dungeons',
     component:        DungeonView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'bestiary',
+    displayName:      'Bestiary',
+    icon:             'skull',
+    route:            '/bestiary',
+    component:        BestiaryView,
     requiresCampaign: true,
   },
 ];

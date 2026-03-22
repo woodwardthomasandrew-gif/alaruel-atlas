@@ -40,7 +40,7 @@ interface ThemeDef {
   traps:      string[];
   loot:       string[];
   atmosphere: string[];
-  bossName:   string;
+  bossNames:  string[];
 }
 
 const THEMES: Record<DungeonTheme, ThemeDef> = {
@@ -64,8 +64,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'Old House Cahill mining carts sit rusted and full. No one has touched them in years.',
                  'The smell of ozone and decay mingles into something uniquely horrible.',
                  'Every door has been barricaded from the inside. Whatever happened, people were trying to keep something out.'],
-    bossName:   pick(['Undying Necromancer','Ambersoul Cathedral Sexton (reanimated)','The Last Unity Inquisitor',
-                      'Cahill Deep-Foreman (soul-bound)','Revenant High Priest of the Broken Seal'], () => Math.random()),
+    bossNames:  ['Undying Necromancer','Ambersoul Cathedral Sexton (reanimated)','The Last Unity Inquisitor',
+                 'Cahill Deep-Foreman (soul-bound)','Revenant High Priest of the Broken Seal'],
   },
   goblin: {
     monsters:   ['Goblin Scout','Goblin Warrior','Hobgoblin Sergeant','Bugbear Ambusher','Goblin Shaman','Wolf Rider',
@@ -84,7 +84,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'Warclan Thule markings — claiming this territory as a forward staging post.',
                  'The bones of a Leviton courier are still clutching an undelivered satchel.',
                  'Someone has attempted to cook something in an old House Cahill smelting pot. It did not go well.'],
-    bossName:   pick(['Warchief Gragnuk','Thule Warclan Sub-Commander','Hobgoblin Pit-Boss (ex-Kewold arena)','Bugbear Enforcer (ATC deserter)','Half-Giant Raider Captain'], () => Math.random()),
+    bossNames:  ['Warchief Gragnuk','Thule Warclan Sub-Commander','Hobgoblin Pit-Boss (ex-Kewold arena)',
+                 'Bugbear Enforcer (ATC deserter)','Half-Giant Raider Captain'],
   },
   arcane: {
     monsters:   ['Arcane Construct','Mage Guardian','Spell Wisp','Rune Golem','Apprentice Shade','Mirror Demon','Animated Armour',
@@ -106,7 +107,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'The AG-unit charging cradles are empty. Whatever was in them left in a hurry.',
                  'Leviton transport manifests cover the floor — all marked PRIORITY, all overdue.',
                  'The Psychic Academy seal is above the door. Someone has scratched ABANDONED beneath it.'],
-    bossName:   pick(['The Bound Arcanist','Department of War Lead Researcher (still functional, barely)','Society Prime Artificer','Rogue AG-02 Prototype','Leviton Chief Engineer (construct-possessed)'], () => Math.random()),
+    bossNames:  ['The Bound Arcanist','Department of War Lead Researcher (still functional, barely)',
+                 'Society Prime Artificer','Rogue AG-02 Prototype','Leviton Chief Engineer (construct-possessed)'],
   },
   cult: {
     monsters:   ['Cult Initiate','Devoted Fanatic','Summoned Fiend','High Cultist','Ritual Construct','Possessed Acolyte',
@@ -128,7 +130,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'A Duke Bayle contract is nailed to the wall. The signatory line is blank but not empty.',
                  'Idol-Touched graffiti covers the walls — faces with too many features, too symmetrically arranged.',
                  'The Moon Rat intermediaries left in a hurry. Their planning documents are still pinned up.'],
-    bossName:   pick(['The Bound Herald','House Austel Grand Inquisitor (survivor)','Evening Glory High Consort','Duke Bayle Emissary','The Idol\'s Chosen Voice','Moon Rat Prime Intelligence'], () => Math.random()),
+    bossNames:  ['The Bound Herald','House Austel Grand Inquisitor (survivor)','Evening Glory High Consort',
+                 'Duke Bayle Emissary',"The Idol's Chosen Voice",'Moon Rat Prime Intelligence'],
   },
   nature: {
     monsters:   ['Vine Horror','Twig Blight','Dryad Corrupted','Giant Spider','Cave Bear','Root Golem','Swarm of Insects',
@@ -150,7 +153,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'Immortal Oak saplings grow from the ceiling, roots hanging downward like fingers.',
                  'The jungle has reclaimed this place. The architects would not recognise a single room.',
                  'Something enormous has been sleeping here. The impression in the stone is recent.'],
-    bossName:   pick(['The Corrupted Ancient','Root Father Aspect (partial manifestation)','Carnivora Spawnling Alpha','Corrupted Immortal Oak Dryad','Cochumat Crystal Overgrowth Elemental','Tenebrous Fen Warden'], () => Math.random()),
+    bossNames:  ['The Corrupted Ancient','Root Father Aspect (partial manifestation)','Carnivora Spawnling Alpha',
+                 'Corrupted Immortal Oak Dryad','Cochumat Crystal Overgrowth Elemental','Tenebrous Fen Warden'],
   },
   aberration: {
     monsters:   ['Far Realm Tendril','Mind Flayer Thrall','Gibbering Mouther','Spectral Echo','Crystal Corruption Host','Void Stalker',
@@ -173,7 +177,8 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
                  'The Idol\'s influence is palpable here — familiar faces appear in peripheral vision, then vanish.',
                  'Department of War experimental logs are scattered across the floor. Pages are missing from all of them.',
                  'The floor is warm. Not uncomfortably so. Just wrong.'],
-    bossName:   pick(['The Fractured Mind','Society Prime Experiment (beyond control)','The Idol\'s Emissary','AG-02 (full corruption mode)','Department of War Chief Researcher (absorbed)','Cochumat Apex Crystal Entity'], () => Math.random()),
+    bossNames:  ['The Fractured Mind','Society Prime Experiment (beyond control)',"The Idol's Emissary",
+                 'AG-02 (full corruption mode)','Department of War Chief Researcher (absorbed)','Cochumat Apex Crystal Entity'],
   },
 };
 
@@ -351,7 +356,7 @@ function generateContent(
     return {
       id, roomId, contentType: 'monster',
       payload: {
-        name: theme.bossName,
+        name: pickFrom(theme.bossNames, rand),
         note: 'Boss encounter. Use full tactics and lair actions.',
         isBoss: true,
       },

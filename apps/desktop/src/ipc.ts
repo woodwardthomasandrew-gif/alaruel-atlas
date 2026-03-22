@@ -312,6 +312,7 @@ export function registerEventForwards(win: BrowserWindow): void {
     'session:started', 'session:ended',
     'timeline:entry-added',
     'atlas:map-loaded',
+    'bestiary:created', 'bestiary:updated',
   ] as const;
 
   for (const eventName of forwarded) {

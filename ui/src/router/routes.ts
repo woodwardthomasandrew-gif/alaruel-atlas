@@ -13,6 +13,7 @@ export const ROUTES = {
   assets:     '/assets',
   generators: '/generators',
   dungeons:   '/dungeons',
+  bestiary:   '/bestiary',
 } as const;
 
 export type AppRoute = typeof ROUTES[keyof typeof ROUTES];

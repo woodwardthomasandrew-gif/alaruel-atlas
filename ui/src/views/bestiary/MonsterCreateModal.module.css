@@ -1,0 +1,52 @@
+/* MonsterCreateModal */
+
+.overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center;
+  z-index:200; padding:1rem;
+}
+.modal {
+  background:var(--bg-surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:1.75rem 2rem;
+  width:100%; max-width:480px; box-shadow:var(--shadow-lg);
+}
+.title {
+  font-family:var(--font-display); font-size:1.15rem;
+  color:var(--text-accent); margin-bottom:1.25rem;
+}
+.form { display:flex; flex-direction:column; gap:.85rem; }
+.row  { display:flex; gap:.75rem; }
+.group { display:flex; flex-direction:column; gap:.28rem; flex:1; }
+.label { font-size:.75rem; color:var(--text-muted); }
+.input, .select {
+  background:var(--bg-raised); border:1px solid var(--border-subtle);
+  border-radius:var(--radius-sm); color:var(--text-primary);
+  font-family:var(--font-body); font-size:.88rem;
+  padding:.4rem .65rem; outline:none; width:100%; transition:border-color .15s;
+  box-sizing:border-box;
+}
+.input:focus, .select:focus { border-color:var(--gold-600); }
+.input::placeholder { color:var(--ink-500); }
+
+.error {
+  font-size:.8rem; color:var(--crimson-400);
+  background:rgba(196,64,64,.08); border:1px solid var(--crimson-600);
+  border-radius:var(--radius-sm); padding:.4rem .65rem;
+}
+
+.footer { display:flex; justify-content:flex-end; gap:.65rem; margin-top:.75rem; }
+.btnCancel {
+  padding:.42rem .9rem; background:transparent;
+  border:1px solid var(--border); border-radius:var(--radius-sm);
+  color:var(--text-muted); font-size:.85rem; cursor:pointer;
+  transition:all .12s;
+}
+.btnCancel:hover { border-color:var(--ink-400); color:var(--text-secondary); }
+.btnCreate {
+  padding:.42rem .9rem; background:var(--gold-600);
+  border:1px solid var(--gold-500); border-radius:var(--radius-sm);
+  color:var(--ink-950); font-family:var(--font-display); font-size:.82rem;
+  letter-spacing:.04em; font-weight:600; cursor:pointer; transition:all .15s;
+}
+.btnCreate:hover { background:var(--gold-500); }
+.btnCreate:disabled { opacity:.5; cursor:not-allowed; }

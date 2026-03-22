@@ -1,0 +1,270 @@
+/* =============================================================================
+   StatblockRenderer.module.css
+   Screen rendering of the statblock card.
+   Print-specific overrides live in statblock-print.css (global).
+   ============================================================================= */
+
+/* ── Outer card ──────────────────────────────────────────────────────────────── */
+
+.statblock {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-width: 680px;
+  margin: 0 auto;
+  font-family: var(--font-body);
+}
+
+/* ── Banner (name + type line) ───────────────────────────────────────────────── */
+
+.banner {
+  background: var(--crimson-600);
+  padding: .7rem 1.25rem .6rem;
+}
+
+.monsterName {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fdf6ee;
+  margin: 0 0 .1rem;
+  line-height: 1.15;
+  letter-spacing: .01em;
+}
+
+.typeLine {
+  font-style: italic;
+  font-size: .875rem;
+  color: rgba(255,255,255,.78);
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* ── Decorative rulers ────────────────────────────────────────────────────────── */
+
+.rulerGold {
+  height: 5px;
+  background: linear-gradient(90deg, #6b3a0a 0%, #c49040 35%, #e0b060 50%, #c49040 65%, #6b3a0a 100%);
+}
+
+.rulerCrimson {
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--crimson-600) 20%, var(--crimson-600) 80%, transparent 100%);
+  opacity: .55;
+  margin: 0 1.25rem;
+}
+
+/* ── Generic section wrapper ──────────────────────────────────────────────────── */
+
+.sbSection {
+  padding: .65rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sbSection:last-child { border-bottom: none; }
+
+/* ── Section heading (Actions / Reactions / etc.) ─────────────────────────────── */
+
+.sbHeading {
+  font-family: var(--font-display);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--crimson-400);
+  border-bottom: 1.5px solid var(--crimson-600);
+  padding-bottom: .22rem;
+  margin-bottom: .55rem;
+}
+
+/* ── Core stats row: AC / HP / Speed ─────────────────────────────────────────── */
+
+.coreRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.coreStat {
+  display: flex;
+  flex-direction: column;
+  gap: .08rem;
+}
+
+.coreLabel {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+}
+
+.coreValue {
+  font-size: .95rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Ability score grid ────────────────────────────────────────────────────────── */
+
+.abilityGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: .4rem;
+  text-align: center;
+}
+
+.abilityCell {
+  display: flex;
+  flex-direction: column;
+  gap: .12rem;
+  padding: .3rem .15rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.abilityLabel {
+  font-size: .62rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.abilityScore {
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.abilityMod {
+  font-size: .78rem;
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* ── Property rows (saves, skills, resistances, senses) ───────────────────────── */
+
+.propList {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.prop {
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.propLabel {
+  font-weight: 700;
+  color: var(--text-accent);
+  margin-right: .3rem;
+}
+
+.propValue {
+  color: var(--text-primary);
+}
+
+/* ── CR / Proficiency row ──────────────────────────────────────────────────────── */
+
+.crRow {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex-wrap: wrap;
+  font-size: .875rem;
+}
+
+.crLabel {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+}
+
+.crValue {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-accent);
+  font-weight: 700;
+}
+
+.crXp {
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+
+.crSep {
+  color: var(--border);
+  margin: 0 .15rem;
+}
+
+/* ── Trait / Action / Reaction blocks ─────────────────────────────────────────── */
+
+.blockList {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.blockItem { }
+
+.blockBody {
+  font-size: .875rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.blockName {
+  font-family: var(--font-display);
+  font-size: .875rem;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.blockAttack {
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+
+/* ── Legendary preamble ───────────────────────────────────────────────────────── */
+
+.legendaryPreamble {
+  font-size: .875rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0 0 .6rem;
+}
+
+/* ── Lore / Description blocks ────────────────────────────────────────────────── */
+
+.loreText {
+  font-size: .875rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ── Tags ─────────────────────────────────────────────────────────────────────── */
+
+.tagSection { }
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+}
+
+.tag {
+  font-size: .7rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: .12rem .45rem;
+  border-radius: 20px;
+}

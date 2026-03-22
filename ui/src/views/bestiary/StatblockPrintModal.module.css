@@ -1,0 +1,276 @@
+/* StatblockPrintModal.module.css
+   Screen-only styles for the print preview overlay.
+   Everything here is hidden at @media print via the global .noprint rule
+   in statblock-print.css (body > *:not(#statblock-print-root) → display:none). */
+
+/* ── Overlay backdrop ────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .72);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 300;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+}
+
+/* ── Modal container ─────────────────────────────────────────────────────── */
+
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  /* leave room at bottom so footer doesn't clip */
+  margin-bottom: 1.5rem;
+}
+
+/* ── Header bar ──────────────────────────────────────────────────────────── */
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: .75rem;
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-family: var(--font-display);
+  font-size: .95rem;
+  color: var(--text-accent);
+  letter-spacing: .04em;
+}
+
+.modalControls {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggleCheck {
+  accent-color: var(--gold-500);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+.btnClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: .3rem;
+  transition: all .12s;
+}
+.btnClose:hover {
+  background: var(--bg-raised);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+/* ── Preview area ────────────────────────────────────────────────────────── */
+
+.preview {
+  padding: 1.5rem 1.25rem;
+  background: var(--bg-base);
+  overflow-y: auto;
+  /* mimic a sheet of A4 paper visually */
+  max-height: calc(100vh - 200px);
+}
+
+/* Paper-like page wrapper */
+.previewPage {
+  background: #f9f5ef;
+  border-radius: 3px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.15);
+  padding: 1.5rem 1.5rem 1.75rem;
+  /* force the preview to use light-mode colours so it matches print output */
+  color: #1a1008;
+  font-family: 'Crimson Pro', Georgia, serif;
+}
+
+/* When inside the preview, override CSS-variable-based colours with
+   light-mode print equivalents so the preview matches what will print. */
+.previewPage .sb-card {
+  background: #f9f5ef !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #1a1008 !important;
+  font-family: 'Crimson Pro', Georgia, serif !important;
+  font-size: 9.5pt !important;
+}
+
+.previewPage .sb-banner {
+  background: #7a1f1f !important;
+  padding: 6pt 10pt 5pt !important;
+}
+
+.previewPage .sb-monster-name {
+  font-family: 'Cinzel', Georgia, serif !important;
+  font-size: 20pt !important;
+  color: #fdf6ee !important;
+  margin: 0 0 2pt !important;
+}
+
+.previewPage .sb-type-line {
+  font-size: 9.5pt !important;
+  color: rgba(255,255,255,.85) !important;
+  margin: 0 !important;
+}
+
+.previewPage .sb-ruler-gold {
+  height: 5pt !important;
+  background: linear-gradient(90deg, #6b3a0a 0%, #c49040 35%, #e0b060 50%, #c49040 65%, #6b3a0a 100%) !important;
+}
+
+.previewPage .sb-ruler-crimson {
+  height: 1pt !important;
+  background: #7a1f1f !important;
+  opacity: .55 !important;
+  margin: 0 10pt !important;
+}
+
+.previewPage .sb-section {
+  padding: 5pt 10pt !important;
+  border-bottom: 0.5pt solid #d4c9b8 !important;
+}
+.previewPage .sb-section:last-child { border-bottom: none !important; }
+
+.previewPage .sb-heading {
+  font-family: 'Cinzel', Georgia, serif !important;
+  font-size: 8pt !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .12em !important;
+  color: #7a1f1f !important;
+  border-bottom: 1pt solid #7a1f1f !important;
+  padding-bottom: 1pt !important;
+  margin-bottom: 4pt !important;
+}
+
+.previewPage .sb-core-row { display: flex !important; gap: 14pt !important; flex-wrap: wrap !important; }
+.previewPage .sb-core-stat { display: flex !important; flex-direction: column !important; }
+.previewPage .sb-core-label { font-size: 7pt !important; text-transform: uppercase !important; letter-spacing: .07em !important; color: #52452f !important; font-weight: 600 !important; }
+.previewPage .sb-core-value { font-size: 10pt !important; color: #1a1008 !important; font-weight: 700 !important; }
+
+.previewPage .sb-ability-grid { display: grid !important; grid-template-columns: repeat(6,1fr) !important; gap: 3pt !important; text-align: center !important; }
+.previewPage .sb-ability-cell { display: flex !important; flex-direction: column !important; gap: 0 !important; padding: 2pt 1pt !important; border: 0.5pt solid #d4c9b8 !important; border-radius: 2pt !important; }
+.previewPage .sb-ability-label { font-size: 7pt !important; text-transform: uppercase !important; letter-spacing: .08em !important; color: #52452f !important; font-weight: 600 !important; }
+.previewPage .sb-ability-score { font-size: 11pt !important; color: #1a1008 !important; font-weight: 700 !important; line-height: 1.1 !important; }
+.previewPage .sb-ability-mod  { font-size: 8pt !important; color: #7a1f1f !important; font-weight: 700 !important; }
+
+.previewPage .sb-prop-list { display: flex !important; flex-direction: column !important; gap: 2pt !important; }
+.previewPage .sb-prop { font-size: 9pt !important; line-height: 1.4 !important; }
+.previewPage .sb-prop-label { font-weight: 700 !important; color: #7a1f1f !important; margin-right: 2pt !important; }
+.previewPage .sb-prop-value { color: #1a1008 !important; }
+
+.previewPage .sb-cr-row { display: flex !important; align-items: baseline !important; gap: 4pt !important; flex-wrap: wrap !important; font-size: 9pt !important; }
+.previewPage .sb-cr-label { font-size: 7pt !important; text-transform: uppercase !important; letter-spacing: .07em !important; color: #52452f !important; font-weight: 600 !important; }
+.previewPage .sb-cr-value { font-family: 'Cinzel', Georgia, serif !important; font-size: 10.5pt !important; color: #7a1f1f !important; font-weight: 700 !important; }
+.previewPage .sb-cr-xp { font-size: 8pt !important; color: #52452f !important; }
+.previewPage .sb-cr-sep { color: #b3a48d !important; margin: 0 2pt !important; }
+
+.previewPage .sb-block-list { display: flex !important; flex-direction: column !important; gap: 4pt !important; }
+.previewPage .sb-block-body { font-size: 9pt !important; color: #2a2318 !important; line-height: 1.5 !important; margin: 0 !important; }
+.previewPage .sb-block-name { font-family: 'Cinzel', Georgia, serif !important; font-style: italic !important; font-weight: 700 !important; color: #1a1008 !important; font-size: 9pt !important; }
+.previewPage .sb-block-attack { font-size: 8pt !important; color: #52452f !important; }
+
+.previewPage .sb-legendary-preamble { font-size: 9pt !important; color: #52452f !important; font-style: italic !important; line-height: 1.45 !important; margin: 0 0 4pt !important; }
+.previewPage .sb-lore-text { font-size: 9pt !important; color: #2a2318 !important; line-height: 1.6 !important; margin: 0 !important; white-space: pre-wrap !important; }
+
+.previewPage .sb-tags { display: none !important; }
+.previewPage .sb-homebrew-badge { font-size: 7pt !important; color: #52452f !important; text-align: right !important; padding: 2pt 10pt !important; font-style: italic !important; }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1.25rem;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.footerHint {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.btnCancel {
+  padding: .42rem .85rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: .84rem;
+  cursor: pointer;
+  transition: all .12s;
+}
+.btnCancel:hover {
+  border-color: var(--ink-400);
+  color: var(--text-secondary);
+}
+
+.btnPrint {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .42rem 1rem;
+  background: var(--gold-600);
+  border: 1px solid var(--gold-500);
+  border-radius: var(--radius-sm);
+  color: var(--ink-950);
+  font-family: var(--font-display);
+  font-size: .82rem;
+  letter-spacing: .04em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btnPrint:hover {
+  background: var(--gold-500);
+  box-shadow: 0 0 10px rgba(196,144,64,.3);
+}
+.btnPrint:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}

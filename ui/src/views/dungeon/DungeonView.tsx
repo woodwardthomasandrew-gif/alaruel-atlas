@@ -81,7 +81,7 @@ function pickFrom<T>(arr: T[], rand: () => number): T {
 
 interface ThemeDef {
   monsters: string[]; traps: string[]; loot: string[];
-  atmosphere: string[]; bossName: string;
+  atmosphere: string[]; bossNames: string[];
 }
 
 const THEMES: Record<DungeonTheme, ThemeDef> = {
@@ -90,42 +90,48 @@ const THEMES: Record<DungeonTheme, ThemeDef> = {
     traps:      ['Pressure-plate spike pit','Bone-dust cloud','Cursed glyph','Collapsing floor'],
     loot:       ["Tarnished silver chalice","Bone-hilted dagger","Funeral urn (gems inside)","Cursed ring","Necromancer's tome"],
     atmosphere: ['The air reeks of decay.','Bones crunch underfoot.','A chill clings to everything.','Shadows move against the light.'],
-    bossName:   'Undying Necromancer',
+    bossNames:  ['Undying Necromancer','Ambersoul Cathedral Sexton (reanimated)','The Last Unity Inquisitor',
+                 'Cahill Deep-Foreman (soul-bound)','Revenant High Priest of the Broken Seal'],
   },
   goblin: {
     monsters:   ['Goblin Scout','Goblin Warrior','Hobgoblin Sergeant','Bugbear Ambusher','Goblin Shaman','Wolf Rider'],
     traps:      ['Tripwire alarm','Net drop','Deadfall log','Greased slope','Pit with sharpened stakes'],
     loot:       ['Crude copper coins','Stolen merchant goods','Gnawed ration packs','Filched jewellery','Scavenged weapons'],
     atmosphere: ['Crude graffiti covers the walls.','The smell of cooking fires and worse.','Laughter echoes from somewhere ahead.','Scraps of food litter the floor.'],
-    bossName:   'Warchief Gragnuk',
+    bossNames:  ['Warchief Gragnuk','Thule Warclan Sub-Commander','Hobgoblin Pit-Boss (ex-Kewold arena)',
+                 'Bugbear Enforcer (ATC deserter)','Half-Giant Raider Captain'],
   },
   arcane: {
     monsters:   ['Arcane Construct','Mage Guardian','Spell Wisp','Rune Golem','Apprentice Shade','Mirror Demon','Animated Armour'],
     traps:      ['Arcane feedback rune','Teleport trap (random room)','Force cage','Mana drain field','Explosive sigil'],
     loot:       ['Spell scroll','Arcane focus shard','Vial of distilled magic','Cracked crystal orb','Annotated spellbook'],
     atmosphere: ['Magical residue coats every surface.','The air hums with latent energy.','Strange lights pulse rhythmically.','Equations drift across the walls in glowing ink.'],
-    bossName:   'The Bound Arcanist',
+    bossNames:  ['The Bound Arcanist','Department of War Lead Researcher (still functional, barely)',
+                 'Society Prime Artificer','Rogue AG-02 Prototype','Leviton Chief Engineer (construct-possessed)'],
   },
   cult: {
     monsters:   ['Cult Initiate','Devoted Fanatic','Summoned Fiend','High Cultist','Ritual Construct','Possessed Acolyte'],
     traps:      ['Blood-letting trigger','False idol (curse)','Summoning circle (random monster)','Pit of offering (acid)'],
     loot:       ['Ritual dagger','Cult manifesto','Unholy symbol','Darkstone idol','Blood-sealed letter'],
     atmosphere: ['Chanting can be heard, faintly.','The walls are stained with old blood.','Strange sigils cover every surface.','The shadows seem to watch.'],
-    bossName:   'The Bound Herald',
+    bossNames:  ['The Bound Herald','House Austel Grand Inquisitor (survivor)','Evening Glory High Consort',
+                 'Duke Bayle Emissary',"The Idol's Chosen Voice",'Moon Rat Prime Intelligence'],
   },
   nature: {
     monsters:   ['Vine Horror','Twig Blight','Dryad Corrupted','Giant Spider','Cave Bear','Root Golem','Swarm of Insects'],
     traps:      ['Thorn snare','Spore cloud','Entangling roots','Pitfall hidden by leaves','Poison dart plant'],
     loot:       ['Rare herbs','Beast pelt','Natural crystal formation','Petrified wood idol','Honey from giant hive'],
     atmosphere: ['Roots have cracked the stone walls.','Bioluminescent fungi light the way.','The sound of dripping water is constant.','Something has been nesting here.'],
-    bossName:   'The Corrupted Ancient',
+    bossNames:  ['The Corrupted Ancient','Root Father Aspect (partial manifestation)','Carnivora Spawnling Alpha',
+                 'Corrupted Immortal Oak Dryad','Cochumat Crystal Overgrowth Elemental','Tenebrous Fen Warden'],
   },
   aberration: {
     monsters:   ['Far Realm Tendril','Mind Flayer Thrall','Gibbering Mouther','Spectral Echo','Crystal Corruption Host','Void Stalker'],
     traps:      ['Psychic feedback node','Reality rift (minor)','Gravity inversion plate','Madness glyph'],
     loot:       ['AmberSoul fragment','Void-touched weapon','Far Realm lens shard','Aberrant ichor (alchemical)','Crystal corruption sample'],
     atmosphere: ['Reality feels thin here.','The geometry of the room is subtly wrong.','Whispering with no discernable source.','Looking directly at corners causes unease.'],
-    bossName:   'The Fractured Mind',
+    bossNames:  ['The Fractured Mind','Society Prime Experiment (beyond control)',"The Idol's Emissary",
+                 'AG-02 (full corruption mode)','Department of War Chief Researcher (absorbed)','Cochumat Apex Crystal Entity'],
   },
 };
 
@@ -214,7 +220,7 @@ function classifyRooms(nodes: RawNode[], rand: () => number): void {
 
 function makeContent(roomId: string, roomClass: string, isBoss: boolean, theme: ThemeDef, rand: () => number): DungeonContent {
   const id = newId();
-  if (isBoss) return { id, roomId, contentType: 'monster', payload: { name: theme.bossName, note: 'Boss encounter. Use full tactics and lair actions.', isBoss: true } };
+  if (isBoss) return { id, roomId, contentType: 'monster', payload: { name: pickFrom(theme.bossNames, rand), note: 'Boss encounter. Use full tactics and lair actions.', isBoss: true } };
   if (roomClass === 'empty')     return { id, roomId, contentType: 'empty',   payload: { note: pickFrom(theme.atmosphere, rand) } };
   if (roomClass === 'treasure')  return { id, roomId, contentType: 'loot',    payload: { item: pickFrom(theme.loot, rand), note: rand() < 0.4 ? 'Guarded by a trap.' : 'Accessible.' } };
   if (roomClass === 'trap')      return { id, roomId, contentType: 'trap',    payload: { trap: pickFrom(theme.traps, rand), dc: 10 + Math.floor(rand() * 8) } };

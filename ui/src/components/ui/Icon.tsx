@@ -5,7 +5,8 @@ type IconName =
   | 'map' | 'users' | 'scroll' | 'calendar' | 'clock'
   | 'network' | 'folder' | 'home' | 'plus' | 'open'
   | 'chevron-right' | 'x' | 'alert' | 'loader' | 'sword'
-  | 'image' | 'pin' | 'link' | 'trash' | 'eye' | 'upload';
+  | 'image' | 'pin' | 'link' | 'trash' | 'eye' | 'upload'
+  | 'skull' | 'edit' | 'check' | 'chevron-down';
 
 const PATHS: Record<IconName, string> = {
   'map':           'M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zm6 3v10M9 4v10',
@@ -29,6 +30,10 @@ const PATHS: Record<IconName, string> = {
   'trash':         'M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6',
   'eye':           'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   'upload':        'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  'skull':         'M12 2a9 9 0 0 0-9 9c0 3.18 1.66 5.97 4.15 7.59L7 20h2v2h2v-2h2v2h2v-2h2l-.15-1.41A9 9 0 0 0 12 2zM9 13a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z',
+  'edit':          'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+  'check':         'M20 6L9 17l-5-5',
+  'chevron-down':  'M6 9l6 6 6-6',
 };
 
 interface IconProps {

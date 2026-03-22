@@ -111,6 +111,18 @@ export type {
   GraphQuery,
 } from './relationships';
 
+// ── Bestiary / Monsters ───────────────────────────────────────────────────────
+export type {
+  Monster,
+  CreatureType,
+  CreatureSize,
+  Alignment,
+  AbilityScores,
+  MonsterAction,
+  MonsterLegendaryAction,
+  MonsterReaction,
+} from './monster';
+
 // ── Plugin system ─────────────────────────────────────────────────────────────
 export type {
   PluginManifest,
