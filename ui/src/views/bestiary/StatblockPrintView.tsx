@@ -10,6 +10,7 @@
 // Class naming convention: sb-{block-name} matching statblock-print.css
 
 import type { MonsterFull } from './MonsterDetail';
+import { formatAbilityMod, ABILITY_KEYS } from './monsterCalc';
 
 // ── Helpers (duplicated from StatblockRenderer to keep components isolated) ──
 
@@ -23,11 +24,6 @@ interface ActionRow {
 
 interface LegendaryRow extends ActionRow {
   cost: number;
-}
-
-function abilityMod(score: number): string {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
 }
 
 function parseJson<T>(raw: string | null | undefined, fallback: T): T {
@@ -58,7 +54,6 @@ function fmtSkills(raw: string): string {
 
 function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
 // ── Sub-renders ───────────────────────────────────────────────────────────────
 
@@ -191,7 +186,7 @@ export function StatblockPrintView({ monster, hideGmNotes = false }: Props) {
               <div key={k} className="sb-ability-cell">
                 <span className="sb-ability-label">{k.toUpperCase()}</span>
                 <span className="sb-ability-score">{score}</span>
-                <span className="sb-ability-mod">{abilityMod(score)}</span>
+                <span className="sb-ability-mod">{formatAbilityMod(score)}</span>
               </div>
             );
           })}

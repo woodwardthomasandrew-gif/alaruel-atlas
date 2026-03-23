@@ -1,16 +1,51 @@
 // ui/src/views/bestiary/MonsterDetail.tsx
 // Full statblock view + inline editor for a selected monster.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Icon }                  from '../../components/ui/Icon';
 import { atlas }                 from '../../bridge/atlas';
 import { StatblockRenderer }     from './StatblockRenderer';
 import { StatblockPrintModal }   from './StatblockPrintModal';
-import styles                    from './MonsterDetail.module.css';
+import {
+  ABILITY_KEYS,
+  ABILITY_LABELS,
+  ABILITY_FULL_NAMES,
+  SPELLCASTING_ABILITIES,
+  formatAbilityMod,
+  formatMod,
+  abilityModifier,
+  proficiencyFromCR,
+  xpFromCR,
+  calcAttackBonus,
+  calcSpellSaveDC,
+  calcSpellAttackBonus,
+  computeSavingThrows,
+  inferSaveConfigs,
+  hitDieForSize,
+  calcAverageHp,
+  buildHitDiceString,
+  groupPresets,
+  fillPresetDescription,
+  type AbilityKey,
+  type SaveThrowConfigs,
+  type ActionPreset,
+} from './monsterCalc';
+import styles from './MonsterDetail.module.css';
 
 // ── Local types (raw DB row shape) ────────────────────────────────────────────
 
-interface ActionRow { name: string; description: string; attackBonus?: number; damage?: string; recharge?: string; }
+interface ActionRow {
+  name:         string;
+  description:  string;
+  // Existing field — treated as manual override when set
+  attackBonus?: number;
+  damage?:      string;
+  recharge?:    string;
+  // New calc fields (optional — existing stored JSON remains valid)
+  abilityKey?:          AbilityKey;
+  proficient?:          boolean;
+  damageBonusOverride?: number;
+}
 interface LegendaryRow extends ActionRow { cost: number; }
 
 export interface MonsterFull {
@@ -58,11 +93,6 @@ export interface MonsterFull {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function mod(score: number): string {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
-}
-
 function parseJson<T>(raw: string, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
@@ -84,87 +114,289 @@ const CR_OPTIONS = [
   '11','12','13','14','15','16','17','18','19','20',
   '21','22','23','24','25','26','27','28','29','30',
 ];
-const ABILITY_KEYS = ['str','dex','con','int','wis','cha'] as const;
 
-// ── Action list editor ────────────────────────────────────────────────────────
+// ── Calc-aware Action Editor ───────────────────────────────────────────────────
 
 interface ActionEditorProps {
-  label:    string;
-  actions:  ActionRow[];
-  onChange: (actions: ActionRow[]) => void;
-  legendary?: boolean;
+  label:       string;
+  actions:     ActionRow[];
+  onChange:    (actions: ActionRow[]) => void;
+  legendary?:  boolean;
+  profBonus:   number;
+  abilityScores: Record<AbilityKey, number>;
 }
 
-function ActionEditor({ label, actions, onChange, legendary }: ActionEditorProps) {
-  function update(i: number, field: keyof ActionRow, value: string | number) {
-    const next = actions.map((a, idx) => idx === i ? { ...a, [field]: value } : a);
-    onChange(next);
+function ActionEditor({ label, actions, onChange, legendary, profBonus, abilityScores }: ActionEditorProps) {
+  function update(i: number, field: string, value: unknown) {
+    onChange(actions.map((a, idx) => idx === i ? { ...a, [field]: value } : a));
   }
   function add() {
-    onChange([...actions, { name: '', description: '', ...(legendary ? { cost: 1 } : {}) }]);
+    onChange([...actions, {
+      name: '', description: '',
+      abilityKey: 'str', proficient: true,
+      ...(legendary ? { cost: 1 } : {}),
+    }]);
   }
-  function remove(i: number) {
-    onChange(actions.filter((_, idx) => idx !== i));
-  }
+  function remove(i: number) { onChange(actions.filter((_, idx) => idx !== i)); }
 
   return (
     <div>
       <div className={styles.formSectionTitle}>{label}</div>
       <div className={styles.actionList}>
-        {actions.map((a, i) => (
-          <div key={i} className={styles.actionItem}>
-            <div className={styles.actionItemHeader}>
-              <input
-                className={styles.actionItemTitle}
-                placeholder="Name"
-                value={a.name}
-                onChange={e => update(i, 'name', e.target.value)}
-              />
-              <button className={styles.removeBtn} onClick={() => remove(i)} title="Remove">
-                <Icon name="x" size={14} />
-              </button>
-            </div>
-            <textarea
-              className={styles.actionItemDesc}
-              placeholder="Description / effect"
-              value={a.description}
-              onChange={e => update(i, 'description', e.target.value)}
-            />
-            <div className={styles.actionSubRow}>
-              <input
-                className={styles.actionSubInput}
-                placeholder="Attack bonus, e.g. +5 to hit"
-                value={(a as ActionRow).attackBonus != null ? String((a as ActionRow).attackBonus) : ''}
-                onChange={e => update(i, 'attackBonus', e.target.value === '' ? '' : Number(e.target.value))}
-              />
-              <input
-                className={styles.actionSubInput}
-                placeholder="Damage, e.g. 2d6+3 slashing"
-                value={a.damage ?? ''}
-                onChange={e => update(i, 'damage', e.target.value)}
-              />
-              <input
-                className={styles.actionSubInput}
-                placeholder="Recharge, e.g. 5–6"
-                value={a.recharge ?? ''}
-                onChange={e => update(i, 'recharge', e.target.value)}
-              />
-              {legendary && (
+        {actions.map((a, i) => {
+          const abilityKey = a.abilityKey ?? 'str';
+          const isProficient = a.proficient ?? true;
+          const score = abilityScores[abilityKey] ?? 10;
+          // Computed attack bonus; existing attackBonus field acts as override
+          const computedAtk = calcAttackBonus(score, isProficient, profBonus);
+          const hasAtkOverride = a.attackBonus !== undefined && a.attackBonus !== null && a.attackBonus !== ('' as unknown);
+          const displayAtk = hasAtkOverride ? a.attackBonus! : computedAtk;
+          // Computed damage bonus
+          const computedDmgBonus = abilityModifier(score);
+          const hasDmgOverride = a.damageBonusOverride !== undefined;
+          const displayDmgBonus = hasDmgOverride ? a.damageBonusOverride! : computedDmgBonus;
+
+          return (
+            <div key={i} className={styles.actionItem}>
+              {/* Name + remove */}
+              <div className={styles.actionItemHeader}>
                 <input
-                  className={styles.actionSubInput}
-                  placeholder="Cost"
-                  type="number" min={1} max={3}
-                  value={(a as LegendaryRow).cost ?? 1}
-                  onChange={e => update(i, 'cost' as keyof ActionRow, Number(e.target.value))}
-                  style={{ maxWidth: 60 }}
+                  className={styles.actionItemTitle}
+                  placeholder="Name"
+                  value={a.name}
+                  onChange={e => update(i, 'name', e.target.value)}
                 />
-              )}
+                <button className={styles.removeBtn} onClick={() => remove(i)} title="Remove">
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+
+              {/* Description */}
+              <textarea
+                className={styles.actionItemDesc}
+                placeholder="Description / effect"
+                value={a.description}
+                onChange={e => update(i, 'description', e.target.value)}
+              />
+
+              {/* Attack calc row */}
+              <div className={styles.calcRow}>
+                {/* Ability used */}
+                <div className={styles.calcCell}>
+                  <span className={styles.calcLabel}>Ability</span>
+                  <select
+                    className={styles.calcSelect}
+                    value={abilityKey}
+                    onChange={e => {
+                      update(i, 'abilityKey', e.target.value as AbilityKey);
+                      // Clear override when ability changes so calc re-runs
+                      update(i, 'attackBonus', undefined);
+                      update(i, 'damageBonusOverride', undefined);
+                    }}
+                  >
+                    {ABILITY_KEYS.map(k => (
+                      <option key={k} value={k}>{ABILITY_LABELS[k]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Proficient checkbox */}
+                <div className={styles.calcCell}>
+                  <span className={styles.calcLabel}>Prof.</span>
+                  <label className={styles.calcCheck}>
+                    <input
+                      type="checkbox"
+                      checked={isProficient}
+                      onChange={e => {
+                        update(i, 'proficient', e.target.checked);
+                        update(i, 'attackBonus', undefined); // clear override on toggle
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Attack bonus — shows computed value, override on edit */}
+                <div className={styles.calcCell}>
+                  <span className={styles.calcLabel}>
+                    Atk Bonus {!hasAtkOverride && <span className={styles.calcAuto}>auto</span>}
+                  </span>
+                  <div className={styles.calcInputWrap}>
+                    <input
+                      className={`${styles.calcInput} ${!hasAtkOverride ? styles.calcInputAuto : ''}`}
+                      type="number"
+                      value={String(displayAtk)}
+                      onChange={e => {
+                        const v = e.target.value;
+                        update(i, 'attackBonus', v === '' ? undefined : Number(v));
+                      }}
+                      placeholder={String(computedAtk)}
+                    />
+                    {hasAtkOverride && (
+                      <button
+                        className={styles.calcResetBtn}
+                        title="Reset to calculated value"
+                        onClick={() => update(i, 'attackBonus', undefined)}
+                      >↺</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Damage bonus */}
+                <div className={styles.calcCell}>
+                  <span className={styles.calcLabel}>
+                    Dmg Bonus {!hasDmgOverride && <span className={styles.calcAuto}>auto</span>}
+                  </span>
+                  <div className={styles.calcInputWrap}>
+                    <input
+                      className={`${styles.calcInput} ${!hasDmgOverride ? styles.calcInputAuto : ''}`}
+                      type="number"
+                      value={String(displayDmgBonus)}
+                      onChange={e => {
+                        const v = e.target.value;
+                        update(i, 'damageBonusOverride', v === '' ? undefined : Number(v));
+                      }}
+                      placeholder={String(computedDmgBonus)}
+                    />
+                    {hasDmgOverride && (
+                      <button
+                        className={styles.calcResetBtn}
+                        title="Reset to calculated value"
+                        onClick={() => update(i, 'damageBonusOverride', undefined)}
+                      >↺</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Damage dice + recharge */}
+                <div className={styles.calcCell} style={{ flex: 2 }}>
+                  <span className={styles.calcLabel}>Damage</span>
+                  <input
+                    className={styles.calcInput}
+                    placeholder={`e.g. 2d6${formatMod(displayDmgBonus)}`}
+                    value={a.damage ?? ''}
+                    onChange={e => update(i, 'damage', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.calcCell}>
+                  <span className={styles.calcLabel}>Recharge</span>
+                  <input
+                    className={styles.calcInput}
+                    placeholder="5–6"
+                    value={a.recharge ?? ''}
+                    onChange={e => update(i, 'recharge', e.target.value)}
+                  />
+                </div>
+
+                {legendary && (
+                  <div className={styles.calcCell} style={{ maxWidth: 52 }}>
+                    <span className={styles.calcLabel}>Cost</span>
+                    <input
+                      className={styles.calcInput}
+                      type="number" min={1} max={3}
+                      value={(a as LegendaryRow).cost ?? 1}
+                      onChange={e => update(i, 'cost', Number(e.target.value))}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        <button className={styles.addBtn} onClick={add}>
-          <Icon name="plus" size={13} /> Add {label.replace(/s$/, '')}
+          );
+        })}
+        {/* Preset picker + blank add */}
+        <ActionPresetPicker
+          profBonus={profBonus}
+          abilityScores={abilityScores}
+          legendary={legendary}
+          onSelect={preset => {
+            const abilityKey = preset.abilityKey;
+            const score      = abilityScores[abilityKey] ?? 10;
+            const atkBonus   = calcAttackBonus(score, preset.proficient, profBonus);
+            const dmgBonus   = abilityModifier(score);
+            const dmgDice    = preset.damageDice ?? '';
+            const spellDc    = calcSpellSaveDC(score, profBonus);
+            const description = fillPresetDescription(
+              preset.description, atkBonus, dmgBonus, dmgDice, spellDc
+            );
+            onChange([...actions, {
+              name:        preset.name,
+              description,
+              abilityKey:  preset.abilityKey,
+              proficient:  preset.proficient,
+              damage:      preset.damageDice ?? '',
+              recharge:    preset.recharge,
+              ...(legendary ? { cost: 1 } : {}),
+            }]);
+          }}
+          onBlank={add}
+          label={label}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Preset picker ──────────────────────────────────────────────────────────────
+
+interface PresetPickerProps {
+  profBonus:     number;
+  abilityScores: Record<AbilityKey, number>;
+  legendary?:    boolean;
+  onSelect:      (preset: ActionPreset) => void;
+  onBlank:       () => void;
+  label:         string;
+}
+
+function ActionPresetPicker({ onSelect, onBlank, label }: PresetPickerProps) {
+  const [open, setOpen] = useState(false);
+  const groups  = groupPresets();
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside the dropdown
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div className={styles.presetPickerWrap}>
+      <button className={styles.addBtn} style={{ flex: 1 }} onClick={onBlank}>
+        <Icon name="plus" size={13} /> Blank {label.replace(/s$/, '')}
+      </button>
+      <div className={styles.presetDropWrap} ref={wrapRef}>
+        <button
+          className={styles.presetBtn}
+          onClick={() => setOpen(v => !v)}
+          title="Add from preset"
+        >
+          <Icon name="chevron-down" size={13} /> Preset
         </button>
+        {open && (
+          <div className={styles.presetMenu}>
+            {Array.from(groups.entries()).map(([cat, presets]) => (
+              <div key={cat}>
+                <div className={styles.presetCat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </div>
+                {presets.map((p, i) => (
+                  <button
+                    key={i}
+                    className={styles.presetItem}
+                    onClick={() => { onSelect(p); setOpen(false); }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -213,12 +445,12 @@ interface Props {
 }
 
 export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
-  const [monster,  setMonster]  = useState<MonsterFull | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [editing,  setEditing]  = useState(false);
-  const [saving,   setSaving]   = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [monster,   setMonster]   = useState<MonsterFull | null>(null);
+  const [loading,   setLoading]   = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [deleting,  setDeleting]  = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
 
   // ── Edit form state ─────────────────────────────────────────────────────────
@@ -234,7 +466,26 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     legendaryActions_arr: [], bonusActions_arr: [], tags_arr: [],
   });
 
-  // ── Load monster when selection changes ────────────────────────────────────
+  // ── Automation state ────────────────────────────────────────────────────────
+
+  // Whether CR change should auto-update PB and XP
+  const [autoPb,  setAutoPb]  = useState(true);
+  const [autoXp,  setAutoXp]  = useState(true);
+
+  // HP automation
+  const [autoHp,       setAutoHp]       = useState(false);
+  const [hpDiceCount,  setHpDiceCount]  = useState(1);
+  const [hpDieSidesOverride, setHpDieSidesOverride] = useState<number | null>(null);
+
+  // Saving throw proficiency configuration (per-ability)
+  const [saveConfigs, setSaveConfigs] = useState<SaveThrowConfigs>({});
+
+  // Spellcasting
+  const [spellcastingAbility,   setSpellcastingAbility]   = useState<AbilityKey>('int');
+  const [spellSaveDcOverride,   setSpellSaveDcOverride]   = useState<number | undefined>(undefined);
+  const [spellAtkBonusOverride, setSpellAtkBonusOverride] = useState<number | undefined>(undefined);
+
+  // ── Load monster when selection changes ──────────────────────────────────────
   useEffect(() => {
     if (!monsterId) { setMonster(null); return; }
     setLoading(true);
@@ -260,6 +511,23 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
       bonusActions_arr:     parseJson<ActionRow[]>(m.bonus_actions, []),
       tags_arr:             parseJson<string[]>(m.tags, []),
     });
+    // Reconstruct saving throw configs from stored values
+    const storedThrows = parseJson<Partial<Record<AbilityKey, number>>>(m.saving_throws, {});
+    const abilityScores = { str: m.str, dex: m.dex, con: m.con, int: m.int, wis: m.wis, cha: m.cha };
+    setSaveConfigs(inferSaveConfigs(storedThrows, abilityScores, m.proficiency_bonus));
+    // Reset automation and spellcasting state
+    setAutoPb(true);
+    setAutoXp(true);
+    setAutoHp(false);
+    // Parse dice count from stored hit_dice string if present
+    if (m.hit_dice) {
+      const match = m.hit_dice.match(/^(\d+)d/);
+      if (match) setHpDiceCount(parseInt(match[1], 10));
+    }
+    setHpDieSidesOverride(null);
+    setSpellcastingAbility('int');
+    setSpellSaveDcOverride(undefined);
+    setSpellAtkBonusOverride(undefined);
     setEditing(false);
     setError(null);
   }
@@ -268,12 +536,47 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  // ── Save ────────────────────────────────────────────────────────────────────
+  // When CR changes, auto-update PB and XP if automation is on
+  function handleCrChange(cr: string) {
+    setField('challenge_rating', cr);
+    if (autoPb) setField('proficiency_bonus', proficiencyFromCR(cr));
+    if (autoXp) setField('xp_value', xpFromCR(cr));
+  }
+
+  // Current ability scores from form (used for calc previews)
+  const abilityScores: Record<AbilityKey, number> = {
+    str: Number(form.str ?? monster?.str ?? 10),
+    dex: Number(form.dex ?? monster?.dex ?? 10),
+    con: Number(form.con ?? monster?.con ?? 10),
+    int: Number(form.int ?? monster?.int ?? 10),
+    wis: Number(form.wis ?? monster?.wis ?? 10),
+    cha: Number(form.cha ?? monster?.cha ?? 10),
+  };
+  const profBonus = Number(form.proficiency_bonus ?? monster?.proficiency_bonus ?? 2);
+
+  // ── HP auto-sync: keep form HP in sync with dice builder ──────────────────
+  // This effect runs after every render where the HP automation inputs change.
+  // Placed here so abilityScores and all useState hooks are fully initialised.
+  useEffect(() => {
+    if (!autoHp) return;
+    const currentSize = (form.size ?? monster?.size ?? 'medium') as string;
+    const dieSides    = hpDieSidesOverride ?? hitDieForSize(currentSize);
+    const conScore    = abilityScores.con;
+    const avgHp       = calcAverageHp(hpDiceCount, dieSides, conScore);
+    const hitDiceStr  = buildHitDiceString(hpDiceCount, dieSides, conScore);
+    setForm(prev => ({ ...prev, hit_points: avgHp, hit_dice: hitDiceStr }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoHp, hpDiceCount, hpDieSidesOverride, form.size,
+      abilityScores.con, monster?.size]);
+
+  // ── Save ─────────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!monster || !form.name?.trim()) { setError('Name is required.'); return; }
     setSaving(true);
     setError(null);
     try {
+      // Compute final saving throws from proficiency configs
+      const computedSaves = computeSavingThrows(abilityScores, saveConfigs, profBonus);
       const now = new Date().toISOString();
       await atlas.db.run(
         `UPDATE monsters SET
@@ -303,10 +606,11 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           Number(form.str ?? monster.str), Number(form.dex ?? monster.dex),
           Number(form.con ?? monster.con), Number(form.int ?? monster.int),
           Number(form.wis ?? monster.wis), Number(form.cha ?? monster.cha),
-          Number(form.proficiency_bonus ?? monster.proficiency_bonus),
+          profBonus,
           form.challenge_rating ?? monster.challenge_rating,
           Number(form.xp_value ?? monster.xp_value),
-          monster.saving_throws, monster.skills,
+          JSON.stringify(computedSaves),
+          monster.skills,
           monster.damage_vulnerabilities, monster.damage_resistances,
           monster.damage_immunities, monster.condition_immunities,
           form.senses    ?? null,
@@ -325,7 +629,6 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           monster.campaign_id,
         ],
       );
-      // Reload
       const rows = await atlas.db.query<MonsterFull>('SELECT * FROM monsters WHERE id = ?', [monster.id]);
       const updated = rows[0];
       if (updated) { setMonster(updated); populateForm(updated); }
@@ -337,7 +640,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     }
   }
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
+  // ── Delete ───────────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (!monster) return;
     if (!window.confirm(`Delete "${monster.name}"? This cannot be undone.`)) return;
@@ -352,7 +655,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     }
   }
 
-  // ── Empty / loading states ──────────────────────────────────────────────────
+  // ── Empty / loading states ───────────────────────────────────────────────────
   if (!monsterId) {
     return (
       <div className={styles.panel}>
@@ -422,7 +725,6 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className={styles.errorBar}>
           <Icon name="alert" size={14} /> {error}
@@ -443,7 +745,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STATBLOCK VIEW — delegated to StatblockRenderer (pure-render component)
+  // STATBLOCK VIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
   function renderStatblock() {
@@ -455,10 +757,15 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   function renderEditForm() {
+    // Computed spell values (live preview)
+    const spellScore  = abilityScores[spellcastingAbility];
+    const spellDc     = calcSpellSaveDC(spellScore, profBonus, spellSaveDcOverride);
+    const spellAtk    = calcSpellAttackBonus(spellScore, profBonus, spellAtkBonusOverride);
+
     return (
       <div className={styles.editForm}>
 
-        {/* Identity */}
+        {/* ── Identity ─────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Identity</div>
           <div className={styles.formRow}>
@@ -493,7 +800,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           </div>
         </div>
 
-        {/* Core Statistics */}
+        {/* ── Core Statistics ──────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Core Statistics</div>
           <div className={styles.formRow}>
@@ -505,43 +812,144 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
               <label className={styles.label}>Armour Type</label>
               <input className={styles.input} placeholder="e.g. natural armour" value={form.armor_type ?? ''} onChange={e => setField('armor_type', e.target.value || null)} />
             </div>
+            {/* Hit Points — manual or auto-calculated from dice */}
             <div className={styles.formGroup}>
-              <label className={styles.label}>Hit Points</label>
-              <input className={styles.input} type="number" min={1} value={form.hit_points ?? 1} onChange={e => setField('hit_points', parseInt(e.target.value, 10))} />
+              <label className={styles.label}>
+                Hit Points
+                <AutoToggle auto={autoHp} onToggle={() => setAutoHp(v => !v)} />
+              </label>
+              <input
+                className={`${styles.input} ${autoHp ? styles.inputAuto : ''}`}
+                type="number" min={1}
+                value={form.hit_points ?? 1}
+                readOnly={autoHp}
+                onChange={e => !autoHp && setField('hit_points', parseInt(e.target.value, 10))}
+              />
             </div>
             <div className={styles.formGroup}>
               <label className={styles.label}>Hit Dice</label>
-              <input className={styles.input} placeholder="e.g. 8d8+16" value={form.hit_dice ?? ''} onChange={e => setField('hit_dice', e.target.value || null)} />
+              <input
+                className={`${styles.input} ${autoHp ? styles.inputAuto : ''}`}
+                placeholder="e.g. 8d8+16"
+                value={form.hit_dice ?? ''}
+                readOnly={autoHp}
+                onChange={e => !autoHp && setField('hit_dice', e.target.value || null)}
+              />
             </div>
           </div>
+
+          {/* ── HP Dice Builder (visible when autoHp is ON) ───────────── */}
+          {autoHp && (() => {
+            const currentSize    = (form.size ?? monster?.size ?? 'medium') as string;
+            const dieSides       = hpDieSidesOverride ?? hitDieForSize(currentSize);
+            const conScore       = abilityScores.con;
+            const avgHp          = calcAverageHp(hpDiceCount, dieSides, conScore);
+            const hitDiceStr     = buildHitDiceString(hpDiceCount, dieSides, conScore);
+            return (
+              <div className={styles.hpBuilder}>
+                <span className={styles.hpBuilderLabel}>Dice Builder</span>
+                <div className={styles.hpBuilderRow}>
+                  {/* Dice count */}
+                  <div className={styles.hpBuilderCell}>
+                    <span className={styles.calcLabel}>Count</span>
+                    <input
+                      className={styles.calcInput}
+                      type="number" min={1} max={99}
+                      value={hpDiceCount}
+                      onChange={e => setHpDiceCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    />
+                  </div>
+                  {/* Die sides — auto from size, overridable */}
+                  <div className={styles.hpBuilderCell}>
+                    <span className={styles.calcLabel}>
+                      Die
+                      {hpDieSidesOverride === null && <span className={styles.calcAuto}>auto</span>}
+                    </span>
+                    <select
+                      className={styles.calcSelect}
+                      value={dieSides}
+                      onChange={e => setHpDieSidesOverride(Number(e.target.value))}
+                    >
+                      {[4,6,8,10,12,20].map(d => (
+                        <option key={d} value={d}>
+                          d{d}{d === hitDieForSize(currentSize) ? ' (size)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {hpDieSidesOverride !== null && (
+                      <button className={styles.calcResetBtn} onClick={() => setHpDieSidesOverride(null)}>↺</button>
+                    )}
+                  </div>
+                  {/* CON read-only display */}
+                  <div className={styles.hpBuilderCell}>
+                    <span className={styles.calcLabel}>CON</span>
+                    <span className={styles.hpBuilderStatic}>{abilityScores.con} ({formatAbilityMod(abilityScores.con)})</span>
+                  </div>
+                  {/* Result preview */}
+                  <div className={styles.hpBuilderResult}>
+                    <span className={styles.hpBuilderEq}>{hitDiceStr}</span>
+                    <span className={styles.hpBuilderAvg}>= {avgHp} avg HP</span>
+                    <span className={styles.hpBuilderBreak}>
+                      {hpDiceCount}×{(dieSides+1)/2} + {hpDiceCount}×{formatAbilityMod(conScore)} (CON)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className={styles.formRow} style={{ marginTop: '.75rem' }}>
             <div className={styles.formGroup}>
               <label className={styles.label}>Speed (ft.)</label>
               <input className={styles.input} type="number" min={0} value={form.speed ?? 30} onChange={e => setField('speed', parseInt(e.target.value, 10))} />
             </div>
+
+            {/* CR — drives auto-PB and auto-XP */}
             <div className={styles.formGroup}>
               <label className={styles.label}>Challenge Rating</label>
-              <select className={styles.select} value={form.challenge_rating ?? '1'} onChange={e => setField('challenge_rating', e.target.value)}>
+              <select className={styles.select} value={form.challenge_rating ?? '1'} onChange={e => handleCrChange(e.target.value)}>
                 {CR_OPTIONS.map(cr => <option key={cr} value={cr}>{cr}</option>)}
               </select>
             </div>
+
+            {/* XP — auto-calculated from CR, overridable */}
             <div className={styles.formGroup}>
-              <label className={styles.label}>XP Value</label>
-              <input className={styles.input} type="number" min={0} value={form.xp_value ?? 0} onChange={e => setField('xp_value', parseInt(e.target.value, 10))} />
+              <label className={styles.label}>
+                XP Value
+                <AutoToggle auto={autoXp} onToggle={() => setAutoXp(v => !v)} />
+              </label>
+              <input
+                className={`${styles.input} ${autoXp ? styles.inputAuto : ''}`}
+                type="number" min={0}
+                value={form.xp_value ?? 0}
+                readOnly={autoXp}
+                onChange={e => !autoXp && setField('xp_value', parseInt(e.target.value, 10))}
+              />
             </div>
+
+            {/* Proficiency Bonus — auto-calculated from CR, overridable */}
             <div className={styles.formGroup}>
-              <label className={styles.label}>Proficiency Bonus</label>
-              <input className={styles.input} type="number" min={2} max={9} value={form.proficiency_bonus ?? 2} onChange={e => setField('proficiency_bonus', parseInt(e.target.value, 10))} />
+              <label className={styles.label}>
+                Proficiency Bonus
+                <AutoToggle auto={autoPb} onToggle={() => setAutoPb(v => !v)} />
+              </label>
+              <input
+                className={`${styles.input} ${autoPb ? styles.inputAuto : ''}`}
+                type="number" min={2} max={9}
+                value={profBonus}
+                readOnly={autoPb}
+                onChange={e => !autoPb && setField('proficiency_bonus', parseInt(e.target.value, 10))}
+              />
             </div>
           </div>
         </div>
 
-        {/* Ability Scores */}
+        {/* ── Ability Scores ───────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Ability Scores</div>
           <div className={styles.abilityInputGrid}>
             {ABILITY_KEYS.map(k => {
-              const val = (form as Record<string, unknown>)[k] as number ?? 10;
+              const val = abilityScores[k];
               return (
                 <div key={k} className={styles.abilityInputCell}>
                   <span className={styles.abilityInputLabel}>{k.toUpperCase()}</span>
@@ -551,14 +959,153 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
                     value={val}
                     onChange={e => setField(k, parseInt(e.target.value, 10))}
                   />
-                  <span className={styles.abilityMod}>{mod(val)}</span>
+                  <span className={styles.abilityMod}>{formatAbilityMod(val)}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Senses & Languages */}
+        {/* ── Saving Throws ────────────────────────────────────────────── */}
+        <div className={styles.formSection}>
+          <div className={styles.formSectionTitle}>Saving Throws</div>
+          <p className={styles.calcHint}>Check the box to add proficiency. Override the value to enter a manual total.</p>
+          <div className={styles.saveGrid}>
+            {ABILITY_KEYS.map(k => {
+              const cfg = saveConfigs[k] ?? { proficient: false };
+              const score = abilityScores[k];
+              const modOnly  = abilityModifier(score);
+              const withProf = modOnly + profBonus;
+              const computed = cfg.proficient ? withProf : modOnly;
+              const hasOverride = cfg.override !== undefined;
+              const displayed = hasOverride ? cfg.override! : computed;
+
+              return (
+                <div key={k} className={styles.saveRow}>
+                  {/* Proficiency checkbox */}
+                  <label className={styles.saveCheck}>
+                    <input
+                      type="checkbox"
+                      checked={cfg.proficient}
+                      onChange={e => {
+                        setSaveConfigs(prev => ({
+                          ...prev,
+                          [k]: { proficient: e.target.checked, override: undefined },
+                        }));
+                      }}
+                    />
+                  </label>
+
+                  {/* Ability label */}
+                  <span className={styles.saveLabel}>{ABILITY_LABELS[k]}</span>
+
+                  {/* Value — greyed when auto, editable for override */}
+                  <div className={styles.calcInputWrap}>
+                    <input
+                      className={`${styles.saveInput} ${!hasOverride ? styles.calcInputAuto : ''}`}
+                      type="number"
+                      value={String(displayed)}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setSaveConfigs(prev => ({
+                          ...prev,
+                          [k]: { ...cfg, override: v === '' ? undefined : Number(v) },
+                        }));
+                      }}
+                    />
+                    {hasOverride && (
+                      <button
+                        className={styles.calcResetBtn}
+                        title="Reset to calculated value"
+                        onClick={() => setSaveConfigs(prev => ({ ...prev, [k]: { ...cfg, override: undefined } }))}
+                      >↺</button>
+                    )}
+                  </div>
+
+                  {/* Computed hint */}
+                  <span className={styles.saveHint}>
+                    {formatMod(modOnly)}
+                    {cfg.proficient ? ` +${profBonus}pb = ${formatMod(withProf)}` : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Spellcasting ─────────────────────────────────────────────── */}
+        <div className={styles.formSection}>
+          <div className={styles.formSectionTitle}>Spellcasting (optional)</div>
+          <p className={styles.calcHint}>Calculated from spellcasting ability + proficiency. Override to set a manual value.</p>
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Spellcasting Ability</label>
+              <select
+                className={styles.select}
+                value={spellcastingAbility}
+                onChange={e => {
+                  setSpellcastingAbility(e.target.value as AbilityKey);
+                  setSpellSaveDcOverride(undefined);
+                  setSpellAtkBonusOverride(undefined);
+                }}
+              >
+                {SPELLCASTING_ABILITIES.map(k => (
+                  <option key={k} value={k}>{ABILITY_FULL_NAMES[k]}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Spell Save DC */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>
+                Spell Save DC
+                {spellSaveDcOverride === undefined && <span className={styles.calcAutoInline}>auto {spellDc}</span>}
+              </label>
+              <div className={styles.calcInputWrap}>
+                <input
+                  className={`${styles.input} ${spellSaveDcOverride === undefined ? styles.inputAuto : ''}`}
+                  type="number"
+                  value={spellSaveDcOverride !== undefined ? spellSaveDcOverride : spellDc}
+                  readOnly={spellSaveDcOverride === undefined}
+                  onChange={e => setSpellSaveDcOverride(Number(e.target.value))}
+                  onClick={() => { if (spellSaveDcOverride === undefined) setSpellSaveDcOverride(spellDc); }}
+                />
+                {spellSaveDcOverride !== undefined && (
+                  <button className={styles.calcResetBtn} onClick={() => setSpellSaveDcOverride(undefined)}>↺</button>
+                )}
+              </div>
+            </div>
+
+            {/* Spell Attack Bonus */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>
+                Spell Attack Bonus
+                {spellAtkBonusOverride === undefined && <span className={styles.calcAutoInline}>auto {formatMod(spellAtk)}</span>}
+              </label>
+              <div className={styles.calcInputWrap}>
+                <input
+                  className={`${styles.input} ${spellAtkBonusOverride === undefined ? styles.inputAuto : ''}`}
+                  type="number"
+                  value={spellAtkBonusOverride !== undefined ? spellAtkBonusOverride : spellAtk}
+                  readOnly={spellAtkBonusOverride === undefined}
+                  onChange={e => setSpellAtkBonusOverride(Number(e.target.value))}
+                  onClick={() => { if (spellAtkBonusOverride === undefined) setSpellAtkBonusOverride(spellAtk); }}
+                />
+                {spellAtkBonusOverride !== undefined && (
+                  <button className={styles.calcResetBtn} onClick={() => setSpellAtkBonusOverride(undefined)}>↺</button>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Calculation breakdown */}
+          <p className={styles.calcBreakdown}>
+            DC: 8 + {profBonus} (prof) + {formatAbilityMod(abilityScores[spellcastingAbility])} ({ABILITY_LABELS[spellcastingAbility]}) = {spellDc}
+            &nbsp;·&nbsp;
+            Atk: {formatMod(spellAtk)} ({formatMod(abilityModifier(abilityScores[spellcastingAbility]))} + {profBonus} prof)
+          </p>
+        </div>
+
+        {/* ── Senses & Languages ───────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Senses & Languages</div>
           <div className={styles.formRow}>
@@ -573,27 +1120,27 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           </div>
         </div>
 
-        {/* Traits */}
+        {/* ── Traits ───────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
-          <ActionEditor label="Traits" actions={form.traits_arr ?? []} onChange={v => setField('traits_arr', v)} />
+          <ActionEditor label="Traits" actions={form.traits_arr ?? []} onChange={v => setField('traits_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />
         </div>
 
-        {/* Actions */}
+        {/* ── Actions ──────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
-          <ActionEditor label="Actions" actions={form.actions_arr ?? []} onChange={v => setField('actions_arr', v)} />
+          <ActionEditor label="Actions" actions={form.actions_arr ?? []} onChange={v => setField('actions_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />
         </div>
 
-        {/* Bonus Actions */}
+        {/* ── Bonus Actions ─────────────────────────────────────────────── */}
         <div className={styles.formSection}>
-          <ActionEditor label="Bonus Actions" actions={form.bonusActions_arr ?? []} onChange={v => setField('bonusActions_arr', v)} />
+          <ActionEditor label="Bonus Actions" actions={form.bonusActions_arr ?? []} onChange={v => setField('bonusActions_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />
         </div>
 
-        {/* Reactions */}
+        {/* ── Reactions ─────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
-          <ActionEditor label="Reactions" actions={form.reactions_arr ?? []} onChange={v => setField('reactions_arr', v)} />
+          <ActionEditor label="Reactions" actions={form.reactions_arr ?? []} onChange={v => setField('reactions_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />
         </div>
 
-        {/* Legendary Actions */}
+        {/* ── Legendary Actions ─────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formGroupFull} style={{ marginBottom: '.75rem' }}>
             <label className={styles.label}>Legendary Action Preamble</label>
@@ -602,10 +1149,10 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
               value={form.legendary_description ?? ''}
               onChange={e => setField('legendary_description', e.target.value || null)} />
           </div>
-          <ActionEditor label="Legendary Actions" actions={form.legendaryActions_arr ?? []} onChange={v => setField('legendaryActions_arr', v)} legendary />
+          <ActionEditor label="Legendary Actions" actions={form.legendaryActions_arr ?? []} onChange={v => setField('legendaryActions_arr', v)} legendary profBonus={profBonus} abilityScores={abilityScores} />
         </div>
 
-        {/* Description & Lore */}
+        {/* ── Description & Lore ────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Description & Notes</div>
           <div className={styles.formGroupFull}>
@@ -618,13 +1165,13 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           </div>
         </div>
 
-        {/* Tags */}
+        {/* ── Tags ──────────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Tags</div>
           <TagEditor tags={form.tags_arr ?? []} onChange={v => setField('tags_arr', v)} />
         </div>
 
-        {/* Homebrew flag */}
+        {/* ── Homebrew ──────────────────────────────────────────────────── */}
         <div className={styles.formSection} style={{ padding: '.75rem 1.3rem' }}>
           <label style={{ display:'flex', alignItems:'center', gap:'.5rem', cursor:'pointer', fontSize:'.88rem', color:'var(--text-secondary)' }}>
             <input type="checkbox"
@@ -636,4 +1183,30 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
       </div>
     );
   }
+}
+
+// ── AutoToggle pill ───────────────────────────────────────────────────────────
+
+function AutoToggle({ auto, onToggle }: { auto: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.preventDefault(); onToggle(); }}
+      style={{
+        marginLeft: '.4rem',
+        fontSize: '.62rem',
+        padding: '.1rem .35rem',
+        borderRadius: 20,
+        border: `1px solid ${auto ? 'var(--gold-600)' : 'var(--border)'}`,
+        background: auto ? 'rgba(196,144,64,.15)' : 'transparent',
+        color: auto ? 'var(--gold-400)' : 'var(--ink-500)',
+        cursor: 'pointer',
+        verticalAlign: 'middle',
+        letterSpacing: '.04em',
+        transition: 'all .12s',
+      }}
+    >
+      {auto ? 'AUTO' : 'MANUAL'}
+    </button>
+  );
 }

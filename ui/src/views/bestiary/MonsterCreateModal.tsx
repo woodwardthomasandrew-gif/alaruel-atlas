@@ -1,10 +1,16 @@
 // ui/src/views/bestiary/MonsterCreateModal.tsx
 // Minimal "new monster" form — only the fields needed to get started.
 // All other fields are edited in the full detail panel.
+//
+// Uses individual useState per field (matching NpcCreateModal pattern)
+// and a real <form onSubmit> element for reliable controlled input behaviour.
 
 import { useState } from 'react';
 import { atlas }    from '../../bridge/atlas';
+import { proficiencyFromCR, xpFromCR } from './monsterCalc';
 import styles       from './MonsterCreateModal.module.css';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const CREATURE_TYPES = [
   'aberration','beast','celestial','construct','dragon','elemental',
@@ -20,6 +26,8 @@ const CR_OPTIONS = [
   '21','22','23','24','25','26','27','28','29','30',
 ];
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 interface Props {
   campaignId: string;
   onCreated:  (id: string, name: string) => void;
@@ -27,34 +35,42 @@ interface Props {
 }
 
 export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
+  // Individual state per field — same pattern as NpcCreateModal
+  const [name,            setName]            = useState('');
+  const [creatureType,    setCreatureType]    = useState('monstrosity');
+  const [size,            setSize]            = useState('medium');
+  const [challengeRating, setChallengeRating] = useState('1');
+  const [armorClass,      setArmorClass]      = useState('10');
+  const [hitPoints,       setHitPoints]       = useState('10');
+  const [isHomebrew,      setIsHomebrew]      = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name:           '',
-    creatureType:   'monstrosity' as typeof CREATURE_TYPES[number],
-    size:           'medium'      as typeof SIZES[number],
-    challengeRating:'1',
-    armorClass:     '10',
-    hitPoints:      '10',
-    isHomebrew:     true,
-  });
 
-  function set(field: string, value: string | boolean) {
-    setForm(prev => ({ ...prev, [field]: value }));
-  }
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
-  async function handleCreate() {
-    if (!form.name.trim()) { setError('Name is required.'); return; }
-    const ac = parseInt(form.armorClass, 10);
-    const hp = parseInt(form.hitPoints,  10);
-    if (isNaN(ac) || ac < 0)   { setError('Armour Class must be a non-negative number.'); return; }
-    if (isNaN(hp) || hp < 1)   { setError('Hit Points must be at least 1.'); return; }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const trimmedName = name.trim();
+    if (!trimmedName) { setError('Name is required.'); return; }
+
+    const ac = parseInt(armorClass, 10);
+    const hp = parseInt(hitPoints,  10);
+    if (isNaN(ac) || ac < 0) { setError('Armour Class must be a non-negative number.'); return; }
+    if (isNaN(hp) || hp < 1) { setError('Hit Points must be at least 1.');              return; }
 
     setSaving(true);
     setError(null);
+
     try {
       const id  = crypto.randomUUID();
       const now = new Date().toISOString();
+
+      // Derive PB and XP automatically from CR
+      const pb = proficiencyFromCR(challengeRating);
+      const xp = xpFromCR(challengeRating);
+
       await atlas.db.run(
         `INSERT INTO monsters (
            id, campaign_id, name, description,
@@ -63,72 +79,98 @@ export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
            str, dex, con, int, wis, cha,
            proficiency_bonus, challenge_rating, xp_value,
            saving_throws, skills,
-           damage_vulnerabilities, damage_resistances, damage_immunities, condition_immunities,
-           speed_other, traits, actions, reactions, legendary_actions, bonus_actions,
+           damage_vulnerabilities, damage_resistances,
+           damage_immunities, condition_immunities,
+           speed_other, traits, actions, reactions,
+           legendary_actions, bonus_actions,
            habitat_location_ids, is_homebrew, tags,
            created_at, updated_at
          ) VALUES (
-           ?,?,?,?,
-           ?,?,?,
-           ?,?,?,
-           10,10,10,10,10,10,
-           2,?,0,
-           '{}','{}',
-           '[]','[]','[]','[]',
-           '{}','[]','[]','[]','[]','[]',
-           '[]',?,?,
-           ?,?
+           ?, ?, ?, ?,
+           ?, ?, ?,
+           ?, ?, ?,
+           ?, ?, ?, ?, ?, ?,
+           ?, ?, ?,
+           ?, ?,
+           ?, ?,
+           ?, ?,
+           ?, ?, ?, ?,
+           ?, ?,
+           ?, ?, ?,
+           ?, ?
          )`,
         [
-          id, campaignId, form.name.trim(), '',
-          form.creatureType, form.size, 'true neutral',
+          id, campaignId, trimmedName, '',
+          creatureType, size, 'true neutral',
           ac, hp, 30,
-          form.challengeRating,
-          form.isHomebrew ? 1 : 0,
-          '[]',
+          10, 10, 10, 10, 10, 10,
+          pb, challengeRating, xp,
+          '{}', '{}',
+          '[]', '[]',
+          '[]', '[]',
+          '{}', '[]', '[]', '[]',
+          '[]', '[]',
+          '[]', isHomebrew ? 1 : 0, '[]',
           now, now,
         ],
       );
-      onCreated(id, form.name.trim());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
+
+      onCreated(id, trimmedName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
       setSaving(false);
     }
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
-    <div className={styles.overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className={styles.overlay}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className={styles.modal}>
         <h2 className={styles.title}>New Monster</h2>
 
-        <div className={styles.form}>
+        <form className={styles.form} onSubmit={handleSubmit}>
+
+          {/* Name */}
           <div className={styles.group}>
-            <label className={styles.label}>Name *</label>
+            <label className={styles.label} htmlFor="mc-name">Name *</label>
             <input
+              id="mc-name"
               className={styles.input}
               placeholder="e.g. Shadow Drake"
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
+              value={name}
+              onChange={e => setName(e.target.value)}
               autoFocus
-              onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
+              autoComplete="off"
             />
           </div>
 
+          {/* Type + Size */}
           <div className={styles.row}>
             <div className={styles.group}>
-              <label className={styles.label}>Type</label>
-              <select className={styles.select} value={form.creatureType}
-                onChange={e => set('creatureType', e.target.value)}>
+              <label className={styles.label} htmlFor="mc-type">Type</label>
+              <select
+                id="mc-type"
+                className={styles.select}
+                value={creatureType}
+                onChange={e => setCreatureType(e.target.value)}
+              >
                 {CREATURE_TYPES.map(t => (
                   <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                 ))}
               </select>
             </div>
             <div className={styles.group}>
-              <label className={styles.label}>Size</label>
-              <select className={styles.select} value={form.size}
-                onChange={e => set('size', e.target.value)}>
+              <label className={styles.label} htmlFor="mc-size">Size</label>
+              <select
+                id="mc-size"
+                className={styles.select}
+                value={size}
+                onChange={e => setSize(e.target.value)}
+              >
                 {SIZES.map(s => (
                   <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                 ))}
@@ -136,45 +178,88 @@ export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
             </div>
           </div>
 
+          {/* CR + AC + HP */}
           <div className={styles.row}>
             <div className={styles.group}>
-              <label className={styles.label}>Challenge Rating</label>
-              <select className={styles.select} value={form.challengeRating}
-                onChange={e => set('challengeRating', e.target.value)}>
+              <label className={styles.label} htmlFor="mc-cr">Challenge Rating</label>
+              <select
+                id="mc-cr"
+                className={styles.select}
+                value={challengeRating}
+                onChange={e => setChallengeRating(e.target.value)}
+              >
                 {CR_OPTIONS.map(cr => <option key={cr} value={cr}>{cr}</option>)}
               </select>
             </div>
             <div className={styles.group}>
-              <label className={styles.label}>Armour Class</label>
-              <input className={styles.input} type="number" min={0} max={99}
-                value={form.armorClass}
-                onChange={e => set('armorClass', e.target.value)} />
+              <label className={styles.label} htmlFor="mc-ac">Armour Class</label>
+              <input
+                id="mc-ac"
+                className={styles.input}
+                type="number"
+                min={0}
+                max={99}
+                value={armorClass}
+                onChange={e => setArmorClass(e.target.value)}
+              />
             </div>
             <div className={styles.group}>
-              <label className={styles.label}>Hit Points</label>
-              <input className={styles.input} type="number" min={1} max={999999}
-                value={form.hitPoints}
-                onChange={e => set('hitPoints', e.target.value)} />
+              <label className={styles.label} htmlFor="mc-hp">Hit Points</label>
+              <input
+                id="mc-hp"
+                className={styles.input}
+                type="number"
+                min={1}
+                max={999999}
+                value={hitPoints}
+                onChange={e => setHitPoints(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className={styles.group}>
-            <label className={styles.label} style={{ display:'flex', gap:'.5rem', cursor:'pointer' }}>
-              <input type="checkbox" checked={form.isHomebrew}
-                onChange={e => set('isHomebrew', e.target.checked)} />
-              Homebrew monster
-            </label>
+          {/* Auto-calc preview */}
+          <p className={styles.calcPreview}>
+            CR {challengeRating}
+            {' '}→{' '}
+            Proficiency Bonus +{proficiencyFromCR(challengeRating)}
+            {xpFromCR(challengeRating) > 0
+              ? ` · ${xpFromCR(challengeRating).toLocaleString()} XP`
+              : ''}
+          </p>
+
+          {/* Homebrew */}
+          <label className={styles.checkLabel}>
+            <input
+              type="checkbox"
+              checked={isHomebrew}
+              onChange={e => setIsHomebrew(e.target.checked)}
+            />
+            Homebrew monster
+          </label>
+
+          {/* Error */}
+          {error && <div className={styles.error}>{error}</div>}
+
+          {/* Footer */}
+          <div className={styles.footer}>
+            <button
+              type="button"
+              className={styles.btnCancel}
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.btnCreate}
+              disabled={saving || !name.trim()}
+            >
+              {saving ? 'Creating…' : 'Create Monster'}
+            </button>
           </div>
 
-          {error && <div className={styles.error}>{error}</div>}
-        </div>
-
-        <div className={styles.footer}>
-          <button className={styles.btnCancel} onClick={onClose} disabled={saving}>Cancel</button>
-          <button className={styles.btnCreate} onClick={handleCreate} disabled={saving}>
-            {saving ? 'Creating…' : 'Create Monster'}
-          </button>
-        </div>
+        </form>
       </div>
     </div>
   );

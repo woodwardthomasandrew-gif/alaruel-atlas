@@ -50,3 +50,32 @@
 }
 .btnCreate:hover { background:var(--gold-500); }
 .btnCreate:disabled { opacity:.5; cursor:not-allowed; }
+
+/* Auto-calc preview line below CR/AC/HP row */
+.calcPreview {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--gold-400);
+  margin: -.2rem 0 0;
+  padding: .3rem .5rem;
+  background: rgba(196,144,64,.08);
+  border: 1px solid rgba(196,144,64,.2);
+  border-radius: var(--radius-sm);
+}
+
+/* Checkbox + label row */
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.checkLabel input[type="checkbox"] {
+  accent-color: var(--gold-500);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}

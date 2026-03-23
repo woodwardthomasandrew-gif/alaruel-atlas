@@ -12,6 +12,7 @@
 // inside a detached DOM node without importing any Electron/bridge code.
 
 import type { MonsterFull } from './MonsterDetail';
+import { formatAbilityMod, ABILITY_KEYS } from './monsterCalc';
 import styles from './StatblockRenderer.module.css';
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -26,13 +27,6 @@ interface ActionRow {
 
 interface LegendaryRow extends ActionRow {
   cost: number;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function abilityMod(score: number): string {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
 }
 
 function parseJson<T>(raw: string | null | undefined, fallback: T): T {
@@ -67,7 +61,6 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -193,7 +186,7 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
               <div key={k} className={styles.abilityCell}>
                 <span className={styles.abilityLabel}>{k.toUpperCase()}</span>
                 <span className={styles.abilityScore}>{score}</span>
-                <span className={styles.abilityMod}>{abilityMod(score)}</span>
+                <span className={styles.abilityMod}>{formatAbilityMod(score)}</span>
               </div>
             );
           })}
