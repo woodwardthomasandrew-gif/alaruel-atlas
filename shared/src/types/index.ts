@@ -123,6 +123,13 @@ export type {
   MonsterReaction,
 } from './monster';
 
+// ── Mini Catalogue ────────────────────────────────────────────────────────────
+export type {
+  Mini,
+  MiniBaseSize,
+  MiniMonsterRef,
+} from './mini';
+
 // ── Plugin system ─────────────────────────────────────────────────────────────
 export type {
   PluginManifest,

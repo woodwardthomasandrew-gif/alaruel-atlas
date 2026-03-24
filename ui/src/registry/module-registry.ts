@@ -15,6 +15,7 @@ import GeneratorsView    from '../views/generators/GeneratorsView';
 import DungeonView       from '../views/dungeon/DungeonView';
 import BestiaryView      from '../views/bestiary/BestiaryView';
 import InspirationView   from '../views/inspiration/InspirationView';
+import MiniCatalogueView from '../views/mini-catalogue/MiniCatalogueView';
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -112,6 +113,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'sparkles',
     route:            '/inspiration',
     component:        InspirationView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'mini-catalogue',
+    displayName:      'Mini Catalogue',
+    icon:             'box',
+    route:            '/mini-catalogue',
+    component:        MiniCatalogueView,
     requiresCampaign: true,
   },
 ];

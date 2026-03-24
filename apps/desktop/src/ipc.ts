@@ -315,6 +315,7 @@ export function registerEventForwards(win: BrowserWindow): void {
     'timeline:entry-added',
     'atlas:map-loaded',
     'bestiary:created', 'bestiary:updated',
+    'mini-catalogue:created', 'mini-catalogue:updated',
   ] as const;
 
   for (const eventName of forwarded) {

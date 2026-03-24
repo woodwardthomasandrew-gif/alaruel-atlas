@@ -35,6 +35,14 @@ export type AppEventMap = {
   // -- Dungeon --
   'dungeon:generated': { dungeonId: string };
 
+  // -- Bestiary --
+  'bestiary:created': { monsterId: string };
+  'bestiary:updated': { monsterId: string };
+
+  // -- Mini Catalogue --
+  'mini-catalogue:created': { miniId: string };
+  'mini-catalogue:updated': { miniId: string };
+
   // -- App lifecycle --
   'app:campaign-opened': { campaignId: string };
   'app:campaign-closed': { campaignId: string };

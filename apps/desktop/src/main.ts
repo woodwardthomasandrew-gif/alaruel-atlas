@@ -48,7 +48,8 @@ import { TimelineModule } from '../../../modules/timeline/src/index';
 import { GraphModule }    from '../../../modules/graph/src/index';
 import { AssetsUiModule } from '../../../modules/assets-ui/src/index';
 import { DungeonModule }   from '../../../modules/dungeon/src/index';
-import { BestiaryModule }  from '../../../modules/bestiary/src/index';
+import { BestiaryModule }        from '../../../modules/bestiary/src/index';
+import { MiniCatalogueModule }   from '../../../modules/mini-catalogue/src/index';
 
 // ── Desktop-local modules ─────────────────────────────────────────────────────
 import { createMainWindow, isWindowAvailable, focusWindow } from './window';
@@ -141,6 +142,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new AssetsUiModule());
   moduleLoader.register(new DungeonModule());
   moduleLoader.register(new BestiaryModule());
+  moduleLoader.register(new MiniCatalogueModule());
 
   const summary = await moduleLoader.initAll();
   log.info('Module boot complete', {

@@ -13,7 +13,8 @@ export const ROUTES = {
   assets:     '/assets',
   generators: '/generators',
   dungeons:   '/dungeons',
-  bestiary:   '/bestiary',
+  bestiary:      '/bestiary',
+  miniCatalogue: '/mini-catalogue',
 } as const;
 
 export type AppRoute = typeof ROUTES[keyof typeof ROUTES];

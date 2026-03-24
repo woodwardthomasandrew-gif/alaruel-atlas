@@ -452,6 +452,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
   const [deleting,  setDeleting]  = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  const [linkedMinis, setLinkedMinis] = useState<{ id: string; name: string; base_size: string | null }[]>([]);
 
   // ── Edit form state ─────────────────────────────────────────────────────────
   const [form, setForm] = useState<Partial<MonsterFull> & {
@@ -499,6 +500,16 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
       if (m) populateForm(m);
     }).catch(e => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
+
+    // Load linked minis (read-only, for the statblock view)
+    atlas.db.query<{ id: string; name: string; base_size: string | null }>(
+      `SELECT m.id, m.name, m.base_size
+       FROM minis m
+       JOIN mini_monsters mm ON mm.mini_id = m.id
+       WHERE mm.monster_id = ?
+       ORDER BY m.name ASC`,
+      [monsterId],
+    ).then(setLinkedMinis).catch(() => {});
   }, [monsterId]);
 
   function populateForm(m: MonsterFull) {
@@ -749,7 +760,26 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
   // ═══════════════════════════════════════════════════════════════════════════
 
   function renderStatblock() {
-    return <StatblockRenderer monster={monster!} />;
+    return (
+      <>
+        <StatblockRenderer monster={monster!} />
+        {linkedMinis.length > 0 && (
+          <div className={styles.miniSection}>
+            <div className={styles.miniSectionTitle}>Available Minis</div>
+            <ul className={styles.miniList}>
+              {linkedMinis.map(m => (
+                <li key={m.id} className={styles.miniItem}>
+                  <span className={styles.miniName}>{m.name}</span>
+                  {m.base_size && (
+                    <span className={styles.miniSize}>{m.base_size}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </>
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
