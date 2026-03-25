@@ -47,6 +47,24 @@ export interface SessionSceneRow {
   played:      number;
 }
 
+export interface SessionSceneMonsterRow {
+  scene_id:   string;
+  monster_id: string;
+  count:      number;
+  notes:      string | null;
+}
+
+export interface SessionSceneMiniRow {
+  scene_id: string;
+  mini_id:  string;
+  count:    number;
+}
+
+export interface SessionSceneNpcRow {
+  scene_id: string;
+  npc_id:   string;
+}
+
 export interface CreateSessionInput {
   name:           string;
   description?:   string;
@@ -66,4 +84,37 @@ export interface UpdateSessionInput {
   rewards?:            string;
   followUpHooks?:      string;
   tags?:               string[];
+}
+
+// ── Scene encounter management ────────────────────────────────────────────────
+
+export interface AddSceneMonsterInput {
+  sceneId:   string;
+  monsterId: string;
+  count?:    number;
+  notes?:    string;
+}
+
+export interface UpdateSceneMonsterInput {
+  sceneId:   string;
+  monsterId: string;
+  count?:    number;
+  notes?:    string;
+}
+
+export interface AddSceneMiniInput {
+  sceneId: string;
+  miniId:  string;
+  count?:  number;
+}
+
+export interface UpdateSceneMiniInput {
+  sceneId: string;
+  miniId:  string;
+  count?:  number;
+}
+
+export interface AddSceneNpcInput {
+  sceneId: string;
+  npcId:   string;
 }

@@ -1,0 +1,442 @@
+diff --git a/modules/sessions/src/events.ts b/modules/sessions/src/events.ts
+index a39117d..ba8bf95 100644
+--- a/modules/sessions/src/events.ts
++++ b/modules/sessions/src/events.ts
+@@ -1,2 +1,2 @@
+-export const SESSIONS_EMITTED_EVENTS = ['session:started', 'session:ended'] as const;
++export const SESSIONS_EMITTED_EVENTS = ['session:started', 'session:ended', 'session:encounter-updated'] as const;
+ export const SESSIONS_HANDLED_EVENTS = [] as const;
+diff --git a/modules/sessions/src/module.ts b/modules/sessions/src/module.ts
+index bc0003b..1d4a7a8 100644
+--- a/modules/sessions/src/module.ts
++++ b/modules/sessions/src/module.ts
+@@ -8,8 +8,8 @@ import { SESSIONS_SCHEMA }                   from './schema';
+ export class SessionsModule extends BaseModule<SessionsRepository, SessionsService> {
+   readonly manifest: ModuleManifest = Object.freeze({
+     id: 'sessions', displayName: 'Sessions', version: '1.0.0',
+-    dependsOn: ['npcs', 'quests'], required: false,
+-    description: 'Session planning, notes, and recaps',
++    dependsOn: ['npcs', 'quests', 'bestiary', 'mini-catalogue'], required: false,
++    description: 'Session planning, notes, recaps, and encounter management',
+   });
+   protected createRepository(db: IDatabaseManager): SessionsRepository {
+     return new SessionsRepository(db, this.log.child('repo'));
+diff --git a/modules/sessions/src/repository.ts b/modules/sessions/src/repository.ts
+index 60db61f..a60c559 100644
+--- a/modules/sessions/src/repository.ts
++++ b/modules/sessions/src/repository.ts
+@@ -1,9 +1,14 @@
+ import { BaseRepository }        from '../../_framework/src/index';
+ import type { IDatabaseManager } from '../../../core/database/src/types';
+ import type { Logger }           from '../../../core/logger/src/types';
+-import type { Session, SessionNote, SessionPrepItem, SessionScene } from '../../../shared/src/types/session';
++import type { Session, SessionNote, SessionPrepItem, SessionScene,
++              SceneMonsterEntry, SceneMiniEntry } from '../../../shared/src/types/session';
+ import type { SessionRow, SessionNoteRow, SessionPrepItemRow, SessionSceneRow,
+-              CreateSessionInput, UpdateSessionInput } from './types';
++              SessionSceneMonsterRow, SessionSceneMiniRow, SessionSceneNpcRow,
++              CreateSessionInput, UpdateSessionInput,
++              AddSceneMonsterInput, UpdateSceneMonsterInput,
++              AddSceneMiniInput, UpdateSceneMiniInput,
++              AddSceneNpcInput } from './types';
+ 
+ function rowToSession(row: SessionRow): Session {
+   return {
+@@ -48,7 +53,9 @@ function rowToPrep(r: SessionPrepItemRow): SessionPrepItem {
+ 
+ function rowToScene(r: SessionSceneRow): SessionScene {
+   return { id: r.id, title: r.title, content: r.content,
+-    order: r.sort_order, locationId: r.location_id, npcIds: [], played: r.played === 1 };
++    order: r.sort_order, locationId: r.location_id,
++    npcIds: [], monsters: [], minis: [],
++    played: r.played === 1 };
+ }
+ 
+ export class SessionsRepository extends BaseRepository {
+@@ -73,6 +80,22 @@ export class SessionsRepository extends BaseRepository {
+     s.notes     = this.query<SessionNoteRow>('SELECT * FROM session_notes WHERE session_id = ? ORDER BY created_at ASC', [id]).map(rowToNote);
+     s.prepItems = this.query<SessionPrepItemRow>('SELECT * FROM session_prep_items WHERE session_id = ? ORDER BY sort_order ASC', [id]).map(rowToPrep);
+     s.scenes    = this.query<SessionSceneRow>('SELECT * FROM session_scenes WHERE session_id = ? ORDER BY sort_order ASC', [id]).map(rowToScene);
++
++    // Hydrate per-scene encounter data
++    for (const scene of s.scenes) {
++      scene.npcIds = this.query<SessionSceneNpcRow>(
++        'SELECT npc_id FROM session_scene_npcs WHERE scene_id = ?', [scene.id],
++      ).map(r => r.npc_id);
++
++      scene.monsters = this.query<SessionSceneMonsterRow>(
++        'SELECT monster_id, count, notes FROM session_scene_monsters WHERE scene_id = ?', [scene.id],
++      ).map(r => ({ monsterId: r.monster_id, count: r.count, notes: r.notes ?? undefined }));
++
++      scene.minis = this.query<SessionSceneMiniRow>(
++        'SELECT mini_id, count FROM session_scene_minis WHERE scene_id = ?', [scene.id],
++      ).map(r => ({ miniId: r.mini_id, count: r.count }));
++    }
++
+     const qRows = this.query<{quest_id:string;outcome:string}>('SELECT quest_id, outcome FROM session_quests WHERE session_id = ?', [id]);
+     s.advancedQuestIds  = qRows.filter(r => r.outcome === 'advanced').map(r => r.quest_id);
+     s.completedQuestIds = qRows.filter(r => r.outcome === 'completed').map(r => r.quest_id);
+@@ -145,4 +168,74 @@ export class SessionsRepository extends BaseRepository {
+   linkNpc(sessionId: string, npcId: string): void {
+     this.run('INSERT OR IGNORE INTO session_npcs (session_id, npc_id) VALUES (?, ?)', [sessionId, npcId]);
+   }
++
++  // ── Scene encounter methods ───────────────────────────────────────────────
++
++  /** Link an NPC to a specific scene (also ensures session-level link). */
++  addSceneNpc(input: AddSceneNpcInput, sessionId: string): void {
++    this.run('INSERT OR IGNORE INTO session_scene_npcs (scene_id, npc_id) VALUES (?, ?)',
++      [input.sceneId, input.npcId]);
++    // Keep the session-level denorm in sync
++    this.run('INSERT OR IGNORE INTO session_npcs (session_id, npc_id) VALUES (?, ?)',
++      [sessionId, input.npcId]);
++  }
++
++  removeSceneNpc(sceneId: string, npcId: string): boolean {
++    return this.run('DELETE FROM session_scene_npcs WHERE scene_id = ? AND npc_id = ?',
++      [sceneId, npcId]).changes > 0;
++  }
++
++  /** Add or update a monster entry on a scene. */
++  upsertSceneMonster(input: AddSceneMonsterInput | UpdateSceneMonsterInput): void {
++    this.run(
++      `INSERT INTO session_scene_monsters (scene_id, monster_id, count, notes)
++       VALUES (?, ?, ?, ?)
++       ON CONFLICT(scene_id, monster_id) DO UPDATE SET
++         count = excluded.count,
++         notes = excluded.notes`,
++      [input.sceneId, input.monsterId, input.count ?? 1, input.notes ?? null],
++    );
++  }
++
++  removeSceneMonster(sceneId: string, monsterId: string): boolean {
++    return this.run('DELETE FROM session_scene_monsters WHERE scene_id = ? AND monster_id = ?',
++      [sceneId, monsterId]).changes > 0;
++  }
++
++  /** Add or update a mini entry on a scene. */
++  upsertSceneMini(input: AddSceneMiniInput | UpdateSceneMiniInput): void {
++    this.run(
++      `INSERT INTO session_scene_minis (scene_id, mini_id, count)
++       VALUES (?, ?, ?)
++       ON CONFLICT(scene_id, mini_id) DO UPDATE SET count = excluded.count`,
++      [input.sceneId, input.miniId, input.count ?? 1],
++    );
++  }
++
++  removeSceneMini(sceneId: string, miniId: string): boolean {
++    return this.run('DELETE FROM session_scene_minis WHERE scene_id = ? AND mini_id = ?',
++      [sceneId, miniId]).changes > 0;
++  }
++
++  /**
++   * Return the full scene row with hydrated encounter data for a single scene.
++   * Used after mutation to return the updated state.
++   */
++  findSceneById(sceneId: string): SessionScene | null {
++    const row = this.queryOne<SessionSceneRow>(
++      'SELECT * FROM session_scenes WHERE id = ?', [sceneId],
++    );
++    if (!row) return null;
++    const scene = rowToScene(row);
++    scene.npcIds = this.query<SessionSceneNpcRow>(
++      'SELECT npc_id FROM session_scene_npcs WHERE scene_id = ?', [sceneId],
++    ).map(r => r.npc_id);
++    scene.monsters = this.query<SessionSceneMonsterRow>(
++      'SELECT monster_id, count, notes FROM session_scene_monsters WHERE scene_id = ?', [sceneId],
++    ).map(r => ({ monsterId: r.monster_id, count: r.count, notes: r.notes ?? undefined }));
++    scene.minis = this.query<SessionSceneMiniRow>(
++      'SELECT mini_id, count FROM session_scene_minis WHERE scene_id = ?', [sceneId],
++    ).map(r => ({ miniId: r.mini_id, count: r.count }));
++    return scene;
++  }
+ }
+diff --git a/modules/sessions/src/schema.ts b/modules/sessions/src/schema.ts
+index 7e91e8d..c3203ca 100644
+--- a/modules/sessions/src/schema.ts
++++ b/modules/sessions/src/schema.ts
+@@ -94,5 +94,46 @@ export const SESSIONS_SCHEMA: SchemaRegistration = {
+         DROP TABLE IF EXISTS sessions;
+       `,
+     },
++    {
++      version: 6,
++      module: 'sessions',
++      description: 'Add per-scene encounter tables: session_scene_npcs, session_scene_monsters, session_scene_minis',
++      up: `
++        -- Per-scene NPC links (supplements the session-level session_npcs table)
++        CREATE TABLE IF NOT EXISTS session_scene_npcs (
++          scene_id   TEXT NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
++          npc_id     TEXT NOT NULL REFERENCES npcs(id)           ON DELETE CASCADE,
++          PRIMARY KEY (scene_id, npc_id)
++        );
++        CREATE INDEX IF NOT EXISTS idx_scene_npcs_npc   ON session_scene_npcs (npc_id);
++        CREATE INDEX IF NOT EXISTS idx_scene_npcs_scene ON session_scene_npcs (scene_id);
++
++        -- Per-scene monster entries (statblock import + print)
++        CREATE TABLE IF NOT EXISTS session_scene_monsters (
++          scene_id   TEXT    NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
++          monster_id TEXT    NOT NULL REFERENCES monsters(id)       ON DELETE CASCADE,
++          count      INTEGER NOT NULL DEFAULT 1,
++          notes      TEXT,
++          PRIMARY KEY (scene_id, monster_id)
++        );
++        CREATE INDEX IF NOT EXISTS idx_scene_monsters_monster ON session_scene_monsters (monster_id);
++        CREATE INDEX IF NOT EXISTS idx_scene_monsters_scene   ON session_scene_monsters (scene_id);
++
++        -- Per-scene mini entries (mini-list for print)
++        CREATE TABLE IF NOT EXISTS session_scene_minis (
++          scene_id TEXT    NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
++          mini_id  TEXT    NOT NULL REFERENCES minis(id)          ON DELETE CASCADE,
++          count    INTEGER NOT NULL DEFAULT 1,
++          PRIMARY KEY (scene_id, mini_id)
++        );
++        CREATE INDEX IF NOT EXISTS idx_scene_minis_mini  ON session_scene_minis (mini_id);
++        CREATE INDEX IF NOT EXISTS idx_scene_minis_scene ON session_scene_minis (scene_id);
++      `,
++      down: `
++        DROP TABLE IF EXISTS session_scene_minis;
++        DROP TABLE IF EXISTS session_scene_monsters;
++        DROP TABLE IF EXISTS session_scene_npcs;
++      `,
++    },
+   ],
+ };
+diff --git a/modules/sessions/src/service.ts b/modules/sessions/src/service.ts
+index 3d60156..34ed726 100644
+--- a/modules/sessions/src/service.ts
++++ b/modules/sessions/src/service.ts
+@@ -2,8 +2,17 @@ import { BaseService }              from '../../_framework/src/index';
+ import type { EmitFn }              from '../../_framework/src/index';
+ import type { Logger }              from '../../../core/logger/src/types';
+ import type { Session }             from '../../../shared/src/types/session';
++import type { SessionScene }        from '../../../shared/src/types/session';
+ import type { SessionsRepository }  from './repository';
+-import type { CreateSessionInput, UpdateSessionInput } from './types';
++import type {
++  CreateSessionInput,
++  UpdateSessionInput,
++  AddSceneMonsterInput,
++  UpdateSceneMonsterInput,
++  AddSceneMiniInput,
++  UpdateSceneMiniInput,
++  AddSceneNpcInput,
++} from './types';
+ 
+ export class SessionsService extends BaseService<SessionsRepository> {
+   constructor(repository: SessionsRepository, log: Logger, emit: EmitFn) {
+@@ -67,4 +76,97 @@ export class SessionsService extends BaseService<SessionsRepository> {
+     this.repository.togglePrepItem(itemId, done);
+     return this.repository.findById(sessionId) ?? (() => { throw new Error(`Session not found: ${sessionId}`); })();
+   }
++
++  // ── Scene encounter methods ───────────────────────────────────────────────
++
++  /**
++   * Add an NPC to a specific scene.
++   * Also maintains the session-level `featuredNpcIds` denorm.
++   * Returns the updated scene.
++   */
++  addNpcToScene(sessionId: string, input: AddSceneNpcInput): SessionScene {
++    this.assertInitialised();
++    this.repository.addSceneNpc(input, sessionId);
++    const scene = this.repository.findSceneById(input.sceneId);
++    if (!scene) throw new Error(`Scene not found: ${input.sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId: input.sceneId });
++    return scene;
++  }
++
++  removeNpcFromScene(sessionId: string, sceneId: string, npcId: string): SessionScene {
++    this.assertInitialised();
++    this.repository.removeSceneNpc(sceneId, npcId);
++    const scene = this.repository.findSceneById(sceneId);
++    if (!scene) throw new Error(`Scene not found: ${sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId });
++    return scene;
++  }
++
++  /**
++   * Add or update a monster in a scene encounter.
++   * `count` defaults to 1. `notes` are optional GM tactics/notes for this monster.
++   * Returns the updated scene.
++   */
++  addMonsterToScene(sessionId: string, input: AddSceneMonsterInput): SessionScene {
++    this.assertInitialised();
++    this.repository.upsertSceneMonster(input);
++    const scene = this.repository.findSceneById(input.sceneId);
++    if (!scene) throw new Error(`Scene not found: ${input.sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId: input.sceneId });
++    this.log.info('Monster added to scene', { sessionId, sceneId: input.sceneId, monsterId: input.monsterId });
++    return scene;
++  }
++
++  updateSceneMonster(sessionId: string, input: UpdateSceneMonsterInput): SessionScene {
++    this.assertInitialised();
++    this.repository.upsertSceneMonster(input);
++    const scene = this.repository.findSceneById(input.sceneId);
++    if (!scene) throw new Error(`Scene not found: ${input.sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId: input.sceneId });
++    return scene;
++  }
++
++  removeMonsterFromScene(sessionId: string, sceneId: string, monsterId: string): SessionScene {
++    this.assertInitialised();
++    this.repository.removeSceneMonster(sceneId, monsterId);
++    const scene = this.repository.findSceneById(sceneId);
++    if (!scene) throw new Error(`Scene not found: ${sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId });
++    this.log.info('Monster removed from scene', { sessionId, sceneId, monsterId });
++    return scene;
++  }
++
++  /**
++   * Add or update a mini in a scene mini-list.
++   * `count` defaults to 1.
++   * Returns the updated scene.
++   */
++  addMiniToScene(sessionId: string, input: AddSceneMiniInput): SessionScene {
++    this.assertInitialised();
++    this.repository.upsertSceneMini(input);
++    const scene = this.repository.findSceneById(input.sceneId);
++    if (!scene) throw new Error(`Scene not found: ${input.sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId: input.sceneId });
++    this.log.info('Mini added to scene', { sessionId, sceneId: input.sceneId, miniId: input.miniId });
++    return scene;
++  }
++
++  updateSceneMini(sessionId: string, input: UpdateSceneMiniInput): SessionScene {
++    this.assertInitialised();
++    this.repository.upsertSceneMini(input);
++    const scene = this.repository.findSceneById(input.sceneId);
++    if (!scene) throw new Error(`Scene not found: ${input.sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId: input.sceneId });
++    return scene;
++  }
++
++  removeMiniFromScene(sessionId: string, sceneId: string, miniId: string): SessionScene {
++    this.assertInitialised();
++    this.repository.removeSceneMini(sceneId, miniId);
++    const scene = this.repository.findSceneById(sceneId);
++    if (!scene) throw new Error(`Scene not found: ${sceneId}`);
++    this.emit('session:encounter-updated', { sessionId, sceneId });
++    this.log.info('Mini removed from scene', { sessionId, sceneId, miniId });
++    return scene;
++  }
+ }
+diff --git a/modules/sessions/src/types.ts b/modules/sessions/src/types.ts
+index 916f1b4..91757ec 100644
+--- a/modules/sessions/src/types.ts
++++ b/modules/sessions/src/types.ts
+@@ -47,6 +47,24 @@ export interface SessionSceneRow {
+   played:      number;
+ }
+ 
++export interface SessionSceneMonsterRow {
++  scene_id:   string;
++  monster_id: string;
++  count:      number;
++  notes:      string | null;
++}
++
++export interface SessionSceneMiniRow {
++  scene_id: string;
++  mini_id:  string;
++  count:    number;
++}
++
++export interface SessionSceneNpcRow {
++  scene_id: string;
++  npc_id:   string;
++}
++
+ export interface CreateSessionInput {
+   name:           string;
+   description?:   string;
+@@ -67,3 +85,36 @@ export interface UpdateSessionInput {
+   followUpHooks?:      string;
+   tags?:               string[];
+ }
++
++// ── Scene encounter management ────────────────────────────────────────────────
++
++export interface AddSceneMonsterInput {
++  sceneId:    string;
++  monsterId:  string;
++  count?:     number;
++  notes?:     string;
++}
++
++export interface UpdateSceneMonsterInput {
++  sceneId:    string;
++  monsterId:  string;
++  count?:     number;
++  notes?:     string;
++}
++
++export interface AddSceneMiniInput {
++  sceneId:  string;
++  miniId:   string;
++  count?:   number;
++}
++
++export interface UpdateSceneMiniInput {
++  sceneId:  string;
++  miniId:   string;
++  count?:   number;
++}
++
++export interface AddSceneNpcInput {
++  sceneId: string;
++  npcId:   string;
++}
+diff --git a/shared/src/types/session.ts b/shared/src/types/session.ts
+index 2e6a379..5d2a66a 100644
+--- a/shared/src/types/session.ts
++++ b/shared/src/types/session.ts
+@@ -50,6 +50,29 @@ export interface SessionPrepItem {
+   done:        boolean;
+ }
+ 
++/**
++ * A single monster entry within a scene encounter.
++ * Tracks which monster and how many of them appear.
++ */
++export interface SceneMonsterEntry {
++  /** ID of the monster in the bestiary. */
++  monsterId: string;
++  /** Number of this monster in the encounter. Defaults to 1. */
++  count:     number;
++  /** Optional GM notes specific to this monster in this scene (e.g. tactics, HP override). */
++  notes?:    string;
++}
++
++/**
++ * A single mini entry within a scene — minis needed on the table for this scene.
++ */
++export interface SceneMiniEntry {
++  /** ID of the mini in the catalogue. */
++  miniId:    string;
++  /** How many of this mini are needed for the scene. Defaults to 1. */
++  count:     number;
++}
++
+ /**
+  * A scene block within a session — a discrete encounter, roleplay moment,
+  * or exploration beat that the GM plans or records in retrospect.
+@@ -69,6 +92,16 @@ export interface SessionScene {
+   locationId:   string | null;
+   /** IDs of NPCs who appear in this scene. */
+   npcIds:       string[];
++  /**
++   * Monsters appearing in this scene, with per-monster counts and optional notes.
++   * Used for statblock import and print preparation.
++   */
++  monsters:     SceneMonsterEntry[];
++  /**
++   * Minis needed on the table for this scene.
++   * Used for mini-list preparation and print.
++   */
++  minis:        SceneMiniEntry[];
+   /** Whether this scene has been played out (retrospective marker). */
+   played:       boolean;
+ }

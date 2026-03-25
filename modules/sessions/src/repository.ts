@@ -1,9 +1,16 @@
 import { BaseRepository }        from '../../_framework/src/index';
 import type { IDatabaseManager } from '../../../core/database/src/types';
 import type { Logger }           from '../../../core/logger/src/types';
-import type { Session, SessionNote, SessionPrepItem, SessionScene } from '../../../shared/src/types/session';
-import type { SessionRow, SessionNoteRow, SessionPrepItemRow, SessionSceneRow,
-              CreateSessionInput, UpdateSessionInput } from './types';
+import type { Session, SessionNote, SessionPrepItem, SessionScene,
+              SceneMonsterEntry, SceneMiniEntry } from '../../../shared/src/types/session';
+import type {
+  SessionRow, SessionNoteRow, SessionPrepItemRow, SessionSceneRow,
+  SessionSceneMonsterRow, SessionSceneMiniRow, SessionSceneNpcRow,
+  CreateSessionInput, UpdateSessionInput,
+  AddSceneMonsterInput, UpdateSceneMonsterInput,
+  AddSceneMiniInput, UpdateSceneMiniInput,
+  AddSceneNpcInput,
+} from './types';
 
 function rowToSession(row: SessionRow): Session {
   return {
@@ -48,7 +55,9 @@ function rowToPrep(r: SessionPrepItemRow): SessionPrepItem {
 
 function rowToScene(r: SessionSceneRow): SessionScene {
   return { id: r.id, title: r.title, content: r.content,
-    order: r.sort_order, locationId: r.location_id, npcIds: [], played: r.played === 1 };
+    order: r.sort_order, locationId: r.location_id,
+    npcIds: [], monsters: [], minis: [],
+    played: r.played === 1 };
 }
 
 export class SessionsRepository extends BaseRepository {
@@ -73,6 +82,19 @@ export class SessionsRepository extends BaseRepository {
     s.notes     = this.query<SessionNoteRow>('SELECT * FROM session_notes WHERE session_id = ? ORDER BY created_at ASC', [id]).map(rowToNote);
     s.prepItems = this.query<SessionPrepItemRow>('SELECT * FROM session_prep_items WHERE session_id = ? ORDER BY sort_order ASC', [id]).map(rowToPrep);
     s.scenes    = this.query<SessionSceneRow>('SELECT * FROM session_scenes WHERE session_id = ? ORDER BY sort_order ASC', [id]).map(rowToScene);
+
+    for (const scene of s.scenes) {
+      scene.npcIds = this.query<SessionSceneNpcRow>(
+        'SELECT npc_id FROM session_scene_npcs WHERE scene_id = ?', [scene.id],
+      ).map(r => r.npc_id);
+      scene.monsters = this.query<SessionSceneMonsterRow>(
+        'SELECT monster_id, count, notes FROM session_scene_monsters WHERE scene_id = ?', [scene.id],
+      ).map(r => ({ monsterId: r.monster_id, count: r.count, notes: r.notes ?? undefined }));
+      scene.minis = this.query<SessionSceneMiniRow>(
+        'SELECT mini_id, count FROM session_scene_minis WHERE scene_id = ?', [scene.id],
+      ).map(r => ({ miniId: r.mini_id, count: r.count }));
+    }
+
     const qRows = this.query<{quest_id:string;outcome:string}>('SELECT quest_id, outcome FROM session_quests WHERE session_id = ?', [id]);
     s.advancedQuestIds  = qRows.filter(r => r.outcome === 'advanced').map(r => r.quest_id);
     s.completedQuestIds = qRows.filter(r => r.outcome === 'completed').map(r => r.quest_id);
@@ -144,5 +166,63 @@ export class SessionsRepository extends BaseRepository {
 
   linkNpc(sessionId: string, npcId: string): void {
     this.run('INSERT OR IGNORE INTO session_npcs (session_id, npc_id) VALUES (?, ?)', [sessionId, npcId]);
+  }
+
+  // ── Scene encounter methods ───────────────────────────────────────────────
+
+  addSceneNpc(input: AddSceneNpcInput, sessionId: string): void {
+    this.run('INSERT OR IGNORE INTO session_scene_npcs (scene_id, npc_id) VALUES (?, ?)',
+      [input.sceneId, input.npcId]);
+    this.run('INSERT OR IGNORE INTO session_npcs (session_id, npc_id) VALUES (?, ?)',
+      [sessionId, input.npcId]);
+  }
+
+  removeSceneNpc(sceneId: string, npcId: string): boolean {
+    return this.run('DELETE FROM session_scene_npcs WHERE scene_id = ? AND npc_id = ?',
+      [sceneId, npcId]).changes > 0;
+  }
+
+  upsertSceneMonster(input: AddSceneMonsterInput | UpdateSceneMonsterInput): void {
+    this.run(
+      `INSERT INTO session_scene_monsters (scene_id, monster_id, count, notes)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(scene_id, monster_id) DO UPDATE SET count=excluded.count, notes=excluded.notes`,
+      [input.sceneId, input.monsterId, input.count ?? 1, input.notes ?? null],
+    );
+  }
+
+  removeSceneMonster(sceneId: string, monsterId: string): boolean {
+    return this.run('DELETE FROM session_scene_monsters WHERE scene_id = ? AND monster_id = ?',
+      [sceneId, monsterId]).changes > 0;
+  }
+
+  upsertSceneMini(input: AddSceneMiniInput | UpdateSceneMiniInput): void {
+    this.run(
+      `INSERT INTO session_scene_minis (scene_id, mini_id, count)
+       VALUES (?, ?, ?)
+       ON CONFLICT(scene_id, mini_id) DO UPDATE SET count=excluded.count`,
+      [input.sceneId, input.miniId, input.count ?? 1],
+    );
+  }
+
+  removeSceneMini(sceneId: string, miniId: string): boolean {
+    return this.run('DELETE FROM session_scene_minis WHERE scene_id = ? AND mini_id = ?',
+      [sceneId, miniId]).changes > 0;
+  }
+
+  findSceneById(sceneId: string): SessionScene | null {
+    const row = this.queryOne<SessionSceneRow>('SELECT * FROM session_scenes WHERE id = ?', [sceneId]);
+    if (!row) return null;
+    const scene = rowToScene(row);
+    scene.npcIds = this.query<SessionSceneNpcRow>(
+      'SELECT npc_id FROM session_scene_npcs WHERE scene_id = ?', [sceneId],
+    ).map(r => r.npc_id);
+    scene.monsters = this.query<SessionSceneMonsterRow>(
+      'SELECT monster_id, count, notes FROM session_scene_monsters WHERE scene_id = ?', [sceneId],
+    ).map(r => ({ monsterId: r.monster_id, count: r.count, notes: r.notes ?? undefined }));
+    scene.minis = this.query<SessionSceneMiniRow>(
+      'SELECT mini_id, count FROM session_scene_minis WHERE scene_id = ?', [sceneId],
+    ).map(r => ({ miniId: r.mini_id, count: r.count }));
+    return scene;
   }
 }

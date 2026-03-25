@@ -94,5 +94,41 @@ export const SESSIONS_SCHEMA: SchemaRegistration = {
         DROP TABLE IF EXISTS sessions;
       `,
     },
+    {
+      version: 6,
+      module: 'sessions',
+      description: 'Add per-scene encounter tables: session_scene_npcs, session_scene_monsters, session_scene_minis',
+      up: `
+        CREATE TABLE IF NOT EXISTS session_scene_npcs (
+          scene_id   TEXT NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
+          npc_id     TEXT NOT NULL REFERENCES npcs(id)           ON DELETE CASCADE,
+          PRIMARY KEY (scene_id, npc_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scene_npcs_scene   ON session_scene_npcs (scene_id);
+        CREATE INDEX IF NOT EXISTS idx_scene_npcs_npc     ON session_scene_npcs (npc_id);
+
+        CREATE TABLE IF NOT EXISTS session_scene_monsters (
+          scene_id   TEXT    NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
+          monster_id TEXT    NOT NULL,
+          count      INTEGER NOT NULL DEFAULT 1,
+          notes      TEXT,
+          PRIMARY KEY (scene_id, monster_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scene_monsters_scene ON session_scene_monsters (scene_id);
+
+        CREATE TABLE IF NOT EXISTS session_scene_minis (
+          scene_id TEXT    NOT NULL REFERENCES session_scenes(id) ON DELETE CASCADE,
+          mini_id  TEXT    NOT NULL,
+          count    INTEGER NOT NULL DEFAULT 1,
+          PRIMARY KEY (scene_id, mini_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scene_minis_scene ON session_scene_minis (scene_id);
+      `,
+      down: `
+        DROP TABLE IF EXISTS session_scene_minis;
+        DROP TABLE IF EXISTS session_scene_monsters;
+        DROP TABLE IF EXISTS session_scene_npcs;
+      `,
+    },
   ],
 };

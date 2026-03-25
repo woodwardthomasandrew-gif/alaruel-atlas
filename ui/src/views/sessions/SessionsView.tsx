@@ -3,30 +3,47 @@ import type React from 'react';
 import { Icon }             from '../../components/ui/Icon';
 import { atlas }            from '../../bridge/atlas';
 import { useCampaignStore } from '../../store/campaign.store';
-import type { Session, SessionStatus, SessionPrepItem, SessionNote, SessionScene } from '../../types/session';
-import styles               from './SessionsView.module.css';
+import type {
+  Session, SessionStatus, SessionPrepItem, SessionNote, SessionScene,
+  SceneMonsterEntry, SceneMiniEntry,
+} from '../../types/session';
+import styles from './SessionsView.module.css';
 
-const STATUS_COLOUR: Record<SessionStatus,string> = {
-  planned:'var(--ink-400)', in_progress:'var(--gold-400)',
-  completed:'#4caf85', cancelled:'var(--crimson-400)',
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const STATUS_COLOUR: Record<SessionStatus, string> = {
+  planned: 'var(--ink-400)', in_progress: 'var(--gold-400)',
+  completed: '#4caf85', cancelled: 'var(--crimson-400)',
 };
 
 const ENCOUNTER_TYPES = [
-  { value: 'combat',       label: 'Combat',         icon: '⚔️' },
-  { value: 'roleplay',     label: 'Roleplay',        icon: '💬' },
-  { value: 'exploration',  label: 'Exploration',     icon: '🗺️' },
-  { value: 'puzzle',       label: 'Puzzle',          icon: '🧩' },
-  { value: 'social',       label: 'Social',          icon: '🤝' },
-  { value: 'rest',         label: 'Rest / Downtime', icon: '🏕️' },
-  { value: 'revelation',   label: 'Revelation',      icon: '💡' },
-  { value: 'travel',       label: 'Travel',          icon: '🛤️' },
-  { value: 'other',        label: 'Other',           icon: '📌' },
+  { value: 'combat',      label: 'Combat',       icon: '⚔️' },
+  { value: 'roleplay',    label: 'Roleplay',      icon: '💬' },
+  { value: 'exploration', label: 'Exploration',   icon: '🗺️' },
+  { value: 'puzzle',      label: 'Puzzle',        icon: '🧩' },
+  { value: 'social',      label: 'Social',        icon: '🤝' },
+  { value: 'rest',        label: 'Rest/Downtime', icon: '🏕️' },
+  { value: 'revelation',  label: 'Revelation',    icon: '💡' },
+  { value: 'travel',      label: 'Travel',        icon: '🛤️' },
+  { value: 'other',       label: 'Other',         icon: '📌' },
 ];
 
 const DETAIL_TABS = ['encounters', 'prep', 'notes'] as const;
 type DetailTab = typeof DETAIL_TABS[number];
+const ENC_TABS  = ['details', 'npcs', 'monsters', 'minis'] as const;
+type EncTab     = typeof ENC_TABS[number];
 
-// Extend SessionScene with encounter type stored in content as JSON prefix
+// ── DB row shapes (renderer-local) ─────────────────────────────────────────────
+
+interface MonsterRow { id: string; name: string; creature_type: string; size: string; challenge_rating: string; is_homebrew: number; }
+interface NpcRow     { id: string; name: string; alias: string | null; role: string; vital_status: string; }
+interface MiniRow    { id: string; name: string; base_size: string | null; quantity: number; }
+interface SceneMonsterRow { scene_id: string; monster_id: string; count: number; notes: string | null; }
+interface SceneMiniRow    { scene_id: string; mini_id: string;    count: number; }
+interface SceneNpcRow     { scene_id: string; npc_id: string; }
+
+// ── Encounter ──────────────────────────────────────────────────────────────────
+
 interface Encounter extends SessionScene {
   encounterType: string;
   objective:     string;
@@ -36,14 +53,8 @@ interface Encounter extends SessionScene {
 
 function parseEncounter(scene: SessionScene): Encounter {
   try {
-    const parsed = JSON.parse(scene.content);
-    return {
-      ...scene,
-      encounterType: parsed.type    ?? 'other',
-      objective:     parsed.objective ?? '',
-      setup:         parsed.setup     ?? '',
-      reward:        parsed.reward    ?? '',
-    };
+    const p = JSON.parse(scene.content);
+    return { ...scene, encounterType: p.type ?? 'other', objective: p.objective ?? '', setup: p.setup ?? '', reward: p.reward ?? '' };
   } catch {
     return { ...scene, encounterType: 'other', objective: '', setup: scene.content, reward: '' };
   }
@@ -53,8 +64,8 @@ function encodeEncounter(e: { type: string; objective: string; setup: string; re
   return JSON.stringify({ type: e.type, objective: e.objective, setup: e.setup, reward: e.reward });
 }
 
-// ── SceneFormPanel lives outside SessionsView so React never recreates its
-// component identity on re-render — prevents autoFocus stealing focus on every keystroke.
+// ── SceneFormPanel ─────────────────────────────────────────────────────────────
+
 interface SceneFormPanelProps {
   sceneForm:    { title: string; encounterType: string; objective: string; setup: string; reward: string };
   setSceneForm: React.Dispatch<React.SetStateAction<{ title: string; encounterType: string; objective: string; setup: string; reward: string }>>;
@@ -67,73 +78,327 @@ function SceneFormPanel({ sceneForm, setSceneForm, editingId, onSave, onCancel }
   return (
     <div className={styles.sceneForm}>
       <div className={styles.sceneFormRow}>
-        <div className={styles.sceneFormField} style={{flex:2}}>
+        <div className={styles.sceneFormField} style={{ flex: 2 }}>
           <label className={styles.sceneFormLabel}>Title <span className={styles.req}>*</span></label>
           <input className={styles.sceneFormInput} autoFocus placeholder="The Ambush at Thornwall…"
-            value={sceneForm.title} onChange={e => setSceneForm(f => ({...f, title: e.target.value}))}/>
+            value={sceneForm.title} onChange={e => setSceneForm(f => ({ ...f, title: e.target.value }))} />
         </div>
-        <div className={styles.sceneFormField} style={{flex:1}}>
+        <div className={styles.sceneFormField} style={{ flex: 1 }}>
           <label className={styles.sceneFormLabel}>Type</label>
           <select className={styles.sceneFormInput} value={sceneForm.encounterType}
-            onChange={e => setSceneForm(f => ({...f, encounterType: e.target.value}))}>
-            {ENCOUNTER_TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
-            ))}
+            onChange={e => setSceneForm(f => ({ ...f, encounterType: e.target.value }))}>
+            {ENCOUNTER_TYPES.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
           </select>
         </div>
       </div>
       <div className={styles.sceneFormField}>
         <label className={styles.sceneFormLabel}>Objective</label>
-        <input className={styles.sceneFormInput} placeholder="What should the players accomplish or decide?"
-          value={sceneForm.objective} onChange={e => setSceneForm(f => ({...f, objective: e.target.value}))}/>
+        <input className={styles.sceneFormInput} placeholder="What should players accomplish or decide?"
+          value={sceneForm.objective} onChange={e => setSceneForm(f => ({ ...f, objective: e.target.value }))} />
       </div>
       <div className={styles.sceneFormField}>
         <label className={styles.sceneFormLabel}>Setup / Notes</label>
         <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={3}
-          placeholder="Key details, enemy stats, read-aloud text, contingencies…"
-          value={sceneForm.setup} onChange={e => setSceneForm(f => ({...f, setup: e.target.value}))}/>
+          placeholder="Key details, read-aloud text, contingencies…"
+          value={sceneForm.setup} onChange={e => setSceneForm(f => ({ ...f, setup: e.target.value }))} />
       </div>
       <div className={styles.sceneFormField}>
         <label className={styles.sceneFormLabel}>Reward / Outcome</label>
         <input className={styles.sceneFormInput} placeholder="XP, loot, story consequence…"
-          value={sceneForm.reward} onChange={e => setSceneForm(f => ({...f, reward: e.target.value}))}/>
+          value={sceneForm.reward} onChange={e => setSceneForm(f => ({ ...f, reward: e.target.value }))} />
       </div>
       <div className={styles.sceneFormActions}>
         <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
         <button className={styles.saveSceneBtn} onClick={onSave} disabled={!sceneForm.title.trim()}>
-          <Icon name="plus" size={14}/> {editingId ? 'Save Changes' : 'Add Encounter'}
+          <Icon name="plus" size={14} /> {editingId ? 'Save Changes' : 'Add Encounter'}
         </button>
       </div>
     </div>
   );
 }
 
+// ── EncounterImportPanel ───────────────────────────────────────────────────────
+
+interface ImportPanelProps {
+  encTab:      EncTab;
+  enc:         Encounter;
+  sessionId:   string;
+  allNpcs:     NpcRow[];
+  allMonsters: MonsterRow[];
+  allMinis:    MiniRow[];
+  onUpdated:   (u: Encounter) => void;
+}
+
+function EncounterImportPanel({ encTab, enc, sessionId, allNpcs, allMonsters, allMinis, onUpdated }: ImportPanelProps) {
+  const [search,        setSearch]        = useState('');
+  const [monsterCounts, setMonsterCounts] = useState<Record<string, number>>({});
+  const [monsterNotes,  setMonsterNotes]  = useState<Record<string, string>>({});
+  const [miniCounts,    setMiniCounts]    = useState<Record<string, number>>({});
+
+  async function addNpc(npcId: string) {
+    await atlas.db.run('INSERT OR IGNORE INTO session_scene_npcs (scene_id,npc_id) VALUES (?,?)', [enc.id, npcId]);
+    await atlas.db.run('INSERT OR IGNORE INTO session_npcs (session_id,npc_id) VALUES (?,?)', [sessionId, npcId]);
+    onUpdated({ ...enc, npcIds: [...enc.npcIds, npcId] });
+  }
+  async function removeNpc(npcId: string) {
+    await atlas.db.run('DELETE FROM session_scene_npcs WHERE scene_id=? AND npc_id=?', [enc.id, npcId]);
+    onUpdated({ ...enc, npcIds: enc.npcIds.filter(id => id !== npcId) });
+  }
+
+  async function addMonster(monsterId: string) {
+    const count = monsterCounts[monsterId] ?? 1;
+    const notes = monsterNotes[monsterId]  ?? null;
+    await atlas.db.run(
+      `INSERT INTO session_scene_monsters (scene_id,monster_id,count,notes) VALUES (?,?,?,?)
+       ON CONFLICT(scene_id,monster_id) DO UPDATE SET count=excluded.count,notes=excluded.notes`,
+      [enc.id, monsterId, count, notes],
+    );
+    const existing = enc.monsters.find(m => m.monsterId === monsterId);
+    const updated: SceneMonsterEntry[] = existing
+      ? enc.monsters.map(m => m.monsterId === monsterId ? { ...m, count, notes: notes ?? undefined } : m)
+      : [...enc.monsters, { monsterId, count, notes: notes ?? undefined }];
+    onUpdated({ ...enc, monsters: updated });
+  }
+  async function updateMonsterCount(entry: SceneMonsterEntry, count: number) {
+    if (count < 1) return;
+    await atlas.db.run('UPDATE session_scene_monsters SET count=? WHERE scene_id=? AND monster_id=?', [count, enc.id, entry.monsterId]);
+    onUpdated({ ...enc, monsters: enc.monsters.map(m => m.monsterId === entry.monsterId ? { ...m, count } : m) });
+  }
+  async function removeMonster(monsterId: string) {
+    await atlas.db.run('DELETE FROM session_scene_monsters WHERE scene_id=? AND monster_id=?', [enc.id, monsterId]);
+    onUpdated({ ...enc, monsters: enc.monsters.filter(m => m.monsterId !== monsterId) });
+  }
+
+  async function addMini(miniId: string) {
+    const count = miniCounts[miniId] ?? 1;
+    await atlas.db.run(
+      `INSERT INTO session_scene_minis (scene_id,mini_id,count) VALUES (?,?,?)
+       ON CONFLICT(scene_id,mini_id) DO UPDATE SET count=excluded.count`,
+      [enc.id, miniId, count],
+    );
+    const existing = enc.minis.find(m => m.miniId === miniId);
+    const updated: SceneMiniEntry[] = existing
+      ? enc.minis.map(m => m.miniId === miniId ? { ...m, count } : m)
+      : [...enc.minis, { miniId, count }];
+    onUpdated({ ...enc, minis: updated });
+  }
+  async function updateMiniCount(entry: SceneMiniEntry, count: number) {
+    if (count < 1) return;
+    await atlas.db.run('UPDATE session_scene_minis SET count=? WHERE scene_id=? AND mini_id=?', [count, enc.id, entry.miniId]);
+    onUpdated({ ...enc, minis: enc.minis.map(m => m.miniId === entry.miniId ? { ...m, count } : m) });
+  }
+  async function removeMini(miniId: string) {
+    await atlas.db.run('DELETE FROM session_scene_minis WHERE scene_id=? AND mini_id=?', [enc.id, miniId]);
+    onUpdated({ ...enc, minis: enc.minis.filter(m => m.miniId !== miniId) });
+  }
+
+  if (encTab === 'npcs') {
+    const linked   = enc.npcIds;
+    const filtered = allNpcs.filter(n => !search || n.name.toLowerCase().includes(search.toLowerCase()));
+    return (
+      <div className={styles.importPanel}>
+        {linked.length > 0 && (
+          <div className={styles.linkedSection}>
+            <span className={styles.linkedLabel}>Linked NPCs</span>
+            <div className={styles.linkedChips}>
+              {linked.map(id => {
+                const npc = allNpcs.find(n => n.id === id);
+                return (
+                  <span key={id} className={styles.linkedChip}>
+                    {npc?.name ?? id}
+                    <button className={styles.chipRemove} onClick={() => removeNpc(id)}>×</button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <input className={styles.importSearch} placeholder="Search NPCs…" value={search} onChange={e => setSearch(e.target.value)} />
+        <div className={styles.importList}>
+          {filtered.length === 0 && <p className={styles.importEmpty}>No NPCs found.</p>}
+          {filtered.map(n => {
+            const isLinked = linked.includes(n.id);
+            return (
+              <div key={n.id} className={`${styles.importRow} ${isLinked ? styles.importRowLinked : ''}`}>
+                <div className={styles.importRowInfo}>
+                  <span className={styles.importRowName}>{n.name}</span>
+                  {n.alias && <span className={styles.importRowMeta}>"{n.alias}"</span>}
+                  <span className={styles.importRowMeta}>{n.role} · {n.vital_status}</span>
+                </div>
+                <button className={isLinked ? styles.importBtnLinked : styles.importBtn}
+                  onClick={() => isLinked ? removeNpc(n.id) : addNpc(n.id)}>
+                  {isLinked ? '✓ Linked' : '+ Add'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (encTab === 'monsters') {
+    const linked   = enc.monsters;
+    const filtered = allMonsters.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+    return (
+      <div className={styles.importPanel}>
+        {linked.length > 0 && (
+          <div className={styles.linkedSection}>
+            <span className={styles.linkedLabel}>Encounter Monsters</span>
+            <div className={styles.monsterTable}>
+              {linked.map(entry => {
+                const m = allMonsters.find(x => x.id === entry.monsterId);
+                return (
+                  <div key={entry.monsterId} className={styles.monsterTableRow}>
+                    <div className={styles.monsterTableInfo}>
+                      <span className={styles.monsterTableName}>{m?.name ?? entry.monsterId}</span>
+                      {m && <span className={styles.monsterTableMeta}>CR {m.challenge_rating} · {m.size} {m.creature_type}</span>}
+                      {entry.notes && <span className={styles.monsterTableNotes}>{entry.notes}</span>}
+                    </div>
+                    <div className={styles.monsterTableControls}>
+                      <button className={styles.countBtn} onClick={() => updateMonsterCount(entry, entry.count - 1)} disabled={entry.count <= 1}>−</button>
+                      <span className={styles.countVal}>{entry.count}</span>
+                      <button className={styles.countBtn} onClick={() => updateMonsterCount(entry, entry.count + 1)}>+</button>
+                      <button className={`${styles.encIconBtn} ${styles.encDanger}`} onClick={() => removeMonster(entry.monsterId)}><Icon name="x" size={11} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <input className={styles.importSearch} placeholder="Search bestiary…" value={search} onChange={e => setSearch(e.target.value)} />
+        <div className={styles.importList}>
+          {filtered.length === 0 && <p className={styles.importEmpty}>No monsters in bestiary yet.</p>}
+          {filtered.map(m => {
+            const isLinked = linked.some(e => e.monsterId === m.id);
+            return (
+              <div key={m.id} className={`${styles.importRow} ${isLinked ? styles.importRowLinked : ''}`}>
+                <div className={styles.importRowInfo}>
+                  <span className={styles.importRowName}>{m.name}</span>
+                  <span className={styles.importRowMeta}>CR {m.challenge_rating} · {m.size} {m.creature_type}{m.is_homebrew === 1 ? ' · Homebrew' : ''}</span>
+                </div>
+                <div className={styles.importRowActions}>
+                  {!isLinked && (
+                    <>
+                      <div className={styles.countInline}>
+                        <button className={styles.countBtn} onClick={() => setMonsterCounts(c => ({ ...c, [m.id]: Math.max(1, (c[m.id] ?? 1) - 1) }))} disabled={(monsterCounts[m.id] ?? 1) <= 1}>−</button>
+                        <span className={styles.countVal}>{monsterCounts[m.id] ?? 1}</span>
+                        <button className={styles.countBtn} onClick={() => setMonsterCounts(c => ({ ...c, [m.id]: (c[m.id] ?? 1) + 1 }))}>+</button>
+                      </div>
+                      <input className={styles.notesInline} placeholder="Tactics/notes…"
+                        value={monsterNotes[m.id] ?? ''} onChange={e => setMonsterNotes(n => ({ ...n, [m.id]: e.target.value }))} />
+                    </>
+                  )}
+                  <button className={isLinked ? styles.importBtnLinked : styles.importBtn}
+                    onClick={() => isLinked ? removeMonster(m.id) : addMonster(m.id)}>
+                    {isLinked ? '✓ Added' : '+ Add'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (encTab === 'minis') {
+    const linked   = enc.minis;
+    const filtered = allMinis.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+    return (
+      <div className={styles.importPanel}>
+        {linked.length > 0 && (
+          <div className={styles.linkedSection}>
+            <span className={styles.linkedLabel}>Mini List</span>
+            <div className={styles.monsterTable}>
+              {linked.map(entry => {
+                const mini = allMinis.find(x => x.id === entry.miniId);
+                return (
+                  <div key={entry.miniId} className={styles.monsterTableRow}>
+                    <div className={styles.monsterTableInfo}>
+                      <span className={styles.monsterTableName}>{mini?.name ?? entry.miniId}</span>
+                      {mini?.base_size && <span className={styles.monsterTableMeta}>{mini.base_size} base</span>}
+                    </div>
+                    <div className={styles.monsterTableControls}>
+                      <button className={styles.countBtn} onClick={() => updateMiniCount(entry, entry.count - 1)} disabled={entry.count <= 1}>−</button>
+                      <span className={styles.countVal}>{entry.count}</span>
+                      <button className={styles.countBtn} onClick={() => updateMiniCount(entry, entry.count + 1)}>+</button>
+                      <button className={`${styles.encIconBtn} ${styles.encDanger}`} onClick={() => removeMini(entry.miniId)}><Icon name="x" size={11} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <input className={styles.importSearch} placeholder="Search mini catalogue…" value={search} onChange={e => setSearch(e.target.value)} />
+        <div className={styles.importList}>
+          {filtered.length === 0 && <p className={styles.importEmpty}>No minis in catalogue yet.</p>}
+          {filtered.map(m => {
+            const isLinked = linked.some(e => e.miniId === m.id);
+            return (
+              <div key={m.id} className={`${styles.importRow} ${isLinked ? styles.importRowLinked : ''}`}>
+                <div className={styles.importRowInfo}>
+                  <span className={styles.importRowName}>{m.name}</span>
+                  <span className={styles.importRowMeta}>{m.base_size ?? 'medium'} base · qty {m.quantity}</span>
+                </div>
+                <div className={styles.importRowActions}>
+                  {!isLinked && (
+                    <div className={styles.countInline}>
+                      <button className={styles.countBtn} onClick={() => setMiniCounts(c => ({ ...c, [m.id]: Math.max(1, (c[m.id] ?? 1) - 1) }))} disabled={(miniCounts[m.id] ?? 1) <= 1}>−</button>
+                      <span className={styles.countVal}>{miniCounts[m.id] ?? 1}</span>
+                      <button className={styles.countBtn} onClick={() => setMiniCounts(c => ({ ...c, [m.id]: (c[m.id] ?? 1) + 1 }))}>+</button>
+                    </div>
+                  )}
+                  <button className={isLinked ? styles.importBtnLinked : styles.importBtn}
+                    onClick={() => isLinked ? removeMini(m.id) : addMini(m.id)}>
+                    {isLinked ? '✓ Added' : '+ Add'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── Main SessionsView ─────────────────────────────────────────────────────────
+
 export default function SessionsView() {
   const campaign = useCampaignStore(s => s.campaign);
   const [sessions,    setSessions]    = useState<Session[]>([]);
-  const [selected,    setSelected]    = useState<Session|null>(null);
+  const [selected,    setSelected]    = useState<Session | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [creating,    setCreating]    = useState(false);
   const [newName,     setNewName]     = useState('');
-  const [error,       setError]       = useState<string|null>(null);
+  const [error,       setError]       = useState<string | null>(null);
   const [activeTab,   setActiveTab]   = useState<DetailTab>('encounters');
-  const [notePhase,   setNotePhase]   = useState<'planning'|'live'|'recap'>('planning');
+  const [notePhase,   setNotePhase]   = useState<'planning' | 'live' | 'recap'>('planning');
   const [noteText,    setNoteText]    = useState('');
   const [prepText,    setPrepText]    = useState('');
 
-  // Encounter state
-  const [encounters,     setEncounters]     = useState<Encounter[]>([]);
-  const [expandedId,     setExpandedId]     = useState<string|null>(null);
-  const [addingScene,    setAddingScene]    = useState(false);
-  const [editingId,      setEditingId]      = useState<string|null>(null);
-  const [sceneForm,      setSceneForm]      = useState({
-    title: '', encounterType: 'combat', objective: '', setup: '', reward: '',
-  });
+  const [encounters,  setEncounters]  = useState<Encounter[]>([]);
+  const [expandedId,  setExpandedId]  = useState<string | null>(null);
+  const [encTab,      setEncTab]      = useState<EncTab>('details');
+  const [addingScene, setAddingScene] = useState(false);
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [sceneForm,   setSceneForm]   = useState({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' });
 
-  type RawSession  = Record<string,unknown>;
-  type RawScene    = Record<string,unknown>;
-  type NoteRow     = {id:string;phase:'planning'|'live'|'recap';content:string;created_at:string;updated_at:string};
-  type PrepRow     = {id:string;description:string;done:number;sort_order:number};
+  const [allNpcs,     setAllNpcs]     = useState<NpcRow[]>([]);
+  const [allMonsters, setAllMonsters] = useState<MonsterRow[]>([]);
+  const [allMinis,    setAllMinis]    = useState<MiniRow[]>([]);
+
+  type RawSession = Record<string, unknown>;
+  type RawScene   = Record<string, unknown>;
+  type NoteRow    = { id: string; phase: 'planning' | 'live' | 'recap'; content: string; created_at: string; updated_at: string };
+  type PrepRow    = { id: string; description: string; done: number; sort_order: number };
+
+  // ── Load sessions ─────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
     if (!campaign) return;
@@ -148,158 +413,167 @@ export default function SessionsView() {
         description: r['description'] as string ?? '',
         sessionNumber: r['session_number'] as number ?? 0,
         status: r['status'] as SessionStatus,
-        scheduledAt: r['scheduled_at'] as string|undefined,
-        campaignDateStart: r['campaign_date_start'] as string|undefined,
-        campaignDateEnd:   r['campaign_date_end']   as string|undefined,
-        rewards: r['rewards'] as string|undefined,
-        followUpHooks: r['follow_up_hooks'] as string|undefined,
+        scheduledAt: r['scheduled_at'] as string | undefined,
+        campaignDateStart: r['campaign_date_start'] as string | undefined,
+        campaignDateEnd: r['campaign_date_end'] as string | undefined,
+        rewards: r['rewards'] as string | undefined,
+        followUpHooks: r['follow_up_hooks'] as string | undefined,
         tags: JSON.parse(r['tags'] as string ?? '[]') as string[],
         createdAt: r['created_at'] as string, updatedAt: r['updated_at'] as string,
-        scenes:[], prepItems:[], notes:[], advancedQuestIds:[], completedQuestIds:[],
-        plotThreadIds:[], featuredNpcIds:[], visitedLocationIds:[], eventIds:[], assetIds:[],
+        scenes: [], prepItems: [], notes: [],
+        advancedQuestIds: [], completedQuestIds: [], plotThreadIds: [],
+        featuredNpcIds: [], visitedLocationIds: [], eventIds: [], assetIds: [],
       })));
-    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
-    finally    { setLoading(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally     { setLoading(false); }
   }, [campaign]);
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Load lookup data (npcs / monsters / minis) ────────────────────────────
+
+  const loadLookups = useCallback(async () => {
+    if (!campaign) return;
+    const [npcs, monsters, minis] = await Promise.all([
+      atlas.db.query<NpcRow>('SELECT id,name,alias,role,vital_status FROM npcs WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
+      atlas.db.query<MonsterRow>('SELECT id,name,creature_type,size,challenge_rating,is_homebrew FROM monsters WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
+      atlas.db.query<MiniRow>('SELECT id,name,base_size,quantity FROM minis WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
+    ]);
+    setAllNpcs(npcs); setAllMonsters(monsters); setAllMinis(minis);
+  }, [campaign]);
+
+  useEffect(() => { loadLookups(); }, [loadLookups]);
+
+  useEffect(() => atlas.on.moduleEvent(({ event }) => {
+    if (['npc:created', 'npc:updated', 'bestiary:created', 'bestiary:updated',
+         'mini-catalogue:created', 'mini-catalogue:updated'].includes(event)) {
+      void loadLookups();
+    }
+  }), [loadLookups]);
+
+  // ── Load scenes with encounter data ───────────────────────────────────────
+
   async function loadScenes(sessionId: string) {
-    const rows = await atlas.db.query<RawScene>(
-      'SELECT * FROM session_scenes WHERE session_id = ? ORDER BY sort_order ASC',
+    // Always load the core scenes table first — this must never fail.
+    const sceneRows = await atlas.db.query<RawScene>(
+      'SELECT * FROM session_scenes WHERE session_id=? ORDER BY sort_order ASC',
       [sessionId],
     );
-    const mapped: Encounter[] = rows.map(r => parseEncounter({
-      id:         r['id']         as string,
-      title:      r['title']      as string,
-      content:    r['content']    as string ?? '',
-      order:      r['sort_order'] as number,
-      locationId: r['location_id'] as string|null,
-      npcIds:     [],
-      played:     (r['played'] as number) === 1,
+
+    // The encounter junction tables (session_scene_monsters etc.) only exist after
+    // migration v6 runs. Guard each query individually so a missing table never
+    // kills the scene list.
+    const safeQuery = async <T,>(sql: string): Promise<T[]> => {
+      try { return await atlas.db.query<T>(sql, [sessionId]); }
+      catch { return []; }
+    };
+
+    const [monsterRows, miniRows, npcRows] = await Promise.all([
+      safeQuery<SceneMonsterRow>(`SELECT ssm.* FROM session_scene_monsters ssm JOIN session_scenes ss ON ss.id=ssm.scene_id WHERE ss.session_id=?`),
+      safeQuery<SceneMiniRow>(`SELECT ssmi.* FROM session_scene_minis ssmi JOIN session_scenes ss ON ss.id=ssmi.scene_id WHERE ss.session_id=?`),
+      safeQuery<SceneNpcRow>(`SELECT ssn.* FROM session_scene_npcs ssn JOIN session_scenes ss ON ss.id=ssn.scene_id WHERE ss.session_id=?`),
+    ]);
+
+    setEncounters(sceneRows.map(r => {
+      const sid = r['id'] as string;
+      return parseEncounter({
+        id: sid, title: r['title'] as string, content: r['content'] as string ?? '',
+        order: r['sort_order'] as number, locationId: r['location_id'] as string | null,
+        npcIds:   npcRows.filter(n => n.scene_id === sid).map(n => n.npc_id),
+        monsters: monsterRows.filter(m => m.scene_id === sid).map(m => ({ monsterId: m.monster_id, count: m.count, notes: m.notes ?? undefined })),
+        minis:    miniRows.filter(m => m.scene_id === sid).map(m => ({ miniId: m.mini_id, count: m.count })),
+        played: (r['played'] as number) === 1,
+      });
     }));
-    setEncounters(mapped);
   }
+
+  // ── Load notes + prep ─────────────────────────────────────────────────────
 
   async function loadDetail(id: string) {
     const [notes, preps] = await Promise.all([
-      atlas.db.query<NoteRow>('SELECT * FROM session_notes WHERE session_id = ? ORDER BY created_at ASC', [id]),
-      atlas.db.query<PrepRow>('SELECT * FROM session_prep_items WHERE session_id = ? ORDER BY sort_order ASC', [id]),
+      atlas.db.query<NoteRow>('SELECT * FROM session_notes WHERE session_id=? ORDER BY created_at ASC', [id]),
+      atlas.db.query<PrepRow>('SELECT * FROM session_prep_items WHERE session_id=? ORDER BY sort_order ASC', [id]),
     ]);
-    const mappedNotes: SessionNote[]     = notes.map(n => ({ id:n.id, phase:n.phase, content:n.content, createdAt:n.created_at, updatedAt:n.updated_at }));
-    const mappedPreps: SessionPrepItem[] = preps.map(p => ({ id:p.id, description:p.description, done:p.done===1 }));
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, notes:mappedNotes, prepItems:mappedPreps } : s));
-    setSelected(prev => prev?.id === id ? { ...prev, notes:mappedNotes, prepItems:mappedPreps } : prev);
+    const mappedNotes: SessionNote[]     = notes.map(n => ({ id: n.id, phase: n.phase, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at }));
+    const mappedPreps: SessionPrepItem[] = preps.map(p => ({ id: p.id, description: p.description, done: p.done === 1 }));
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, notes: mappedNotes, prepItems: mappedPreps } : s));
+    setSelected(prev => prev?.id === id ? { ...prev, notes: mappedNotes, prepItems: mappedPreps } : prev);
   }
 
   async function handleSelect(s: Session) {
-    setSelected(s);
-    setActiveTab('encounters');
-    setExpandedId(null);
-    setAddingScene(false);
-    setEditingId(null);
+    setSelected(s); setActiveTab('encounters'); setExpandedId(null);
+    setEncTab('details'); setAddingScene(false); setEditingId(null);
     await Promise.all([loadDetail(s.id), loadScenes(s.id)]);
   }
 
+  // ── Session CRUD ──────────────────────────────────────────────────────────
+
   async function createSession() {
     if (!newName.trim() || !campaign) return;
-    const id  = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const num = (sessions[0]?.sessionNumber ?? 0) + 1;
+    const id = crypto.randomUUID(), now = new Date().toISOString(), num = (sessions[0]?.sessionNumber ?? 0) + 1;
     await atlas.db.run(
-      `INSERT INTO sessions (id,campaign_id,name,description,session_number,status,tags,created_at,updated_at)
-       VALUES (?,?,?,?,?,'planned','[]',?,?)`,
+      `INSERT INTO sessions (id,campaign_id,name,description,session_number,status,tags,created_at,updated_at) VALUES (?,?,?,?,?,'planned','[]',?,?)`,
       [id, campaign.id, newName.trim(), '', num, now, now],
     );
-    const newSess: Session = {
-      id, name:newName.trim(), description:'', sessionNumber:num, status:'planned',
-      tags:[], scenes:[], prepItems:[], notes:[], advancedQuestIds:[], completedQuestIds:[],
-      plotThreadIds:[], featuredNpcIds:[], visitedLocationIds:[], eventIds:[], assetIds:[],
-      createdAt:now, updatedAt:now,
+    const s: Session = {
+      id, name: newName.trim(), description: '', sessionNumber: num, status: 'planned',
+      tags: [], scenes: [], prepItems: [], notes: [],
+      advancedQuestIds: [], completedQuestIds: [], plotThreadIds: [],
+      featuredNpcIds: [], visitedLocationIds: [], eventIds: [], assetIds: [],
+      createdAt: now, updatedAt: now,
     };
-    setSessions(prev => [newSess, ...prev]);
-    setNewName(''); setCreating(false);
-    setSelected(newSess); setEncounters([]);
-    setActiveTab('encounters');
+    setSessions(prev => [s, ...prev]); setNewName(''); setCreating(false);
+    setSelected(s); setEncounters([]); setActiveTab('encounters');
   }
 
   async function updateStatus(id: string, status: SessionStatus) {
     const now = new Date().toISOString();
     await atlas.db.run('UPDATE sessions SET status=?,updated_at=? WHERE id=?', [status, now, id]);
-    setSessions(prev => prev.map(s => s.id===id ? {...s,status,updatedAt:now} : s));
-    setSelected(prev => prev?.id===id ? {...prev,status,updatedAt:now} : prev);
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, status, updatedAt: now } : s));
+    setSelected(prev => prev?.id === id ? { ...prev, status, updatedAt: now } : prev);
   }
 
   async function addNote() {
     if (!selected || !noteText.trim()) return;
     const id = crypto.randomUUID(), now = new Date().toISOString();
-    await atlas.db.run(
-      'INSERT INTO session_notes (id,session_id,phase,content,created_at,updated_at) VALUES (?,?,?,?,?,?)',
-      [id, selected.id, notePhase, noteText.trim(), now, now],
-    );
-    setNoteText('');
-    await loadDetail(selected.id);
+    await atlas.db.run('INSERT INTO session_notes (id,session_id,phase,content,created_at,updated_at) VALUES (?,?,?,?,?,?)', [id, selected.id, notePhase, noteText.trim(), now, now]);
+    setNoteText(''); await loadDetail(selected.id);
   }
 
   async function togglePrep(item: SessionPrepItem) {
     if (!selected) return;
-    await atlas.db.run('UPDATE session_prep_items SET done=? WHERE id=?', [item.done?0:1, item.id]);
+    await atlas.db.run('UPDATE session_prep_items SET done=? WHERE id=?', [item.done ? 0 : 1, item.id]);
     await loadDetail(selected.id);
   }
 
   async function addPrep() {
     if (!selected || !prepText.trim()) return;
-    const id = crypto.randomUUID();
-    const ord = selected.prepItems.length;
-    await atlas.db.run(
-      'INSERT INTO session_prep_items (id,session_id,description,done,sort_order) VALUES (?,?,?,0,?)',
-      [id, selected.id, prepText.trim(), ord],
-    );
-    setPrepText('');
-    await loadDetail(selected.id);
+    const id = crypto.randomUUID(), ord = selected.prepItems.length;
+    await atlas.db.run('INSERT INTO session_prep_items (id,session_id,description,done,sort_order) VALUES (?,?,?,0,?)', [id, selected.id, prepText.trim(), ord]);
+    setPrepText(''); await loadDetail(selected.id);
   }
 
   // ── Encounter CRUD ────────────────────────────────────────────────────────
 
   function openAddScene() {
     setSceneForm({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' });
-    setEditingId(null);
-    setAddingScene(true);
+    setEditingId(null); setAddingScene(true);
   }
 
   function openEditScene(enc: Encounter) {
-    setSceneForm({
-      title:         enc.title,
-      encounterType: enc.encounterType,
-      objective:     enc.objective,
-      setup:         enc.setup,
-      reward:        enc.reward,
-    });
-    setEditingId(enc.id);
-    setAddingScene(false);
+    setSceneForm({ title: enc.title, encounterType: enc.encounterType, objective: enc.objective, setup: enc.setup, reward: enc.reward });
+    setEditingId(enc.id); setAddingScene(false);
   }
 
   async function saveScene() {
     if (!selected || !sceneForm.title.trim()) return;
-    const content = encodeEncounter({
-      type:      sceneForm.encounterType,
-      objective: sceneForm.objective,
-      setup:     sceneForm.setup,
-      reward:    sceneForm.reward,
-    });
+    const content = encodeEncounter({ type: sceneForm.encounterType, objective: sceneForm.objective, setup: sceneForm.setup, reward: sceneForm.reward });
     if (editingId) {
-      await atlas.db.run(
-        'UPDATE session_scenes SET title=?,content=?,updated_at=? WHERE id=?',
-        [sceneForm.title.trim(), content, new Date().toISOString(), editingId],
-      );
+      await atlas.db.run('UPDATE session_scenes SET title=?,content=?,updated_at=? WHERE id=?', [sceneForm.title.trim(), content, new Date().toISOString(), editingId]);
       setEditingId(null);
     } else {
-      const id  = crypto.randomUUID();
-      const ord = encounters.length;
-      await atlas.db.run(
-        'INSERT INTO session_scenes (id,session_id,title,content,sort_order,played) VALUES (?,?,?,?,?,0)',
-        [id, selected.id, sceneForm.title.trim(), content, ord],
-      );
+      const id = crypto.randomUUID(), ord = encounters.length;
+      await atlas.db.run('INSERT INTO session_scenes (id,session_id,title,content,sort_order,played) VALUES (?,?,?,?,?,0)', [id, selected.id, sceneForm.title.trim(), content, ord]);
       setAddingScene(false);
     }
     await loadScenes(selected.id);
@@ -307,7 +581,7 @@ export default function SessionsView() {
   }
 
   async function togglePlayed(enc: Encounter) {
-    await atlas.db.run('UPDATE session_scenes SET played=? WHERE id=?', [enc.played?0:1, enc.id]);
+    await atlas.db.run('UPDATE session_scenes SET played=? WHERE id=?', [enc.played ? 0 : 1, enc.id]);
     await loadScenes(selected!.id);
   }
 
@@ -319,11 +593,10 @@ export default function SessionsView() {
     if (editingId  === id) setEditingId(null);
   }
 
-  async function moveScene(enc: Encounter, dir: -1|1) {
-    const idx     = encounters.findIndex(e => e.id === enc.id);
-    const swapIdx = idx + dir;
+  async function moveScene(enc: Encounter, dir: -1 | 1) {
+    const idx = encounters.findIndex(e => e.id === enc.id), swapIdx = idx + dir;
     if (swapIdx < 0 || swapIdx >= encounters.length) return;
-    const swap = encounters[swapIdx];
+    const swap = encounters[swapIdx]!;
     await Promise.all([
       atlas.db.run('UPDATE session_scenes SET sort_order=? WHERE id=?', [swap.order, enc.id]),
       atlas.db.run('UPDATE session_scenes SET sort_order=? WHERE id=?', [enc.order, swap.id]),
@@ -331,7 +604,20 @@ export default function SessionsView() {
     await loadScenes(selected!.id);
   }
 
-  const typeInfo = (val: string) => ENCOUNTER_TYPES.find(t => t.value === val) ?? ENCOUNTER_TYPES[ENCOUNTER_TYPES.length-1];
+  function handleEncounterUpdated(updated: Encounter) {
+    setEncounters(prev => prev.map(e => e.id === updated.id ? updated : e));
+  }
+
+  const typeInfo = (val: string) => ENCOUNTER_TYPES.find(t => t.value === val) ?? ENCOUNTER_TYPES[ENCOUNTER_TYPES.length - 1]!;
+
+  function encTabBadge(enc: Encounter, tab: EncTab): number | null {
+    if (tab === 'npcs')     return enc.npcIds.length   || null;
+    if (tab === 'monsters') return enc.monsters.length || null;
+    if (tab === 'minis')    return enc.minis.length    || null;
+    return null;
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className={styles.root}>
@@ -341,7 +627,7 @@ export default function SessionsView() {
           <span className={styles.count}>{sessions.length}</span>
         </div>
         <button className={styles.createBtn} onClick={() => setCreating(v => !v)}>
-          <Icon name="plus" size={16}/> New Session
+          <Icon name="plus" size={16} /> New Session
         </button>
       </header>
 
@@ -349,40 +635,28 @@ export default function SessionsView() {
         <div className={styles.createBar}>
           <input className={styles.input} autoFocus placeholder="Session name…"
             value={newName} onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key==='Enter' && createSession()} />
+            onKeyDown={e => e.key === 'Enter' && createSession()} />
           <button className={styles.createBtn} onClick={createSession} disabled={!newName.trim()}>Create</button>
           <button className={styles.ghostBtn} onClick={() => setCreating(false)}>Cancel</button>
         </div>
       )}
-
-      {error && <div className={styles.errorBar}><Icon name="alert" size={15}/> {error}</div>}
+      {error && <div className={styles.errorBar}><Icon name="alert" size={15} /> {error}</div>}
 
       <div className={styles.body}>
         {/* Session list */}
         <div className={styles.list}>
           {loading ? (
-            <div className={styles.empty}><Icon name="loader" size={22} className={styles.spin}/></div>
+            <div className={styles.empty}><Icon name="loader" size={22} className={styles.spin} /></div>
           ) : sessions.length === 0 ? (
-            <div className={styles.empty}>
-              <Icon name="calendar" size={32} className={styles.emptyIcon}/>
-              <p>No sessions yet.</p>
-            </div>
+            <div className={styles.empty}><Icon name="calendar" size={32} className={styles.emptyIcon} /><p>No sessions yet.</p></div>
           ) : sessions.map(s => (
-            <button key={s.id}
-              className={`${styles.sessionItem} ${selected?.id===s.id ? styles.active : ''}`}
-              onClick={() => handleSelect(s)}>
+            <button key={s.id} className={`${styles.sessionItem} ${selected?.id === s.id ? styles.active : ''}`} onClick={() => handleSelect(s)}>
               <div className={styles.sessionNum}>#{s.sessionNumber}</div>
               <div className={styles.sessionInfo}>
                 <span className={styles.sessionName}>{s.name}</span>
-                <span className={styles.sessionStatus} style={{color:STATUS_COLOUR[s.status]}}>
-                  {s.status.replace('_',' ')}
-                </span>
+                <span className={styles.sessionStatus} style={{ color: STATUS_COLOUR[s.status] }}>{s.status.replace('_', ' ')}</span>
               </div>
-              {s.scheduledAt && (
-                <span className={styles.sessionDate}>
-                  {new Date(s.scheduledAt).toLocaleDateString()}
-                </span>
-              )}
+              {s.scheduledAt && <span className={styles.sessionDate}>{new Date(s.scheduledAt).toLocaleDateString()}</span>}
             </button>
           ))}
         </div>
@@ -392,40 +666,26 @@ export default function SessionsView() {
           <div className={styles.detail}>
             <div className={styles.detailHeader}>
               <div>
-                <h2 className={styles.detailTitle}>
-                  <span className={styles.detailNum}>#{selected.sessionNumber}</span> {selected.name}
-                </h2>
+                <h2 className={styles.detailTitle}><span className={styles.detailNum}>#{selected.sessionNumber}</span> {selected.name}</h2>
                 <div className={styles.statusRow}>
-                  {(['planned','in_progress','completed','cancelled'] as SessionStatus[]).map(st => (
-                    <button key={st}
-                      className={`${styles.statusBtn} ${selected.status===st ? styles.statusActive : ''}`}
-                      style={selected.status===st ? {borderColor:STATUS_COLOUR[st],color:STATUS_COLOUR[st]} : {}}
-                      onClick={() => updateStatus(selected.id, st)}>
-                      {st.replace('_',' ')}
-                    </button>
+                  {(['planned', 'in_progress', 'completed', 'cancelled'] as SessionStatus[]).map(st => (
+                    <button key={st} className={`${styles.statusBtn} ${selected.status === st ? styles.statusActive : ''}`}
+                      style={selected.status === st ? { borderColor: STATUS_COLOUR[st], color: STATUS_COLOUR[st] } : {}}
+                      onClick={() => updateStatus(selected.id, st)}>{st.replace('_', ' ')}</button>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Tab bar */}
             <div className={styles.tabBar}>
               {DETAIL_TABS.map(tab => (
-                <button key={tab}
-                  className={`${styles.tab} ${activeTab===tab ? styles.tabActive : ''}`}
-                  onClick={() => setActiveTab(tab)}>
-                  {tab === 'encounters' && <Icon name="map" size={13}/>}
-                  {tab === 'prep'       && <Icon name="scroll" size={13}/>}
-                  {tab === 'notes'      && <Icon name="scroll" size={13}/>}
+                <button key={tab} className={`${styles.tab} ${activeTab === tab ? styles.tabActive : ''}`} onClick={() => setActiveTab(tab)}>
+                  {tab === 'encounters' && <Icon name="map" size={13} />}
+                  {tab === 'prep'       && <Icon name="scroll" size={13} />}
+                  {tab === 'notes'      && <Icon name="scroll" size={13} />}
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {tab === 'encounters' && encounters.length > 0 && (
-                    <span className={styles.tabBadge}>{encounters.length}</span>
-                  )}
-                  {tab === 'prep' && selected.prepItems.length > 0 && (
-                    <span className={styles.tabBadge}>
-                      {selected.prepItems.filter(p => p.done).length}/{selected.prepItems.length}
-                    </span>
-                  )}
+                  {tab === 'encounters' && encounters.length > 0 && <span className={styles.tabBadge}>{encounters.length}</span>}
+                  {tab === 'prep' && selected.prepItems.length > 0 && <span className={styles.tabBadge}>{selected.prepItems.filter(p => p.done).length}/{selected.prepItems.length}</span>}
                 </button>
               ))}
             </div>
@@ -437,116 +697,115 @@ export default function SessionsView() {
                 <div className={styles.encounterSection}>
                   <div className={styles.encounterHeader}>
                     <span className={styles.encounterSummary}>
-                      {encounters.length === 0
-                        ? 'No encounters planned yet'
-                        : `${encounters.filter(e=>e.played).length} / ${encounters.length} completed`}
+                      {encounters.length === 0 ? 'No encounters planned yet' : `${encounters.filter(e => e.played).length} / ${encounters.length} completed`}
                     </span>
                     {!addingScene && editingId === null && (
-                      <button className={styles.addEncounterBtn} onClick={openAddScene}>
-                        <Icon name="plus" size={13}/> Add Encounter
-                      </button>
+                      <button className={styles.addEncounterBtn} onClick={openAddScene}><Icon name="plus" size={13} /> Add Encounter</button>
                     )}
                   </div>
 
-                  {/* Add form */}
                   {addingScene && (
-                    <SceneFormPanel
-                      sceneForm={sceneForm}
-                      setSceneForm={setSceneForm}
-                      editingId={editingId}
-                      onSave={saveScene}
-                      onCancel={() => { setAddingScene(false); setSceneForm({ title:'', encounterType:'combat', objective:'', setup:'', reward:'' }); }}/>
+                    <SceneFormPanel sceneForm={sceneForm} setSceneForm={setSceneForm} editingId={editingId}
+                      onSave={saveScene} onCancel={() => { setAddingScene(false); setSceneForm({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' }); }} />
                   )}
 
-                  {/* Encounter cards */}
                   <div className={styles.encounterList}>
                     {encounters.length === 0 && !addingScene && (
                       <div className={styles.encounterEmpty}>
                         <p>Plan your session by adding encounters below.</p>
-                        <button className={styles.addEncounterBtn} onClick={openAddScene}>
-                          <Icon name="plus" size={13}/> Add First Encounter
-                        </button>
+                        <button className={styles.addEncounterBtn} onClick={openAddScene}><Icon name="plus" size={13} /> Add First Encounter</button>
                       </div>
                     )}
 
                     {encounters.map((enc, idx) => {
-                      const info      = typeInfo(enc.encounterType);
+                      const info       = typeInfo(enc.encounterType);
                       const isExpanded = expandedId === enc.id;
                       const isEditing  = editingId  === enc.id;
 
                       return (
-                        <div key={enc.id}
-                          className={`${styles.encounterCard} ${enc.played ? styles.encounterPlayed : ''}`}>
+                        <div key={enc.id} className={`${styles.encounterCard} ${enc.played ? styles.encounterPlayed : ''}`}>
+
                           {/* Card header */}
                           <div className={styles.encounterCardHeader}>
                             <button className={`${styles.playedToggle} ${enc.played ? styles.playedDone : ''}`}
                               onClick={() => togglePlayed(enc)} title={enc.played ? 'Mark unplayed' : 'Mark played'}>
                               {enc.played ? '✓' : idx + 1}
                             </button>
-                            <span className={styles.encounterTypePill}>
-                              {info.icon} {info.label}
-                            </span>
+                            <span className={styles.encounterTypePill}>{info!.icon} {info!.label}</span>
                             <span className={styles.encounterTitle}>{enc.title}</span>
+
+                            {/* Import summary badges */}
+                            <div className={styles.encBadges}>
+                              {enc.npcIds.length > 0   && <span className={styles.encBadge} title="NPCs linked">👤 {enc.npcIds.length}</span>}
+                              {enc.monsters.length > 0 && <span className={styles.encBadge} title="Monsters">{enc.monsters.reduce((s, m) => s + m.count, 0)}× 💀</span>}
+                              {enc.minis.length > 0    && <span className={styles.encBadge} title="Minis needed">{enc.minis.reduce((s, m) => s + m.count, 0)}× 🎲</span>}
+                            </div>
+
                             <div className={styles.encounterCardActions}>
-                              <button className={styles.encIconBtn}
-                                onClick={() => moveScene(enc, -1)} disabled={idx===0} title="Move up">
-                                <Icon name="chevron-right" size={12} style={{transform:'rotate(-90deg)'}}/>
+                              <button className={styles.encIconBtn} onClick={() => moveScene(enc, -1)} disabled={idx === 0} title="Move up">
+                                <Icon name="chevron-right" size={12} style={{ transform: 'rotate(-90deg)' }} />
                               </button>
-                              <button className={styles.encIconBtn}
-                                onClick={() => moveScene(enc, 1)} disabled={idx===encounters.length-1} title="Move down">
-                                <Icon name="chevron-right" size={12} style={{transform:'rotate(90deg)'}}/>
+                              <button className={styles.encIconBtn} onClick={() => moveScene(enc, 1)} disabled={idx === encounters.length - 1} title="Move down">
+                                <Icon name="chevron-right" size={12} style={{ transform: 'rotate(90deg)' }} />
                               </button>
-                              <button className={styles.encIconBtn}
-                                onClick={() => { openEditScene(enc); setExpandedId(enc.id); }} title="Edit">
-                                <Icon name="scroll" size={12}/>
+                              <button className={styles.encIconBtn} onClick={() => { openEditScene(enc); setExpandedId(enc.id); setEncTab('details'); }} title="Edit">
+                                <Icon name="scroll" size={12} />
                               </button>
-                              <button className={`${styles.encIconBtn} ${styles.encDanger}`}
-                                onClick={() => deleteScene(enc.id)} title="Delete">
-                                <Icon name="x" size={12}/>
+                              <button className={`${styles.encIconBtn} ${styles.encDanger}`} onClick={() => deleteScene(enc.id)} title="Delete">
+                                <Icon name="x" size={12} />
                               </button>
-                              <button className={styles.encIconBtn}
-                                onClick={() => setExpandedId(isExpanded ? null : enc.id)} title="Expand">
-                                <Icon name="chevron-right" size={12}
-                                  style={{transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition:'transform .15s'}}/>
+                              <button className={styles.encIconBtn} onClick={() => { const next = isExpanded ? null : enc.id; setExpandedId(next); if (next) setEncTab('details'); }} title="Expand">
+                                <Icon name="chevron-right" size={12} style={{ transform: isExpanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s' }} />
                               </button>
                             </div>
                           </div>
 
-                          {/* Expanded detail / edit form */}
+                          {/* Expanded body */}
                           {isExpanded && (
                             <div className={styles.encounterCardBody}>
-                              {isEditing ? (
-                                <SceneFormPanel
-                                  sceneForm={sceneForm}
-                                  setSceneForm={setSceneForm}
-                                  editingId={editingId}
-                                  onSave={saveScene}
-                                  onCancel={() => { setEditingId(null); setExpandedId(enc.id); }}/>
-                              ) : (
-                                <div className={styles.encounterDetail}>
-                                  {enc.objective && (
-                                    <div className={styles.encDetailRow}>
-                                      <span className={styles.encDetailLabel}>Objective</span>
-                                      <span className={styles.encDetailValue}>{enc.objective}</span>
-                                    </div>
-                                  )}
-                                  {enc.setup && (
-                                    <div className={styles.encDetailRow}>
-                                      <span className={styles.encDetailLabel}>Setup / Notes</span>
-                                      <span className={`${styles.encDetailValue} ${styles.encDetailPre}`}>{enc.setup}</span>
-                                    </div>
-                                  )}
-                                  {enc.reward && (
-                                    <div className={styles.encDetailRow}>
-                                      <span className={styles.encDetailLabel}>Reward / Outcome</span>
-                                      <span className={styles.encDetailValue}>{enc.reward}</span>
-                                    </div>
-                                  )}
-                                  {!enc.objective && !enc.setup && !enc.reward && (
-                                    <p className={styles.encDetailEmpty}>No details yet. Click edit to add some.</p>
-                                  )}
-                                </div>
+
+                              {/* Sub-tab bar */}
+                              <div className={styles.encSubTabBar}>
+                                {ENC_TABS.map(t => {
+                                  const badge = encTabBadge(enc, t);
+                                  return (
+                                    <button key={t}
+                                      className={`${styles.encSubTab} ${encTab === t ? styles.encSubTabActive : ''}`}
+                                      onClick={() => { setEncTab(t); if (isEditing && t !== 'details') setEditingId(null); }}>
+                                      {t === 'details'  && '📋 '}
+                                      {t === 'npcs'     && '👤 '}
+                                      {t === 'monsters' && '💀 '}
+                                      {t === 'minis'    && '🎲 '}
+                                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                                      {badge !== null && <span className={styles.encSubTabBadge}>{badge}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Details sub-tab */}
+                              {encTab === 'details' && (
+                                isEditing ? (
+                                  <SceneFormPanel sceneForm={sceneForm} setSceneForm={setSceneForm} editingId={editingId}
+                                    onSave={saveScene} onCancel={() => setEditingId(null)} />
+                                ) : (
+                                  <div className={styles.encounterDetail}>
+                                    {enc.objective && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Objective</span><span className={styles.encDetailValue}>{enc.objective}</span></div>}
+                                    {enc.setup     && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Setup / Notes</span><span className={`${styles.encDetailValue} ${styles.encDetailPre}`}>{enc.setup}</span></div>}
+                                    {enc.reward    && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Reward / Outcome</span><span className={styles.encDetailValue}>{enc.reward}</span></div>}
+                                    {!enc.objective && !enc.setup && !enc.reward && <p className={styles.encDetailEmpty}>No details yet. Click edit to add some.</p>}
+                                  </div>
+                                )
                               )}
+
+                              {/* NPC / Monster / Mini import sub-tabs */}
+                              {(encTab === 'npcs' || encTab === 'monsters' || encTab === 'minis') && (
+                                <EncounterImportPanel
+                                  encTab={encTab} enc={enc} sessionId={selected.id}
+                                  allNpcs={allNpcs} allMonsters={allMonsters} allMinis={allMinis}
+                                  onUpdated={handleEncounterUpdated} />
+                              )}
+
                             </div>
                           )}
                         </div>
@@ -562,22 +821,15 @@ export default function SessionsView() {
                   <ul className={styles.prepList}>
                     {selected.prepItems.map(item => (
                       <li key={item.id} className={styles.prepItem}>
-                        <button
-                          className={`${styles.checkbox} ${item.done ? styles.checked : ''}`}
-                          onClick={() => togglePrep(item)}>
-                          {item.done && '✓'}
-                        </button>
+                        <button className={`${styles.checkbox} ${item.done ? styles.checked : ''}`} onClick={() => togglePrep(item)}>{item.done && '✓'}</button>
                         <span className={item.done ? styles.prepDone : ''}>{item.description}</span>
                       </li>
                     ))}
-                    {selected.prepItems.length === 0 && (
-                      <p className={styles.hint}>No prep items yet.</p>
-                    )}
+                    {selected.prepItems.length === 0 && <p className={styles.hint}>No prep items yet.</p>}
                   </ul>
                   <div className={styles.addRow}>
-                    <input className={styles.input} placeholder="Add prep item…"
-                      value={prepText} onChange={e => setPrepText(e.target.value)}
-                      onKeyDown={e => e.key==='Enter' && addPrep()} />
+                    <input className={styles.input} placeholder="Add prep item…" value={prepText}
+                      onChange={e => setPrepText(e.target.value)} onKeyDown={e => e.key === 'Enter' && addPrep()} />
                     <button className={styles.addBtn} onClick={addPrep} disabled={!prepText.trim()}>Add</button>
                   </div>
                 </section>
@@ -587,26 +839,18 @@ export default function SessionsView() {
               {activeTab === 'notes' && (
                 <section className={styles.section}>
                   <div className={styles.phaseTabs}>
-                    {(['planning','live','recap'] as const).map(p => (
-                      <button key={p} className={`${styles.phaseTab} ${notePhase===p ? styles.phaseActive : ''}`}
-                        onClick={() => setNotePhase(p)}>{p}</button>
+                    {(['planning', 'live', 'recap'] as const).map(p => (
+                      <button key={p} className={`${styles.phaseTab} ${notePhase === p ? styles.phaseActive : ''}`} onClick={() => setNotePhase(p)}>{p}</button>
                     ))}
                   </div>
                   <div className={styles.notesList}>
-                    {selected.notes.filter(n => n.phase===notePhase).map(n => (
-                      <div key={n.id} className={styles.note}>
-                        <p>{n.content}</p>
-                        <span className={styles.noteMeta}>{new Date(n.createdAt).toLocaleString()}</span>
-                      </div>
+                    {selected.notes.filter(n => n.phase === notePhase).map(n => (
+                      <div key={n.id} className={styles.note}><p>{n.content}</p><span className={styles.noteMeta}>{new Date(n.createdAt).toLocaleString()}</span></div>
                     ))}
-                    {selected.notes.filter(n => n.phase===notePhase).length === 0 && (
-                      <p className={styles.hint}>No {notePhase} notes yet.</p>
-                    )}
+                    {selected.notes.filter(n => n.phase === notePhase).length === 0 && <p className={styles.hint}>No {notePhase} notes yet.</p>}
                   </div>
                   <div className={styles.addRow}>
-                    <textarea className={`${styles.input} ${styles.textarea}`}
-                      placeholder={`Add ${notePhase} note…`} value={noteText} rows={3}
-                      onChange={e => setNoteText(e.target.value)} />
+                    <textarea className={`${styles.input} ${styles.textarea}`} placeholder={`Add ${notePhase} note…`} value={noteText} rows={3} onChange={e => setNoteText(e.target.value)} />
                     <button className={styles.addBtn} onClick={addNote} disabled={!noteText.trim()}>Add</button>
                   </div>
                 </section>
@@ -616,7 +860,7 @@ export default function SessionsView() {
           </div>
         ) : (
           <div className={styles.detailEmpty}>
-            <Icon name="calendar" size={40} className={styles.emptyIcon}/>
+            <Icon name="calendar" size={40} className={styles.emptyIcon} />
             <p>Select a session to view details.</p>
           </div>
         )}
