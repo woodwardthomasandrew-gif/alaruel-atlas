@@ -43,6 +43,7 @@ export default function AtlasView() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const dragMoved = useRef(false);
 
   type RawLoc   = Record<string,unknown>;
   type RawMap   = Record<string,unknown>;
@@ -191,6 +192,8 @@ export default function AtlasView() {
   }
 
   async function handleMapClick(e: React.MouseEvent<SVGSVGElement>) {
+    // If the mouse moved more than 4px since mousedown, treat it as a pan, not a click
+    if (dragMoved.current) return;
     if (!activeMap || tool !== 'pin' || !selected) return;
     const svg = svgRef.current!;
     const rect = svg.getBoundingClientRect();
@@ -207,13 +210,17 @@ export default function AtlasView() {
   }
 
   function onMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    dragMoved.current = false;
     if (tool !== 'select') return;
     setDragging(true);
     setDragStart({x:e.clientX, y:e.clientY, px:viewport.px, py:viewport.py});
   }
   function onMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     if (!dragging) return;
-    setViewport(v => ({...v, px:dragStart.px+(e.clientX-dragStart.x), py:dragStart.py+(e.clientY-dragStart.y)}));
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved.current = true;
+    setViewport(v => ({...v, px:dragStart.px+dx, py:dragStart.py+dy}));
   }
   function onMouseUp() { setDragging(false); }
   function onWheel(e: React.WheelEvent<SVGSVGElement>) {

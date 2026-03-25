@@ -68,6 +68,10 @@ export default function InspirationView() {
   const speedCfg    = SPEED_LEVELS[speed - 1];
   const fetchingRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Keep a ref so the interval callback always reads the latest intervalMs
+  // without needing to be recreated on every speed change.
+  const speedCfgRef = useRef(speedCfg);
+  useEffect(() => { speedCfgRef.current = speedCfg; }, [speedCfg]);
 
   // ── Fetch one batch ────────────────────────────────────────────────────────
   const fetchBatch = useCallback(async () => {
@@ -90,15 +94,26 @@ export default function InspirationView() {
 
   // ── Auto-cycle ─────────────────────────────────────────────────────────────
   // Fetch immediately on mount/category/speed change, then repeat at interval.
+  // Using a self-scheduling setTimeout (instead of setInterval) means each new
+  // cycle reads the *current* intervalMs from the ref, so speed changes take
+  // effect on the very next cycle rather than waiting for the old interval to fire.
   useEffect(() => {
     if (!campaign) return;
 
-    fetchBatch();
+    let cancelled = false;
 
-    intervalRef.current = setInterval(fetchBatch, speedCfg.intervalMs);
+    async function cycle() {
+      await fetchBatch();
+      if (cancelled) return;
+      const delay = speedCfgRef.current.intervalMs;
+      intervalRef.current = setTimeout(() => { if (!cancelled) cycle(); }, delay);
+    }
+
+    cycle();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      cancelled = true;
+      if (intervalRef.current) clearTimeout(intervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign?.id, category, speed]);

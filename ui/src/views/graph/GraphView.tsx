@@ -17,36 +17,70 @@ const ATTRACTION = 0.03;
 const DAMPING    = 0.82;
 const MIN_DIST   = 60;
 
+const ENTITY_TYPES = ['npc', 'faction', 'location', 'quest', 'session', 'event'] as const;
+type EntityType = typeof ENTITY_TYPES[number];
+const TABLE_FOR_TYPE: Record<EntityType, string> = {
+  npc: 'npcs', faction: 'factions', location: 'locations',
+  quest: 'quests', session: 'sessions', event: 'campaign_events',
+};
+
 export default function GraphView() {
   const campaign = useCampaignStore(s => s.campaign);
-  const [nodes,    setNodes]    = useState<Node[]>([]);
-  const [edges,    setEdges]    = useState<Edge[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [selected, setSelected] = useState<Node|null>(null);
-  const [showLabels,setShowLabels]=useState(true);
-  const [error,    setError]    = useState<string|null>(null);
+
+  // ── Render state (only used for display) ──────────────────────────────────
+  const [nodes,      setNodes]     = useState<Node[]>([]);
+  const [edges,      setEdges]     = useState<Edge[]>([]);
+  const [loading,    setLoading]   = useState(true);
+  const [selected,   setSelected]  = useState<Node|null>(null);
+  const [showLabels, setShowLabels]= useState(true);
+  const [error,      setError]     = useState<string|null>(null);
+
+  // Pan / zoom
+  const [pan,  setPan]  = useState({x:0, y:0});
+  const [zoom, setZoom] = useState(1);
+  const isPanning  = useRef(false);
+  const panStart   = useRef({x:0, y:0, px:0, py:0});
+
+  // Create-relation form
   const [showCreate, setShowCreate] = useState(false);
+  const [newSrcType, setNewSrcType] = useState<EntityType>('npc');
+  const [newTgtType, setNewTgtType] = useState<EntityType>('npc');
   const [newSrcId,   setNewSrcId]   = useState('');
   const [newTgtId,   setNewTgtId]   = useState('');
-  const [newSrcType, setNewSrcType] = useState('npc');
-  const [newTgtType, setNewTgtType] = useState('npc');
   const [newLabel,   setNewLabel]   = useState('');
-  const [npcs,       setNpcs]       = useState<Array<{id:string;name:string}>>([]);
+  const [entityLists, setEntityLists] = useState<Record<string, Array<{id:string;name:string}>>>({});
 
-  // Load NPC list for the create form
-  useEffect(() => {
-    if (!campaign) return;
-    atlas.db.query<{id:string;name:string}>(
-      'SELECT id, name FROM npcs WHERE campaign_id=? ORDER BY name ASC',
-      [campaign.id],
-    ).then(setNpcs).catch(() => {});
-  }, [campaign]);
+  // ── Simulation lives entirely in a ref — never read back from React state ─
+  // This is the single source of truth for positions.
+  // loadGraph writes here; the tick loop reads & writes here; React state is
+  // only a copy pushed out each frame for rendering.
+  const simNodes = useRef<Node[]>([]);
+  const simEdges = useRef<Edge[]>([]);
+  const animRef  = useRef<number>(0);
+  const svgRef   = useRef<SVGSVGElement>(null);
+  const dragNode = useRef<string|null>(null);
+  const isDraggingNode = useRef(false);
+  const isPaused = useRef(false);
 
+  // ── Entity list loader ────────────────────────────────────────────────────
+  async function loadEntityList(type: EntityType) {
+    if (!campaign || entityLists[type]) return;
+    try {
+      const rows = await atlas.db.query<{id:string;name:string}>(
+        `SELECT id, name FROM ${TABLE_FOR_TYPE[type]} WHERE campaign_id=? ORDER BY name ASC`,
+        [campaign.id],
+      );
+      setEntityLists(prev => ({...prev, [type]: rows}));
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { loadEntityList(newSrcType); }, [newSrcType, campaign]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadEntityList(newTgtType); }, [newTgtType, campaign]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Create relationship ───────────────────────────────────────────────────
   async function createRelationship(e: React.FormEvent) {
     e.preventDefault();
     if (!newSrcId || !newTgtId || !campaign) return;
-    const id  = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const id = crypto.randomUUID(), now = new Date().toISOString();
     try {
       await atlas.db.run(
         `INSERT OR IGNORE INTO entity_relationships
@@ -59,14 +93,15 @@ export default function GraphView() {
       setNewSrcId(''); setNewTgtId(''); setNewLabel('');
       setShowCreate(false);
       await loadGraph();
-    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
+    } catch(err) { setError(err instanceof Error ? err.message : String(err)); }
   }
-  const animRef    = useRef<number>(0);
-  const nodesRef   = useRef<Node[]>([]);
-  const svgRef     = useRef<SVGSVGElement>(null);
-  const dragNode   = useRef<string|null>(null);
-  const isPaused   = useRef(false);
 
+  // ── Load graph ────────────────────────────────────────────────────────────
+  // KEY FIX: positions are read from simNodes.current (the ref), not from
+  // React state. The simulation writes positions into the ref every frame.
+  // loadGraph reads the ref to preserve existing settled positions, then
+  // writes the merged result back into the ref before starting the simulation.
+  // React state is only set so the component re-renders with the new node list.
   const loadGraph = useCallback(async () => {
     if (!campaign) return;
     setLoading(true);
@@ -76,24 +111,23 @@ export default function GraphView() {
         'SELECT * FROM entity_relationships WHERE campaign_id=? LIMIT 200',
         [campaign.id],
       );
-      if (rels.length === 0) { setNodes([]); setEdges([]); setLoading(false); return; }
+      if (rels.length === 0) {
+        simNodes.current = [];
+        simEdges.current = [];
+        setNodes([]); setEdges([]); setLoading(false); return;
+      }
 
-      // Collect unique entity IDs
+      // Collect unique entities
       const entityMap = new Map<string,{id:string;type:string}>();
       rels.forEach(r => {
         entityMap.set(r['source_id'] as string, {id:r['source_id'] as string, type:r['source_type'] as string});
         entityMap.set(r['target_id'] as string, {id:r['target_id'] as string, type:r['target_type'] as string});
       });
 
-      // Resolve names from their respective tables
+      // Resolve names
       const nameMap = new Map<string,string>();
-      const byType = new Map<string,string[]>();
-      entityMap.forEach(e => {
-        const arr = byType.get(e.type) ?? [];
-        arr.push(e.id);
-        byType.set(e.type, arr);
-      });
-
+      const byType  = new Map<string,string[]>();
+      entityMap.forEach(e => { const a = byType.get(e.type) ?? []; a.push(e.id); byType.set(e.type, a); });
       const tableForType: Record<string,string> = {
         npc:'npcs', faction:'factions', location:'locations',
         quest:'quests', session:'sessions', event:'campaign_events',
@@ -101,114 +135,177 @@ export default function GraphView() {
       await Promise.all([...byType.entries()].map(async ([type, ids]) => {
         const table = tableForType[type];
         if (!table) return;
-        const placeholders = ids.map(() => '?').join(',');
+        const ph   = ids.map(() => '?').join(',');
         const rows = await atlas.db.query<{id:string;name:string}>(
-          `SELECT id, name FROM ${table} WHERE id IN (${placeholders})`, ids,
+          `SELECT id, name FROM ${table} WHERE id IN (${ph})`, ids,
         );
         rows.forEach(r => nameMap.set(r.id, r.name));
       }));
 
       const W = 700, H = 500;
-      const newNodes: Node[] = [...entityMap.values()].map((e, i) => ({
-        id: e.id, type: e.type,
-        name: nameMap.get(e.id) ?? e.id.slice(0,8),
-        x: W/2 + Math.cos(i * 2*Math.PI/entityMap.size) * 180,
-        y: H/2 + Math.sin(i * 2*Math.PI/entityMap.size) * 140,
-        vx:0, vy:0, pinned:false,
-      }));
+
+      // Read settled positions from the simulation ref (not React state)
+      const existingById = new Map(simNodes.current.map(n => [n.id, n]));
+
+      const newNodes: Node[] = [...entityMap.values()].map((e, i) => {
+        const ex = existingById.get(e.id);
+        return {
+          id: e.id, type: e.type,
+          name: nameMap.get(e.id) ?? e.id.slice(0,8),
+          x:  ex ? ex.x  : W/2 + Math.cos(i * 2*Math.PI/entityMap.size) * 180,
+          y:  ex ? ex.y  : H/2 + Math.sin(i * 2*Math.PI/entityMap.size) * 140,
+          vx: ex ? ex.vx : 0,
+          vy: ex ? ex.vy : 0,
+          pinned: ex ? ex.pinned : false,
+        };
+      });
 
       const newEdges: Edge[] = rels.map(r => ({
-        id:       r['id']   as string,
-        sourceId: r['source_id'] as string,
-        targetId: r['target_id'] as string,
-        label:    r['label']    as string ?? '',
+        id:       r['id']               as string,
+        sourceId: r['source_id']        as string,
+        targetId: r['target_id']        as string,
+        label:    (r['label'] ?? '')    as string,
         type:     r['relationship_type'] as string,
-        strength: r['strength'] as number|null,
+        strength: r['strength']          as number|null,
       }));
 
-      setNodes(newNodes);
+      // Write into sim ref FIRST, then update React state.
+      // The simulation effect watches edges.length / nodes.length changes and
+      // will restart, but it reads from simNodes.current — which already has
+      // the correct positions — so the first tick will not jump.
+      simNodes.current = newNodes;
+      simEdges.current = newEdges;
       setEdges(newEdges);
-      nodesRef.current = newNodes;
+      setNodes(newNodes);
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
     finally    { setLoading(false); }
   }, [campaign]);
 
   useEffect(() => { loadGraph(); }, [loadGraph]);
 
-  // Force simulation
+  // ── Force simulation ──────────────────────────────────────────────────────
+  // Reads and writes simNodes.current directly. Pushes to React state via
+  // setNodes only for rendering — never reads back from React state.
   useEffect(() => {
-    if (nodes.length === 0) return;
-    nodesRef.current = nodes;
+    if (simNodes.current.length === 0) return;
+
+    cancelAnimationFrame(animRef.current);
 
     function tick() {
       if (isPaused.current) { animRef.current = requestAnimationFrame(tick); return; }
-      setNodes(prev => {
-        const ns = prev.map(n => ({...n}));
-        const nodeById = new Map(ns.map(n => [n.id, n]));
 
-        // Repulsion
-        for (let i = 0; i < ns.length; i++) {
-          for (let j = i+1; j < ns.length; j++) {
-            const a = ns[i]!, b = ns[j]!;
-            const dx = a.x-b.x, dy = a.y-b.y;
-            const dist = Math.max(MIN_DIST, Math.sqrt(dx*dx+dy*dy));
-            const f = REPULSION/(dist*dist);
-            const fx = f*dx/dist, fy = f*dy/dist;
-            if (!a.pinned) { a.vx += fx; a.vy += fy; }
-            if (!b.pinned) { b.vx -= fx; b.vy -= fy; }
-          }
-        }
-        // Attraction along edges
-        edges.forEach(e => {
-          const a = nodeById.get(e.sourceId), b = nodeById.get(e.targetId);
-          if (!a || !b) return;
-          const dx = b.x-a.x, dy = b.y-a.y;
-          const dist = Math.sqrt(dx*dx+dy*dy);
-          const f = ATTRACTION * dist;
+      const ns = simNodes.current.map(n => ({...n}));
+      const edgeList = simEdges.current;
+      const nodeById = new Map(ns.map(n => [n.id, n]));
+
+      // Repulsion
+      for (let i = 0; i < ns.length; i++) {
+        for (let j = i+1; j < ns.length; j++) {
+          const a = ns[i]!, b = ns[j]!;
+          const dx = a.x-b.x, dy = a.y-b.y;
+          const dist = Math.max(MIN_DIST, Math.sqrt(dx*dx+dy*dy));
+          const f = REPULSION/(dist*dist);
           const fx = f*dx/dist, fy = f*dy/dist;
           if (!a.pinned) { a.vx += fx; a.vy += fy; }
           if (!b.pinned) { b.vx -= fx; b.vy -= fy; }
-        });
-        // Center gravity
-        ns.forEach(n => {
-          if (!n.pinned) { n.vx += (350-n.x)*0.004; n.vy += (260-n.y)*0.004; }
-        });
-        // Integrate
-        ns.forEach(n => {
-          if (!n.pinned) {
-            n.vx *= DAMPING; n.vy *= DAMPING;
-            n.x += n.vx;     n.y += n.vy;
-            n.x = Math.max(30, Math.min(670, n.x));
-            n.y = Math.max(30, Math.min(490, n.y));
-          }
-        });
-        nodesRef.current = ns;
-        return ns;
+        }
+      }
+      // Attraction
+      edgeList.forEach(e => {
+        const a = nodeById.get(e.sourceId), b = nodeById.get(e.targetId);
+        if (!a || !b) return;
+        const dx = b.x-a.x, dy = b.y-a.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist === 0) return;
+        const f = ATTRACTION * dist;
+        const fx = f*dx/dist, fy = f*dy/dist;
+        if (!a.pinned) { a.vx += fx; a.vy += fy; }
+        if (!b.pinned) { b.vx -= fx; b.vy -= fy; }
       });
+      // Center gravity
+      ns.forEach(n => {
+        if (!n.pinned) { n.vx += (350-n.x)*0.004; n.vy += (260-n.y)*0.004; }
+      });
+      // Integrate
+      ns.forEach(n => {
+        if (!n.pinned) {
+          n.vx *= DAMPING; n.vy *= DAMPING;
+          n.x += n.vx;    n.y += n.vy;
+          n.x = Math.max(30, Math.min(670, n.x));
+          n.y = Math.max(30, Math.min(490, n.y));
+        }
+      });
+
+      // Write back to sim ref, then push a copy to React for rendering
+      simNodes.current = ns;
+      setNodes([...ns]);
+
       animRef.current = requestAnimationFrame(tick);
     }
 
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [edges, nodes.length]);
+  }, [edges.length, nodes.length]); // restart only when the node/edge count changes
 
-  function startDrag(nodeId: string) {
-    dragNode.current = nodeId;
-    isPaused.current = true;
-    setNodes(prev => prev.map(n => n.id===nodeId ? {...n, pinned:true} : n));
+  // ── Node drag ─────────────────────────────────────────────────────────────
+  function startDrag(e: React.MouseEvent, nodeId: string) {
+    e.stopPropagation();
+    dragNode.current     = nodeId;
+    isDraggingNode.current = true;
+    isPaused.current     = true;
+    // Pin in sim ref immediately
+    simNodes.current = simNodes.current.map(n => n.id===nodeId ? {...n, pinned:true} : n);
+    setNodes([...simNodes.current]);
+  }
+
+  // ── SVG pan ───────────────────────────────────────────────────────────────
+  function onSvgMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    if (e.button !== 0 || isDraggingNode.current) return;
+    if ((e.target as SVGElement).closest('g[data-node]')) return;
+    isPanning.current = true;
+    panStart.current  = {x: e.clientX, y: e.clientY, px: pan.x, py: pan.y};
   }
 
   function onSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (!dragNode.current || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setNodes(prev => prev.map(n => n.id===dragNode.current ? {...n,x,y,vx:0,vy:0} : n));
+    if (dragNode.current && svgRef.current) {
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left - pan.x) / zoom;
+      const y = (e.clientY - rect.top  - pan.y) / zoom;
+      simNodes.current = simNodes.current.map(n =>
+        n.id===dragNode.current ? {...n, x, y, vx:0, vy:0} : n,
+      );
+      setNodes([...simNodes.current]);
+    } else if (isPanning.current) {
+      setPan({
+        x: panStart.current.px + (e.clientX - panStart.current.x),
+        y: panStart.current.py + (e.clientY - panStart.current.y),
+      });
+    }
   }
 
   function onSvgMouseUp() {
-    dragNode.current = null;
-    isPaused.current = false;
+    dragNode.current       = null;
+    isDraggingNode.current = false;
+    isPanning.current      = false;
+    isPaused.current       = false;
+  }
+
+  function onSvgWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect   = svg.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    setZoom(z => {
+      const nz = Math.min(4, Math.max(0.2, z * factor));
+      setPan(p => ({
+        x: mouseX - (mouseX - p.x) * (nz / z),
+        y: mouseY - (mouseY - p.y) * (nz / z),
+      }));
+      return nz;
+    });
   }
 
   const nodeById = new Map(nodes.map(n => [n.id, n]));
@@ -229,6 +326,11 @@ export default function GraphView() {
             onClick={() => setShowCreate(v=>!v)}>
             <Icon name="plus" size={14}/> Add Relation
           </button>
+          <button className={styles.toolBtn}
+            onClick={() => { setPan({x:0,y:0}); setZoom(1); }}
+            title="Reset view">
+            <Icon name="home" size={14}/> Reset View
+          </button>
           <button className={styles.toolBtn} onClick={loadGraph}>
             <Icon name="loader" size={14}/> Reload
           </button>
@@ -239,18 +341,29 @@ export default function GraphView() {
 
       {showCreate && (
         <form className={styles.createForm} onSubmit={createRelationship}>
+          <select className={styles.createInput} value={newSrcType}
+            onChange={e => { setNewSrcType(e.target.value as EntityType); setNewSrcId(''); }}>
+            {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
           <select className={styles.createInput} value={newSrcId}
             onChange={e => setNewSrcId(e.target.value)} required>
-            <option value="">From character…</option>
-            {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+            <option value="">From…</option>
+            {(entityLists[newSrcType] ?? []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
           </select>
+
           <input className={styles.createInput} placeholder="Relationship label…"
             value={newLabel} onChange={e => setNewLabel(e.target.value)}/>
+
+          <select className={styles.createInput} value={newTgtType}
+            onChange={e => { setNewTgtType(e.target.value as EntityType); setNewTgtId(''); }}>
+            {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
           <select className={styles.createInput} value={newTgtId}
             onChange={e => setNewTgtId(e.target.value)} required>
-            <option value="">To character…</option>
-            {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+            <option value="">To…</option>
+            {(entityLists[newTgtType] ?? []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
           </select>
+
           <button type="submit" className={styles.createBtn}>Add</button>
           <button type="button" className={styles.toolBtn}
             onClick={() => setShowCreate(false)}>Cancel</button>
@@ -264,12 +377,18 @@ export default function GraphView() {
           <div className={styles.empty}>
             <Icon name="network" size={48} className={styles.emptyIcon}/>
             <h3>No relationships yet</h3>
-            <p>Relationships between entities appear here automatically as the campaign develops.</p>
-            <p className={styles.hint}>Create links in the Characters, Quests, or Sessions modules.</p>
+            <p>Use <strong>Add Relation</strong> to link NPCs, factions, locations, quests, sessions, or events.</p>
+            <p className={styles.hint}>Relationships also appear automatically as the campaign develops.</p>
           </div>
         ) : (
           <svg ref={svgRef} className={styles.graph}
-            onMouseMove={onSvgMouseMove} onMouseUp={onSvgMouseUp} onMouseLeave={onSvgMouseUp}>
+            onMouseDown={onSvgMouseDown}
+            onMouseMove={onSvgMouseMove}
+            onMouseUp={onSvgMouseUp}
+            onMouseLeave={onSvgMouseUp}
+            onWheel={onSvgWheel}
+            style={{cursor: isPanning.current ? 'grabbing' : 'grab'}}
+          >
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="18" refY="5"
                 markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -278,58 +397,61 @@ export default function GraphView() {
               </marker>
             </defs>
 
-            {/* Edges */}
-            {edges.map(e => {
-              const src = nodeById.get(e.sourceId), tgt = nodeById.get(e.targetId);
-              if (!src || !tgt) return null;
-              const mx = (src.x+tgt.x)/2, my = (src.y+tgt.y)/2;
-              return (
-                <g key={e.id}>
-                  <line x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
-                    stroke="var(--ink-700)" strokeWidth={1.5}
-                    markerEnd="url(#arr)" opacity={0.7}/>
-                  {showLabels && e.label && (
-                    <text x={mx} y={my-5} fontSize={9} fill="var(--ink-500)"
-                      textAnchor="middle" dominantBaseline="auto"
-                      style={{pointerEvents:'none'}}>
-                      {e.label}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+            <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
+              {edges.map(e => {
+                const src = nodeById.get(e.sourceId), tgt = nodeById.get(e.targetId);
+                if (!src || !tgt) return null;
+                const mx = (src.x+tgt.x)/2, my = (src.y+tgt.y)/2;
+                return (
+                  <g key={e.id}>
+                    <line x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
+                      stroke="var(--ink-700)" strokeWidth={1.5/zoom}
+                      markerEnd="url(#arr)" opacity={0.7}/>
+                    {showLabels && e.label && (
+                      <text x={mx} y={my-5/zoom} fontSize={9/zoom} fill="var(--ink-500)"
+                        textAnchor="middle" dominantBaseline="auto"
+                        style={{pointerEvents:'none'}}>
+                        {e.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
 
-            {/* Nodes */}
-            {nodes.map(n => {
-              const col = TYPE_COLOUR[n.type] ?? TYPE_COLOUR['default'];
-              const isSelected = selected?.id === n.id;
-              return (
-                <g key={n.id} style={{cursor:'grab'}}
-                  onMouseDown={() => startDrag(n.id)}
-                  onClick={() => setSelected(s => s?.id===n.id ? null : n)}>
-                  <circle cx={n.x} cy={n.y} r={isSelected?18:14}
-                    fill={col} fillOpacity={0.85}
-                    stroke={isSelected?'var(--gold-300)':'var(--bg-base)'}
-                    strokeWidth={isSelected?2.5:1.5}/>
-                  <text x={n.x} y={n.y} fontSize={8} fill="var(--bg-base)"
-                    textAnchor="middle" dominantBaseline="central"
-                    style={{pointerEvents:'none',fontWeight:600,textTransform:'uppercase'}}>
-                    {n.type.slice(0,1).toUpperCase()}
-                  </text>
-                  {showLabels && (
-                    <text x={n.x} y={n.y+22} fontSize={10} fill="var(--text-secondary)"
-                      textAnchor="middle" dominantBaseline="hanging"
-                      style={{pointerEvents:'none'}}>
-                      {n.name.length > 14 ? n.name.slice(0,13)+'…' : n.name}
+              {nodes.map(n => {
+                const col = TYPE_COLOUR[n.type] ?? TYPE_COLOUR['default'];
+                const isSelected = selected?.id === n.id;
+                return (
+                  <g key={n.id} data-node="1" style={{cursor:'grab'}}
+                    onMouseDown={e => startDrag(e, n.id)}
+                    onClick={() => setSelected(s => s?.id===n.id ? null : n)}>
+                    <circle cx={n.x} cy={n.y} r={(isSelected?18:14)/zoom}
+                      fill={col} fillOpacity={0.85}
+                      stroke={isSelected?'var(--gold-300)':'var(--bg-base)'}
+                      strokeWidth={(isSelected?2.5:1.5)/zoom}/>
+                    <text x={n.x} y={n.y} fontSize={8/zoom} fill="var(--bg-base)"
+                      textAnchor="middle" dominantBaseline="central"
+                      style={{pointerEvents:'none',fontWeight:600}}>
+                      {n.type.slice(0,1).toUpperCase()}
                     </text>
-                  )}
-                </g>
-              );
-            })}
+                    {showLabels && (
+                      <text x={n.x} y={n.y+22/zoom} fontSize={10/zoom} fill="var(--text-secondary)"
+                        textAnchor="middle" dominantBaseline="hanging"
+                        style={{pointerEvents:'none'}}>
+                        {n.name.length > 14 ? n.name.slice(0,13)+'…' : n.name}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
           </svg>
         )}
 
-        {/* Legend */}
+        {nodes.length > 0 && (
+          <div className={styles.zoomLabel}>{Math.round(zoom*100)}%</div>
+        )}
+
         {nodes.length > 0 && (
           <div className={styles.legend}>
             {Object.entries(TYPE_COLOUR).filter(([k]) => k!=='default').map(([type,col]) => (

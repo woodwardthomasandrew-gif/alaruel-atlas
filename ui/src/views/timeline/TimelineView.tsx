@@ -25,6 +25,10 @@ export default function TimelineView() {
     significance:'minor' as EventSignificance, campaignDate:'', isPlayerFacing:true });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState<string|null>(null);
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string|null>(null);
+  const [editForm,  setEditForm]  = useState({ name:'', eventType:'other' as CampaignEventType,
+    significance:'minor' as EventSignificance, campaignDate:'', isPlayerFacing:true });
 
   type RawEvent = Record<string,unknown>;
 
@@ -62,6 +66,47 @@ export default function TimelineView() {
       if (event === 'timeline:entry-added') load();
     });
   }, [load]);
+
+  function startEdit(ev: CampaignEvent) {
+    setEditingId(ev.id);
+    setEditForm({
+      name: ev.name,
+      eventType: ev.eventType,
+      significance: ev.significance,
+      campaignDate: ev.campaignDate ?? '',
+      isPlayerFacing: ev.isPlayerFacing,
+    });
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId || !editForm.name.trim() || !campaign) return;
+    setSaving(true); setError(null);
+    try {
+      const now = new Date().toISOString();
+      await atlas.db.run(
+        `UPDATE campaign_events SET
+           name=?, event_type=?, significance=?, campaign_date=?,
+           is_player_facing=?, updated_at=?
+         WHERE id=? AND campaign_id=?`,
+        [editForm.name.trim(), editForm.eventType, editForm.significance,
+         editForm.campaignDate || null, editForm.isPlayerFacing ? 1 : 0,
+         now, editingId, campaign.id],
+      );
+      await load();
+      setEditingId(null);
+    } catch(err) { setError(err instanceof Error ? err.message : String(err)); }
+    finally    { setSaving(false); }
+  }
+
+  async function deleteEvent(id: string) {
+    if (!campaign) return;
+    if (!window.confirm('Delete this event? This cannot be undone.')) return;
+    try {
+      await atlas.db.run('DELETE FROM campaign_events WHERE id=? AND campaign_id=?', [id, campaign.id]);
+      await load();
+    } catch(err) { setError(err instanceof Error ? err.message : String(err)); }
+  }
 
   async function createEvent(e: React.FormEvent) {
     e.preventDefault();
@@ -154,22 +199,61 @@ export default function TimelineView() {
           <ul className={styles.eventList}>
             {filtered.map(ev => (
               <li key={ev.id} className={styles.eventItem}>
-                <div className={styles.eventLeft}>
-                  <span className={styles.glyph}>{TYPE_GLYPH[ev.eventType]}</span>
-                  <div className={styles.line}/>
-                </div>
-                <div className={styles.eventBody}>
-                  <div className={styles.eventHeader}>
-                    <span className={styles.eventName}>{ev.name}</span>
-                    <div className={styles.eventMeta}>
-                      <span className={styles.sigDot} style={{background:SIG_COLOUR[ev.significance]}} title={ev.significance}/>
-                      {ev.campaignDate && <span className={styles.date}>{ev.campaignDate}</span>}
-                      <span className={styles.eventType}>{ev.eventType}</span>
-                      {!ev.isPlayerFacing && <span className={styles.gmOnly}>GM</span>}
+                {editingId === ev.id ? (
+                  /* ── Inline edit form ── */
+                  <form className={styles.editForm} onSubmit={saveEdit}>
+                    <input className={styles.input} autoFocus value={editForm.name}
+                      onChange={e => setEditForm(f=>({...f,name:e.target.value}))} required/>
+                    <select className={styles.input} value={editForm.eventType}
+                      onChange={e => setEditForm(f=>({...f,eventType:e.target.value as CampaignEventType}))}>
+                      {EVENT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select className={styles.input} value={editForm.significance}
+                      onChange={e => setEditForm(f=>({...f,significance:e.target.value as EventSignificance}))}>
+                      {(['trivial','minor','moderate','major','critical'] as EventSignificance[]).map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input className={styles.input} placeholder="In-world date (optional)"
+                      value={editForm.campaignDate}
+                      onChange={e => setEditForm(f=>({...f,campaignDate:e.target.value}))}/>
+                    <label className={styles.checkLabel}>
+                      <input type="checkbox" checked={editForm.isPlayerFacing}
+                        onChange={e => setEditForm(f=>({...f,isPlayerFacing:e.target.checked}))}/>
+                      Player-facing
+                    </label>
+                    <button type="submit" className={styles.createBtn} disabled={saving||!editForm.name.trim()}>
+                      {saving?<Icon name="loader" size={14} className={styles.spin}/>:<Icon name="check" size={14}/>} Save
+                    </button>
+                    <button type="button" className={styles.ghostBtn} onClick={() => setEditingId(null)}>Cancel</button>
+                  </form>
+                ) : (
+                  /* ── Normal display row ── */
+                  <>
+                    <div className={styles.eventLeft}>
+                      <span className={styles.glyph}>{TYPE_GLYPH[ev.eventType]}</span>
+                      <div className={styles.line}/>
                     </div>
-                  </div>
-                  {ev.description && <p className={styles.eventDesc}>{ev.description}</p>}
-                </div>
+                    <div className={styles.eventBody}>
+                      <div className={styles.eventHeader}>
+                        <span className={styles.eventName}>{ev.name}</span>
+                        <div className={styles.eventMeta}>
+                          <span className={styles.sigDot} style={{background:SIG_COLOUR[ev.significance]}} title={ev.significance}/>
+                          {ev.campaignDate && <span className={styles.date}>{ev.campaignDate}</span>}
+                          <span className={styles.eventType}>{ev.eventType}</span>
+                          {!ev.isPlayerFacing && <span className={styles.gmOnly}>GM</span>}
+                          <button className={styles.iconBtn} title="Edit event"
+                            onClick={() => startEdit(ev)}>
+                            <Icon name="edit" size={13}/>
+                          </button>
+                          <button className={styles.iconBtn} title="Delete event"
+                            onClick={() => deleteEvent(ev.id)}>
+                            <Icon name="trash" size={13}/>
+                          </button>
+                        </div>
+                      </div>
+                      {ev.description && <p className={styles.eventDesc}>{ev.description}</p>}
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>

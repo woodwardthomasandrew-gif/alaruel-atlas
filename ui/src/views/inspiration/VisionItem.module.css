@@ -7,9 +7,11 @@
   top:       var(--v-top,  50%);
   transform: translate(-50%, -50%);
 
-  max-width: 68%;
+  max-width: 52%;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.45;
+  word-break: break-word;
+  hyphens: auto;
   font-size:   var(--v-font-size, 0.92rem);
   font-family: var(--font-body, serif);
   letter-spacing: 0.025em;

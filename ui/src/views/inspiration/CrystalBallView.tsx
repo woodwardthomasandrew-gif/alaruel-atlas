@@ -21,24 +21,25 @@ const STAGGER_MS = 1600;
 // Within each cell the position is slightly randomised for a natural look.
 
 // Centre points of each cell as % of the orb area (left%, top%)
-// Skip corners (0,0), (2,0), (0,2), (2,2) — they fall outside the circle.
+// All cells are kept well inside the circle (28%–72% range) so the
+// circular overflow:hidden clip never cuts off text.
 const GRID_CELLS: [number, number][] = [
   // row 0
-  [50, 22],   // top-centre
+  [50, 28],   // top-centre
   // row 1
-  [22, 50],   // mid-left
+  [30, 50],   // mid-left
   [50, 50],   // mid-centre
-  [78, 50],   // mid-right
+  [70, 50],   // mid-right
   // row 2
-  [50, 78],   // bottom-centre
-  // extra cells at diagonals inside the circle
-  [30, 32],   // upper-left inner
-  [70, 32],   // upper-right inner
-  [30, 68],   // lower-left inner
-  [70, 68],   // lower-right inner
+  [50, 72],   // bottom-centre
+  // inner diagonals
+  [34, 36],   // upper-left inner
+  [66, 36],   // upper-right inner
+  [34, 64],   // lower-left inner
+  [66, 64],   // lower-right inner
 ];
 
-// Small random jitter within a cell so items don't always sit dead-centre
+// Small random jitter — kept tight so items stay inside their cell
 function jitter(base: number, range: number, seed: number): number {
   const x = Math.sin(seed) * 10000;
   const r = x - Math.floor(x); // 0–1
@@ -76,8 +77,8 @@ export function CrystalBallView({ visions, isGenerating, onCapture, holdMs }: Cr
           const cell = GRID_CELLS[idx % GRID_CELLS.length];
           // Jitter seed unique per text+index so same text in different slots moves
           const seed = idx * 137.5 + text.length;
-          const left = jitter(cell[0], 10, seed);
-          const top  = jitter(cell[1],  8, seed + 1);
+          const left = jitter(cell[0], 6, seed);
+          const top  = jitter(cell[1], 5, seed + 1);
 
           return (
             <VisionItem

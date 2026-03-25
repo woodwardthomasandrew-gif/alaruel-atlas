@@ -32,3 +32,4 @@ p{color:var(--text-muted);font-size:.9rem;max-width:320px}
 .createForm{display:flex;align-items:center;gap:.5rem;padding:.6rem 1.25rem;border-bottom:1px solid var(--border-subtle);flex-shrink:0;flex-wrap:wrap;background:var(--bg-surface)}
 .createInput{background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);font-family:var(--font-body);font-size:.875rem;padding:.38rem .65rem;outline:none;transition:border-color .15s;min-width:160px}
 .createInput:focus{border-color:var(--gold-600)}
+.zoomLabel{position:absolute;bottom:1rem;right:1rem;font-size:.72rem;font-family:var(--font-mono);color:var(--ink-500);background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:.2rem .45rem;pointer-events:none}
