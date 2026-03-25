@@ -42,6 +42,28 @@ interface BetterSqlite3Database {
 /** Factory function type — matches better-sqlite3's default export shape. */
 export type DatabaseFactory = (path: string) => BetterSqlite3Database;
 
+// ── Required tables ───────────────────────────────────────────────────────────
+// This list is used at connect() time to verify all expected tables exist after
+// migrations run. Any missing tables are logged as warnings. No tables are
+// dropped or recreated — this is informational only.
+
+const REQUIRED_TABLES = [
+  'campaigns',
+  'entity_registry',
+  'sessions',
+  'session_notes',
+  'session_prep_items',
+  'session_scenes',
+  'session_quests',
+  'session_npcs',
+  'session_scene_npcs',
+  'session_scene_monsters',
+  'session_scene_minis',
+  'npcs',
+  'quests',
+  'campaign_events',
+];
+
 // ── DatabaseManager ───────────────────────────────────────────────────────────
 
 /**
@@ -126,8 +148,7 @@ export class DatabaseManager implements IDatabaseManager {
     // Enforce foreign key constraints.
     this.db.exec('PRAGMA foreign_keys = ON;');
 
-    // Collect all migrations from all registered schemas and run them.
-    // Bootstrap the core tables that all modules depend on
+    // Bootstrap the core tables that all modules depend on.
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS campaigns (
         id          TEXT     PRIMARY KEY,
@@ -150,9 +171,18 @@ export class DatabaseManager implements IDatabaseManager {
       );
     `);
 
+    // Collect all migrations from all registered schemas and run them.
     const allMigrations: Migration[] = this.schemas.flatMap(s => s.migrations);
+
+    // Validate for duplicate version numbers before running — this is the
+    // most common source of missing tables and silent migration skips.
+    this.checkForDuplicateMigrationVersions(allMigrations);
+
     bootstrapMigrationsTable(this.db as unknown as import("./migrations.js").MigrationDb);
     runMigrations(this.db as unknown as import("./migrations.js").MigrationDb, allMigrations, this.log);
+
+    // After migrations complete, verify required tables exist and log any gaps.
+    this.validateRequiredTables();
 
     this.log.info('Database ready', { dbPath });
   }
@@ -266,6 +296,61 @@ export class DatabaseManager implements IDatabaseManager {
       );
     }
     return this.db;
+  }
+
+  /**
+   * Check all registered migrations for duplicate version numbers across
+   * modules. Duplicate versions cause silent skips — whichever module's
+   * migration runs first gets recorded, and the other is never applied.
+   *
+   * Logs an error for each collision found. Does not throw, so the app can
+   * still start, but the log entry will make the problem immediately visible.
+   */
+  private checkForDuplicateMigrationVersions(migrations: Migration[]): void {
+    const seen = new Map<number, string>();
+    for (const m of migrations) {
+      if (seen.has(m.version)) {
+        this.log.error(
+          `[core:database] DUPLICATE migration version ${m.version} detected! ` +
+          `Module "${m.module}" conflicts with module "${seen.get(m.version)}". ` +
+          'One of these migrations will be silently skipped. Renumber to fix.',
+          { version: m.version, module: m.module, conflictsWith: seen.get(m.version) },
+        );
+      } else {
+        seen.set(m.version, m.module);
+      }
+    }
+  }
+
+  /**
+   * After migrations run, query sqlite_master to verify that all expected
+   * tables exist. Any missing tables are logged as errors so they are
+   * immediately visible in the log. No tables are created or dropped here —
+   * this is a read-only diagnostic pass.
+   */
+  private validateRequiredTables(): void {
+    const db = this.db!;
+    const existing = new Set(
+      (db.prepare(
+        `SELECT name FROM sqlite_master WHERE type='table'`,
+      ).all() as Array<{ name: string }>).map(r => r.name),
+    );
+
+    const missing: string[] = [];
+    for (const table of REQUIRED_TABLES) {
+      if (!existing.has(table)) {
+        missing.push(table);
+      }
+    }
+
+    if (missing.length > 0) {
+      this.log.error(
+        `[core:database] Schema validation: ${missing.length} required table(s) are missing after migrations ran.`,
+        { missingTables: missing },
+      );
+    } else {
+      this.log.info('[core:database] Schema validation passed — all required tables present.');
+    }
   }
 
   /**

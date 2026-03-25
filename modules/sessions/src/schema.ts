@@ -95,7 +95,13 @@ export const SESSIONS_SCHEMA: SchemaRegistration = {
       `,
     },
     {
-      version: 6,
+      // IMPORTANT: This was previously version 6, which collided with the
+      // timeline module's version 6 migration. Renumbered to 23 to ensure
+      // this migration always runs. The migration runner skips any version
+      // already recorded in _migrations, so existing DBs that already have
+      // these tables (via a partial previous run or manual creation) will
+      // handle this safely via CREATE TABLE IF NOT EXISTS.
+      version: 23,
       module: 'sessions',
       description: 'Add per-scene encounter tables: session_scene_npcs, session_scene_monsters, session_scene_minis',
       up: `
