@@ -1,0 +1,265 @@
+/* public/print.css
+   Injected at runtime by PrintSessionView when the overlay opens.
+   Controls the printed output of #alaruel-print-area.
+*/
+
+@media print {
+  /* ── Hide everything except the print area ────────────────────────── */
+  body > * {
+    display: none !important;
+  }
+
+  /* The Electron renderer root wraps everything — show only our target */
+  #root {
+    display: block !important;
+  }
+
+  /* Hide the toolbar and overlay chrome */
+  #root > * {
+    display: none !important;
+  }
+
+  /* Show the print area — we use the id selector for specificity */
+  #alaruel-print-area {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* ── Page setup ────────────────────────────────────────────────────── */
+  @page {
+    size: letter portrait;
+    margin: 1.5cm 2cm;
+  }
+
+  /* ── Base resets ───────────────────────────────────────────────────── */
+  * {
+    box-sizing: border-box !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #alaruel-print-area {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #111 !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  /* ── Session header ────────────────────────────────────────────────── */
+  #alaruel-print-area h1 {
+    font-size: 22pt !important;
+    font-weight: 700 !important;
+    color: #111 !important;
+    margin: 0 0 4pt !important;
+    border-bottom: none !important;
+  }
+
+  #alaruel-print-area h2 {
+    font-size: 13pt !important;
+    font-weight: 700 !important;
+    color: #111 !important;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin: 0 0 8pt !important;
+    padding-bottom: 3pt !important;
+    border-bottom: 1pt solid #aaa !important;
+  }
+
+  /* session header block */
+  #alaruel-print-area header {
+    border-bottom: 2pt solid #111 !important;
+    padding-bottom: 10pt !important;
+    margin-bottom: 16pt !important;
+  }
+
+  #alaruel-print-area .sessionMeta,
+  #alaruel-print-area [class*="sessionMeta"] {
+    font-size: 9pt !important;
+    color: #555 !important;
+    display: flex;
+    gap: 12pt;
+    margin-bottom: 6pt !important;
+  }
+
+  #alaruel-print-area [class*="sessionStatus"] {
+    background: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    text-transform: capitalize;
+  }
+
+  #alaruel-print-area [class*="sessionSummary"] {
+    font-size: 10.5pt !important;
+    color: #333 !important;
+    margin: 0 !important;
+  }
+
+  /* ── Sections ──────────────────────────────────────────────────────── */
+  #alaruel-print-area [class*="section"] {
+    margin-bottom: 18pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* Force page break before statblocks */
+  #alaruel-print-area [class*="statblocksSection"] {
+    page-break-before: always !important;
+    break-before: always !important;
+  }
+
+  /* ── Encounter blocks ──────────────────────────────────────────────── */
+  #alaruel-print-area [class*="encounterBlock"] {
+    padding: 8pt 10pt !important;
+    border: 1pt solid #ccc !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    margin-bottom: 8pt !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  #alaruel-print-area [class*="encounterHeading"] {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 6pt !important;
+    margin-bottom: 6pt !important;
+    border-bottom: 0.5pt solid #ddd !important;
+    padding-bottom: 4pt !important;
+    flex-wrap: wrap;
+  }
+
+  #alaruel-print-area [class*="encounterIndex"] {
+    font-family: monospace !important;
+    font-size: 9pt !important;
+    font-weight: 700 !important;
+    color: #555 !important;
+    background: none !important;
+    border: 1pt solid #999 !important;
+    border-radius: 50% !important;
+    width: 16pt !important;
+    height: 16pt !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  #alaruel-print-area [class*="encounterTitle"] {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    color: #111 !important;
+  }
+
+  #alaruel-print-area [class*="encounterType"] {
+    font-size: 8pt !important;
+    padding: 1pt 4pt !important;
+    background: #f5f5f5 !important;
+    border: 0.5pt solid #ccc !important;
+    border-radius: 3pt !important;
+    color: #444 !important;
+  }
+
+  #alaruel-print-area [class*="encounterPlayed"] {
+    font-size: 8pt !important;
+    padding: 1pt 4pt !important;
+    background: #f0fff5 !important;
+    border: 0.5pt solid #4caf85 !important;
+    border-radius: 3pt !important;
+    color: #2a7a55 !important;
+  }
+
+  /* ── Field pairs ───────────────────────────────────────────────────── */
+  #alaruel-print-area [class*="field"] {
+    margin-bottom: 5pt !important;
+  }
+
+  #alaruel-print-area dt {
+    font-size: 7.5pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .07em !important;
+    color: #777 !important;
+    font-weight: 700 !important;
+    font-family: Helvetica, Arial, sans-serif !important;
+  }
+
+  #alaruel-print-area dd {
+    font-size: 10pt !important;
+    color: #222 !important;
+    margin: 0 !important;
+    line-height: 1.55 !important;
+  }
+
+  #alaruel-print-area pre,
+  #alaruel-print-area [class*="preWrap"],
+  #alaruel-print-area [class*="statblockBody"] {
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 9pt !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    margin: 0 !important;
+    line-height: 1.5 !important;
+    color: #222 !important;
+  }
+
+  #alaruel-print-area [class*="monsterList"] {
+    font-size: 10pt !important;
+    color: #222 !important;
+  }
+
+  /* ── Statblocks ────────────────────────────────────────────────────── */
+  #alaruel-print-area [class*="statblockGrid"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10pt !important;
+  }
+
+  #alaruel-print-area [class*="statblock"]:not([class*="statblockGrid"]):not([class*="statblockSection"]):not([class*="statblockIntro"]) {
+    border: 1pt solid #bbb !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  #alaruel-print-area [class*="statblockHeader"] {
+    padding: 4pt 7pt !important;
+    background: #f5f5f5 !important;
+    border-bottom: 0.5pt solid #ccc !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  #alaruel-print-area [class*="statblockName"] {
+    font-size: 10.5pt !important;
+    font-weight: 700 !important;
+    color: #111 !important;
+  }
+
+  #alaruel-print-area [class*="statblockQty"] {
+    font-size: 9pt !important;
+    color: #555 !important;
+    font-family: monospace !important;
+  }
+
+  #alaruel-print-area [class*="statblockEmpty"] {
+    padding: 5pt 7pt !important;
+    font-size: 9pt !important;
+    color: #888 !important;
+    font-style: italic !important;
+  }
+
+  #alaruel-print-area [class*="statblockIntro"] {
+    font-size: 9pt !important;
+    color: #555 !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* ── Links & misc ─────────────────────────────────────────────────── */
+  a { color: #111 !important; text-decoration: none !important; }
+}

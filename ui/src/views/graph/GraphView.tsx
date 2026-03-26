@@ -24,16 +24,22 @@ const TABLE_FOR_TYPE: Record<EntityType, string> = {
   quest: 'quests', session: 'sessions', event: 'campaign_events',
 };
 
+// ── Module-level position cache ───────────────────────────────────────────────
+// Lives outside the component so it survives navigation (unmount/remount).
+// Keyed by node ID → {x, y, vx, vy, pinned}.
+// The simulation writes here every tick; loadGraph reads here to restore positions.
+const positionCache = new Map<string, {x:number;y:number;vx:number;vy:number;pinned:boolean}>();
+
 export default function GraphView() {
   const campaign = useCampaignStore(s => s.campaign);
 
-  // ── Render state (only used for display) ──────────────────────────────────
-  const [nodes,      setNodes]     = useState<Node[]>([]);
-  const [edges,      setEdges]     = useState<Edge[]>([]);
-  const [loading,    setLoading]   = useState(true);
-  const [selected,   setSelected]  = useState<Node|null>(null);
-  const [showLabels, setShowLabels]= useState(true);
-  const [error,      setError]     = useState<string|null>(null);
+  // Render state
+  const [nodes,      setNodes]      = useState<Node[]>([]);
+  const [edges,      setEdges]      = useState<Edge[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [selected,   setSelected]   = useState<Node|null>(null);
+  const [showLabels, setShowLabels] = useState(true);
+  const [error,      setError]      = useState<string|null>(null);
 
   // Pan / zoom
   const [pan,  setPan]  = useState({x:0, y:0});
@@ -42,25 +48,22 @@ export default function GraphView() {
   const panStart   = useRef({x:0, y:0, px:0, py:0});
 
   // Create-relation form
-  const [showCreate, setShowCreate] = useState(false);
-  const [newSrcType, setNewSrcType] = useState<EntityType>('npc');
-  const [newTgtType, setNewTgtType] = useState<EntityType>('npc');
-  const [newSrcId,   setNewSrcId]   = useState('');
-  const [newTgtId,   setNewTgtId]   = useState('');
-  const [newLabel,   setNewLabel]   = useState('');
+  const [showCreate,  setShowCreate]  = useState(false);
+  const [newSrcType,  setNewSrcType]  = useState<EntityType>('npc');
+  const [newTgtType,  setNewTgtType]  = useState<EntityType>('npc');
+  const [newSrcId,    setNewSrcId]    = useState('');
+  const [newTgtId,    setNewTgtId]    = useState('');
+  const [newLabel,    setNewLabel]    = useState('');
   const [entityLists, setEntityLists] = useState<Record<string, Array<{id:string;name:string}>>>({});
 
-  // ── Simulation lives entirely in a ref — never read back from React state ─
-  // This is the single source of truth for positions.
-  // loadGraph writes here; the tick loop reads & writes here; React state is
-  // only a copy pushed out each frame for rendering.
+  // Simulation refs — never read back from React state
   const simNodes = useRef<Node[]>([]);
   const simEdges = useRef<Edge[]>([]);
   const animRef  = useRef<number>(0);
   const svgRef   = useRef<SVGSVGElement>(null);
-  const dragNode = useRef<string|null>(null);
+  const dragNode       = useRef<string|null>(null);
   const isDraggingNode = useRef(false);
-  const isPaused = useRef(false);
+  const isPaused       = useRef(false);
 
   // ── Entity list loader ────────────────────────────────────────────────────
   async function loadEntityList(type: EntityType) {
@@ -73,8 +76,8 @@ export default function GraphView() {
       setEntityLists(prev => ({...prev, [type]: rows}));
     } catch { /* ignore */ }
   }
-  useEffect(() => { loadEntityList(newSrcType); }, [newSrcType, campaign]);  // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadEntityList(newTgtType); }, [newTgtType, campaign]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadEntityList(newSrcType); }, [newSrcType, campaign]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadEntityList(newTgtType); }, [newTgtType, campaign]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Create relationship ───────────────────────────────────────────────────
   async function createRelationship(e: React.FormEvent) {
@@ -97,11 +100,6 @@ export default function GraphView() {
   }
 
   // ── Load graph ────────────────────────────────────────────────────────────
-  // KEY FIX: positions are read from simNodes.current (the ref), not from
-  // React state. The simulation writes positions into the ref every frame.
-  // loadGraph reads the ref to preserve existing settled positions, then
-  // writes the merged result back into the ref before starting the simulation.
-  // React state is only set so the component re-renders with the new node list.
   const loadGraph = useCallback(async () => {
     if (!campaign) return;
     setLoading(true);
@@ -117,14 +115,12 @@ export default function GraphView() {
         setNodes([]); setEdges([]); setLoading(false); return;
       }
 
-      // Collect unique entities
       const entityMap = new Map<string,{id:string;type:string}>();
       rels.forEach(r => {
         entityMap.set(r['source_id'] as string, {id:r['source_id'] as string, type:r['source_type'] as string});
         entityMap.set(r['target_id'] as string, {id:r['target_id'] as string, type:r['target_type'] as string});
       });
 
-      // Resolve names
       const nameMap = new Map<string,string>();
       const byType  = new Map<string,string[]>();
       entityMap.forEach(e => { const a = byType.get(e.type) ?? []; a.push(e.id); byType.set(e.type, a); });
@@ -144,37 +140,34 @@ export default function GraphView() {
 
       const W = 700, H = 500;
 
-      // Read settled positions from the simulation ref (not React state)
-      const existingById = new Map(simNodes.current.map(n => [n.id, n]));
-
+      // Restore positions from the module-level cache (survives unmount/remount)
       const newNodes: Node[] = [...entityMap.values()].map((e, i) => {
-        const ex = existingById.get(e.id);
+        const cached = positionCache.get(e.id);
         return {
           id: e.id, type: e.type,
           name: nameMap.get(e.id) ?? e.id.slice(0,8),
-          x:  ex ? ex.x  : W/2 + Math.cos(i * 2*Math.PI/entityMap.size) * 180,
-          y:  ex ? ex.y  : H/2 + Math.sin(i * 2*Math.PI/entityMap.size) * 140,
-          vx: ex ? ex.vx : 0,
-          vy: ex ? ex.vy : 0,
-          pinned: ex ? ex.pinned : false,
+          x:      cached ? cached.x      : W/2 + Math.cos(i * 2*Math.PI/entityMap.size) * 180,
+          y:      cached ? cached.y      : H/2 + Math.sin(i * 2*Math.PI/entityMap.size) * 140,
+          vx:     cached ? cached.vx     : 0,
+          vy:     cached ? cached.vy     : 0,
+          pinned: cached ? cached.pinned : false,
         };
       });
 
       const newEdges: Edge[] = rels.map(r => ({
-        id:       r['id']               as string,
-        sourceId: r['source_id']        as string,
-        targetId: r['target_id']        as string,
-        label:    (r['label'] ?? '')    as string,
+        id:       r['id']                as string,
+        sourceId: r['source_id']         as string,
+        targetId: r['target_id']         as string,
+        label:    (r['label'] ?? '')     as string,
         type:     r['relationship_type'] as string,
         strength: r['strength']          as number|null,
       }));
 
-      // Write into sim ref FIRST, then update React state.
-      // The simulation effect watches edges.length / nodes.length changes and
-      // will restart, but it reads from simNodes.current — which already has
-      // the correct positions — so the first tick will not jump.
+      // Write into sim ref and position cache before setting React state
       simNodes.current = newNodes;
       simEdges.current = newEdges;
+      newNodes.forEach(n => positionCache.set(n.id, {x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned}));
+
       setEdges(newEdges);
       setNodes(newNodes);
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -184,8 +177,6 @@ export default function GraphView() {
   useEffect(() => { loadGraph(); }, [loadGraph]);
 
   // ── Force simulation ──────────────────────────────────────────────────────
-  // Reads and writes simNodes.current directly. Pushes to React state via
-  // setNodes only for rendering — never reads back from React state.
   useEffect(() => {
     if (simNodes.current.length === 0) return;
 
@@ -194,7 +185,7 @@ export default function GraphView() {
     function tick() {
       if (isPaused.current) { animRef.current = requestAnimationFrame(tick); return; }
 
-      const ns = simNodes.current.map(n => ({...n}));
+      const ns       = simNodes.current.map(n => ({...n}));
       const edgeList = simEdges.current;
       const nodeById = new Map(ns.map(n => [n.id, n]));
 
@@ -236,24 +227,24 @@ export default function GraphView() {
         }
       });
 
-      // Write back to sim ref, then push a copy to React for rendering
+      // Write back to sim ref AND module-level cache
       simNodes.current = ns;
-      setNodes([...ns]);
+      ns.forEach(n => positionCache.set(n.id, {x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned}));
 
+      setNodes([...ns]);
       animRef.current = requestAnimationFrame(tick);
     }
 
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [edges.length, nodes.length]); // restart only when the node/edge count changes
+  }, [edges.length, nodes.length]);
 
   // ── Node drag ─────────────────────────────────────────────────────────────
   function startDrag(e: React.MouseEvent, nodeId: string) {
     e.stopPropagation();
-    dragNode.current     = nodeId;
+    dragNode.current       = nodeId;
     isDraggingNode.current = true;
-    isPaused.current     = true;
-    // Pin in sim ref immediately
+    isPaused.current       = true;
     simNodes.current = simNodes.current.map(n => n.id===nodeId ? {...n, pinned:true} : n);
     setNodes([...simNodes.current]);
   }
