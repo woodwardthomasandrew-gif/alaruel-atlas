@@ -1,13 +1,27 @@
 // ui/src/types/print.ts
-// Types for the printer-friendly session export system.
+// Printer-friendly session DTOs.
 
-export interface PrintableMonster {
+export interface PrintableEntityRef {
+  id: string;
   name: string;
-  quantity: number;
-  statblock: string; // free-text block: HP, AC, attacks, abilities, etc.
+  count: number;
+  notes: string;
 }
 
-export interface PrintableEncounter {
+export interface PrintableSessionNote {
+  id: string;
+  phase: 'planning' | 'live' | 'recap';
+  content: string;
+  createdAt: string;
+}
+
+export interface PrintablePrepItem {
+  id: string;
+  description: string;
+  done: boolean;
+}
+
+export interface PrintableScene {
   id: string;
   title: string;
   encounterType: string;
@@ -16,16 +30,19 @@ export interface PrintableEncounter {
   reward: string;
   played: boolean;
   order: number;
-  monsters: PrintableMonster[];
+  npcs: PrintableEntityRef[];
+  monsters: PrintableEntityRef[];
+  minis: PrintableEntityRef[];
 }
 
 export interface PrintableSession {
   id: string;
   title: string;
-  summary: string;
+  description: string;
   status: string;
-  sessionDate: string | null;
-  encounters: PrintableEncounter[];
-  /** All unique monsters across all encounters, deduplicated by name */
-  allMonsters: PrintableMonster[];
+  scheduledAt: string | null;
+  scenes: PrintableScene[];
+  prepItems: PrintablePrepItem[];
+  notes: PrintableSessionNote[];
+  featuredNpcs: PrintableEntityRef[];
 }

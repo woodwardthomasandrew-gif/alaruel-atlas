@@ -27,8 +27,13 @@
 /* ── PRINT: show only the statblock, hide everything else ─────────────────── */
 @media print {
 
+  /* Default: keep statblock root hidden unless statblock printing is active. */
+  #statblock-print-root {
+    display: none !important;
+  }
+
   /* Hide every direct child of body EXCEPT our print root */
-  body > *:not(#statblock-print-root) {
+  body.printing-statblock > *:not(#statblock-print-root) {
     display: none !important;
   }
 
@@ -40,7 +45,7 @@
     padding: 0;
   }
 
-  #statblock-print-root {
+  body.printing-statblock #statblock-print-root {
     display: block !important;
     position: static !important;
     width: 100%;

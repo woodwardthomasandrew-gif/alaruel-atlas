@@ -52,6 +52,7 @@ export function StatblockPrintModal({ monster, onClose }: Props) {
     return () => {
       div.remove();
       printRootRef.current = null;
+      document.body.classList.remove('printing-statblock');
     };
   }, []);
 
@@ -64,13 +65,22 @@ export function StatblockPrintModal({ monster, onClose }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    const onAfterPrint = () => {
+      document.body.classList.remove('printing-statblock');
+      setPrinting(false);
+    };
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => window.removeEventListener('afterprint', onAfterPrint);
+  }, []);
+
   function handlePrint() {
     setPrinting(true);
+    document.body.classList.add('printing-statblock');
     // Small rAF delay ensures the portal DOM is flushed before print dialog opens
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.print();
-        setPrinting(false);
       });
     });
   }

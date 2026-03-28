@@ -60,6 +60,7 @@ export function registerIpcHandlers(win: BrowserWindow, paths: AppPaths): void {
   registerDbHandlers();
   registerAssetHandlers(paths);
   registerAppHandlers(paths);
+  registerExportHandlers();
   registerInspirationHandlers({ log });
   log.info('IPC handlers registered');
 }
@@ -83,6 +84,7 @@ function registerCampaignHandlers(win: BrowserWindow, paths: AppPaths): void {
       configManager.setAppConfig({ recentCampaigns: recent });
       eventBus.emit('app:campaign-opened', { campaignId });
       setCampaignId(campaignId);
+      setCampaignDbPath(dbPath);
       win.webContents.send('push:campaignOpened', campaignId);
       log.info('Campaign opened', { campaignId, dbPath });
       return { ok: true, campaignId };
@@ -111,6 +113,7 @@ function registerCampaignHandlers(win: BrowserWindow, paths: AppPaths): void {
       const recent = [filePath, ...cfg.recentCampaigns].slice(0, 10);
       configManager.setAppConfig({ recentCampaigns: recent });
       setCampaignId(campaignId);
+      setCampaignDbPath(filePath);
       eventBus.emit('app:campaign-opened', { campaignId });
       win.webContents.send('push:campaignOpened', campaignId);
       log.info('Campaign created', { campaignId, filePath });
@@ -128,6 +131,7 @@ function registerCampaignHandlers(win: BrowserWindow, paths: AppPaths): void {
       eventBus.emit('app:campaign-closed', { campaignId: '' });
       win.webContents.send('push:campaignClosed');
       databaseManager.disconnect();
+      setCampaignDbPath(null);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -195,6 +199,9 @@ function registerDbHandlers(): void {
 let _currentCampaignId: string | null = null;
 function getCampaignId(): string | null { return _currentCampaignId; }
 function setCampaignId(id: string | null): void { _currentCampaignId = id; }
+let _currentCampaignDbPath: string | null = null;
+function getCampaignDbPath(): string | null { return _currentCampaignDbPath; }
+function setCampaignDbPath(dbPath: string | null): void { _currentCampaignDbPath = dbPath; }
 
 function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
@@ -298,6 +305,27 @@ function registerAppHandlers(paths: AppPaths): void {
   ipcMain.handle('app:getPaths',     () => paths);
   ipcMain.handle('app:showInFolder', (_event: Electron.IpcMainInvokeEvent, { filePath }: { filePath: string }) => {
     shell.showItemInFolder(filePath);
+  });
+}
+
+function registerExportHandlers(): void {
+  ipcMain.handle('export:saveSessionHtml', (_event: Electron.IpcMainInvokeEvent, payload: { fileName: string; html: string }) => {
+    try {
+      const dbPath = getCampaignDbPath();
+      if (!dbPath) return { ok: false, error: 'No active campaign database path' };
+      const exportDir = path.join(path.dirname(dbPath), 'exports');
+      fs.mkdirSync(exportDir, { recursive: true });
+      const safeFileName = payload.fileName.replace(/[^a-z0-9._-]/gi, '_');
+      const fullName = safeFileName.endsWith('.html') ? safeFileName : `${safeFileName}.html`;
+      const outPath = path.join(exportDir, fullName);
+      fs.writeFileSync(outPath, payload.html, 'utf-8');
+      log.info('Session HTML export written', { outPath });
+      return { ok: true, path: outPath };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log.error('export:saveSessionHtml failed', { error });
+      return { ok: false, error };
+    }
   });
 }
 

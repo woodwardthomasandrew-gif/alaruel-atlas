@@ -1,97 +1,153 @@
 // ui/src/views/sessions/PrintSessionView.tsx
-// Printer-friendly view of a resolved session.
-// Rendered alongside (not replacing) the existing SessionsView.
+// Print preview modal for sessions.
 
-import { useEffect, useRef } from 'react';
-import type { PrintableSession, PrintableEncounter, PrintableMonster } from '../../types/print';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { PrintableEntityRef, PrintableScene, PrintableSession } from '../../types/print';
 import styles from './PrintSessionView.module.css';
 
-// ── Encounter type labels (mirrors SessionsView) ────────────────────────────
-
-const TYPE_LABEL: Record<string, { icon: string; label: string }> = {
-  combat:      { icon: '⚔️',  label: 'Combat' },
-  roleplay:    { icon: '💬',  label: 'Roleplay' },
-  exploration: { icon: '🗺️', label: 'Exploration' },
-  puzzle:      { icon: '🧩',  label: 'Puzzle' },
-  social:      { icon: '🤝',  label: 'Social' },
-  rest:        { icon: '🏕️', label: 'Rest / Downtime' },
-  revelation:  { icon: '💡',  label: 'Revelation' },
-  travel:      { icon: '🛤️', label: 'Travel' },
-  other:       { icon: '📌',  label: 'Other' },
+const TYPE_LABEL: Record<string, string> = {
+  combat: 'Combat',
+  roleplay: 'Roleplay',
+  exploration: 'Exploration',
+  puzzle: 'Puzzle',
+  social: 'Social',
+  rest: 'Rest / Downtime',
+  revelation: 'Revelation',
+  travel: 'Travel',
+  other: 'Other',
 };
 
-function typeInfo(val: string) {
-  return TYPE_LABEL[val] ?? TYPE_LABEL.other;
+function labelForType(value: string): string {
+  return TYPE_LABEL[value] ?? TYPE_LABEL.other;
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function MonsterStatblock({ monster }: { monster: PrintableMonster }) {
+function EntityTable({ title, rows }: { title: string; rows: PrintableEntityRef[] }) {
   return (
-    <div className={styles.statblock}>
-      <div className={styles.statblockHeader}>
-        <span className={styles.statblockName}>{monster.name}</span>
-        <span className={styles.statblockQty}>×{monster.quantity}</span>
-      </div>
-      {monster.statblock ? (
-        <pre className={styles.statblockBody}>{monster.statblock}</pre>
+    <div className={styles.entityBlock}>
+      <h4 className={styles.entityTitle}>{title}</h4>
+      {rows.length === 0 ? (
+        <p className={styles.entityEmpty}>None</p>
       ) : (
-        <p className={styles.statblockEmpty}>No statblock recorded.</p>
+        <table className={styles.entityTable}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Count</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${title}-${row.id}`}>
+                <td>{row.name}</td>
+                <td>{row.count}</td>
+                <td>{row.notes || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
 
-function EncounterBlock({ enc, index }: { enc: PrintableEncounter; index: number }) {
-  const info = typeInfo(enc.encounterType);
+function SceneBlock({ scene, index }: { scene: PrintableScene; index: number }) {
+  return (
+    <article className={styles.sceneBlock}>
+      <div className={styles.sceneHeader}>
+        <h3 className={styles.sceneTitle}>{index + 1}. {scene.title}</h3>
+        <div className={styles.sceneMeta}>
+          <span className={styles.typeChip}>{labelForType(scene.encounterType)}</span>
+          <span>{scene.played ? 'Played' : 'Planned'}</span>
+        </div>
+      </div>
+      {scene.objective && <p><strong>Objective:</strong> {scene.objective}</p>}
+      {scene.setup && <p><strong>Setup:</strong> {scene.setup}</p>}
+      {scene.reward && <p><strong>Reward:</strong> {scene.reward}</p>}
+      <div className={styles.entityGrid}>
+        <EntityTable title="NPCs" rows={scene.npcs} />
+        <EntityTable title="Monsters" rows={scene.monsters} />
+        <EntityTable title="Minis" rows={scene.minis} />
+      </div>
+    </article>
+  );
+}
+
+function SessionPrintDocument({ session }: { session: PrintableSession }) {
+  const formattedDate = session.scheduledAt
+    ? new Date(session.scheduledAt).toLocaleString()
+    : 'Unscheduled';
 
   return (
-    <div className={styles.encounterBlock}>
-      <div className={styles.encounterHeading}>
-        <span className={styles.encounterIndex}>{index + 1}</span>
-        <span className={styles.encounterTitle}>{enc.title}</span>
-        <span className={styles.encounterType}>{info.icon} {info.label}</span>
-        {enc.played && <span className={styles.encounterPlayed}>✓ Played</span>}
+    <div className={styles.document}>
+      <div className={styles.pageHeader}>
+        <span>{session.title}</span>
+        <span>{formattedDate}</span>
+      </div>
+      <div className={styles.pageFooter}>
+        Page <span className={styles.pageNumber} /> / <span className={styles.pageTotal} />
       </div>
 
-      {enc.objective && (
-        <div className={styles.field}>
-          <dt>Objective</dt>
-          <dd>{enc.objective}</dd>
+      <header className={styles.sessionHeader}>
+        <h1 className={styles.sessionTitle}>{session.title}</h1>
+        <div className={styles.sessionMeta}>
+          <span>{formattedDate}</span>
+          <span className={styles.statusChip}>{session.status}</span>
         </div>
-      )}
+        {session.description ? (
+          <p className={styles.sessionDescription}>{session.description}</p>
+        ) : (
+          <p className={styles.sessionDescription}>No session summary provided.</p>
+        )}
+      </header>
 
-      {enc.monsters.length > 0 && (
-        <div className={styles.field}>
-          <dt>Monsters</dt>
-          <dd>
-            <ul className={styles.monsterList}>
-              {enc.monsters.map((m, i) => (
-                <li key={i}>{m.quantity > 1 ? `${m.quantity}× ` : ''}{m.name}</li>
-              ))}
-            </ul>
-          </dd>
-        </div>
-      )}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Scenes</h2>
+        {session.scenes.length === 0 ? (
+          <p className={styles.emptyNote}>No scenes added.</p>
+        ) : (
+          <div className={styles.sceneList}>
+            {session.scenes.map((scene, idx) => (
+              <SceneBlock key={scene.id} scene={scene} index={idx} />
+            ))}
+          </div>
+        )}
+      </section>
 
-      {enc.setup && (
-        <div className={styles.field}>
-          <dt>Notes</dt>
-          <dd><pre className={styles.preWrap}>{enc.setup}</pre></dd>
-        </div>
-      )}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Featured NPCs</h2>
+        <EntityTable title="Session NPCs" rows={session.featuredNpcs} />
+      </section>
 
-      {enc.reward && (
-        <div className={styles.field}>
-          <dt>Reward / Outcome</dt>
-          <dd>{enc.reward}</dd>
-        </div>
-      )}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Prep Items</h2>
+        {session.prepItems.length === 0 ? (
+          <p className={styles.emptyNote}>No prep items.</p>
+        ) : (
+          <ul className={styles.list}>
+            {session.prepItems.map((item) => (
+              <li key={item.id}>{item.done ? '[x]' : '[ ]'} {item.description}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Session Notes</h2>
+        {session.notes.length === 0 ? (
+          <p className={styles.emptyNote}>No notes.</p>
+        ) : (
+          <ul className={styles.list}>
+            {session.notes.map((note) => (
+              <li key={note.id}><strong>{note.phase}:</strong> {note.content}</li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
-
-// ── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
   session: PrintableSession;
@@ -99,96 +155,78 @@ interface Props {
 }
 
 export function PrintSessionView({ session, onClose }: Props) {
-  const printAreaRef = useRef<HTMLDivElement>(null);
+  const printRootRef = useRef<HTMLDivElement | null>(null);
+  const [printing, setPrinting] = useState(false);
 
-  // Inject the print stylesheet once when the component mounts
   useEffect(() => {
-    const id = 'alaruel-print-styles';
+    const id = 'alaruel-session-print-styles';
     if (!document.getElementById(id)) {
       const link = document.createElement('link');
-      link.id   = id;
-      link.rel  = 'stylesheet';
-      link.href = '/print.css'; // served from public/ — see print.css file
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = '/session-print.css';
       document.head.appendChild(link);
     }
   }, []);
 
+  useEffect(() => {
+    document.getElementById('session-print-root')?.remove();
+    const div = document.createElement('div');
+    div.id = 'session-print-root';
+    document.body.appendChild(div);
+    printRootRef.current = div;
+    return () => {
+      div.remove();
+      printRootRef.current = null;
+      document.body.classList.remove('printing-session');
+    };
+  }, []);
+
+  useEffect(() => {
+    const onAfterPrint = () => {
+      document.body.classList.remove('printing-session');
+      setPrinting(false);
+    };
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => window.removeEventListener('afterprint', onAfterPrint);
+  }, []);
+
   function handlePrint() {
-    window.print();
+    setPrinting(true);
+    document.body.classList.add('printing-session');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+      });
+    });
   }
 
-  const formattedDate = session.sessionDate
-    ? new Date(session.sessionDate).toLocaleDateString(undefined, {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      })
-    : null;
-
   return (
-    <div className={styles.overlay}>
-      {/* Toolbar — hidden on print via CSS */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.toolbarTitle}>Print Preview</span>
-          <span className={styles.toolbarSession}>{session.title}</span>
-        </div>
-        <div className={styles.toolbarRight}>
-          <button className={styles.printBtn} onClick={handlePrint}>
-            🖨 Print
-          </button>
-          <button className={styles.closeBtn} onClick={onClose}>
-            ✕ Close
-          </button>
-        </div>
-      </div>
-
-      {/* Print area — this is what actually prints */}
-      <div ref={printAreaRef} className={styles.printArea} id="alaruel-print-area">
-
-        {/* ── Session header ─────────────────────────────────────────── */}
-        <header className={styles.sessionHeader}>
-          <h1 className={styles.sessionTitle}>{session.title}</h1>
-          <div className={styles.sessionMeta}>
-            {formattedDate && <span>{formattedDate}</span>}
-            <span className={styles.sessionStatus}>{session.status}</span>
+    <>
+      <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className={styles.modal}>
+          <div className={styles.toolbar}>
+            <div className={styles.toolbarLeft}>
+              <span className={styles.toolbarTitle}>Session Print Preview</span>
+              <span className={styles.toolbarSession}>{session.title}</span>
+            </div>
+            <div className={styles.toolbarRight}>
+              <button className={styles.printBtn} onClick={handlePrint} disabled={printing}>
+                {printing ? 'Preparing...' : 'Print'}
+              </button>
+              <button className={styles.closeBtn} onClick={onClose}>Close</button>
+            </div>
           </div>
-          {session.summary && (
-            <p className={styles.sessionSummary}>{session.summary}</p>
-          )}
-        </header>
-
-        {/* ── Encounters ─────────────────────────────────────────────── */}
-        {session.encounters.length > 0 ? (
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Encounters</h2>
-            <div className={styles.encounterList}>
-              {session.encounters.map((enc, idx) => (
-                <EncounterBlock key={enc.id} enc={enc} index={idx} />
-              ))}
-            </div>
-          </section>
-        ) : (
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Encounters</h2>
-            <p className={styles.emptyNote}>No encounters planned for this session.</p>
-          </section>
-        )}
-
-        {/* ── Statblocks ─────────────────────────────────────────────── */}
-        {session.allMonsters.length > 0 && (
-          <section className={styles.section + ' ' + styles.statblocksSection}>
-            <h2 className={styles.sectionTitle}>Statblocks</h2>
-            <p className={styles.statblockIntro}>
-              All monsters appearing in this session ({session.allMonsters.length} unique).
-            </p>
-            <div className={styles.statblockGrid}>
-              {session.allMonsters.map((m, i) => (
-                <MonsterStatblock key={i} monster={m} />
-              ))}
-            </div>
-          </section>
-        )}
-
+          <div className={styles.preview}>
+            <SessionPrintDocument session={session} />
+          </div>
+        </div>
       </div>
-    </div>
+
+      {printRootRef.current && createPortal(
+        <SessionPrintDocument session={session} />,
+        printRootRef.current,
+      )}
+    </>
   );
 }

@@ -1,14 +1,113 @@
-// modules/dungeon/src/generator.ts
-// Pure dungeon generation logic. No DB access, no side effects.
-// All randomness flows through a seeded PRNG so results are reproducible.
-
 import type {
-  DungeonTheme, RoomSize, ContentType,
-  DungeonRoom, DungeonContent, Dungeon,
+  CorridorEventPayload,
+  Dungeon,
+  DungeonContent,
+  DungeonDoor,
+  DungeonGrid,
+  DungeonModifier,
+  DungeonRoom,
+  DungeonRoomContent,
+  DungeonRoomMetadata,
+  DungeonTheme,
+  EncounterContentPayload,
+  EncounterTier,
+  EnvironmentalFeaturePayload,
   GenerateDungeonInput,
+  LootContentPayload,
+  LootFlavorPayload,
+  LootKindPayload,
+  LootTier,
+  RoomShape,
+  RoomPurposeMetadata,
+  RoomSize,
+  TrapComponentPayload,
+  TrapContentPayload,
+  TileType,
 } from './types';
+import {
+  chainTags,
+  extractFromChain,
+  rollCorridorEvent,
+  rollDungeonModifier,
+  rollEncounterTier,
+  rollEnvironmentalFeature,
+  rollLootChain,
+  rollRoomPurpose,
+  rollTrapChain,
+  type LootTemplateRoll,
+  type TrapTemplateRoll,
+} from './randomTables';
 
-// ── Seeded PRNG (mulberry32) ──────────────────────────────────────────────────
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface ThemeDef {
+  roomShapeWeights: Record<RoomShape, number>;
+  corridorWidthRange: [number, number];
+  baseTrapChance: number;
+  baseHazardChance: number;
+}
+
+const THEMES: Record<DungeonTheme, ThemeDef> = {
+  crypt: {
+    roomShapeWeights: { rectangle: 0.55, circle: 0.3, irregular: 0.15 },
+    corridorWidthRange: [1, 2],
+    baseTrapChance: 0.16,
+    baseHazardChance: 0.06,
+  },
+  cave: {
+    roomShapeWeights: { rectangle: 0.2, circle: 0.25, irregular: 0.55 },
+    corridorWidthRange: [2, 3],
+    baseTrapChance: 0.08,
+    baseHazardChance: 0.14,
+  },
+  fortress: {
+    roomShapeWeights: { rectangle: 0.75, circle: 0.15, irregular: 0.1 },
+    corridorWidthRange: [1, 2],
+    baseTrapChance: 0.12,
+    baseHazardChance: 0.05,
+  },
+  sewer: {
+    roomShapeWeights: { rectangle: 0.4, circle: 0.3, irregular: 0.3 },
+    corridorWidthRange: [2, 3],
+    baseTrapChance: 0.1,
+    baseHazardChance: 0.18,
+  },
+  ruins: {
+    roomShapeWeights: { rectangle: 0.45, circle: 0.25, irregular: 0.3 },
+    corridorWidthRange: [1, 2],
+    baseTrapChance: 0.14,
+    baseHazardChance: 0.09,
+  },
+  arcane_lab: {
+    roomShapeWeights: { rectangle: 0.5, circle: 0.35, irregular: 0.15 },
+    corridorWidthRange: [1, 2],
+    baseTrapChance: 0.18,
+    baseHazardChance: 0.1,
+  },
+};
+
+interface InternalRoom {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: RoomShape;
+  tags: string[];
+  center: Point;
+  connections: string[];
+  isBoss: boolean;
+  isEntrance: boolean;
+}
+
+interface Edge {
+  a: string;
+  b: string;
+  weight: number;
+}
 
 function makePrng(seed: number) {
   let s = seed >>> 0;
@@ -29,531 +128,1019 @@ function seedFromString(str: string): number {
   return h >>> 0;
 }
 
-function newId(): string {
-  return (globalThis.crypto ?? require('node:crypto')).randomUUID() as string;
+function makeIdFactory(prefix: string, namespace: string): () => string {
+  let n = 0;
+  return () => `${namespace}_${prefix}_${(n++).toString(36).padStart(3, '0')}`;
 }
 
-// ── Theme tables ──────────────────────────────────────────────────────────────
-
-interface ThemeDef {
-  monsters:   string[];
-  traps:      string[];
-  loot:       string[];
-  atmosphere: string[];
-  bossNames:  string[];
+function weightedPick<T extends string>(weights: Record<T, number>, rand: () => number): T {
+  const entries = Object.entries(weights) as [T, number][];
+  const total = entries.reduce((sum, [, w]) => sum + Math.max(0, w), 0);
+  let roll = rand() * (total || 1);
+  for (const [key, w] of entries) {
+    roll -= Math.max(0, w);
+    if (roll <= 0) return key;
+  }
+  const first = entries[0];
+  if (!first) {
+    throw new Error('Cannot pick from empty weights');
+  }
+  return first[0];
 }
 
-const THEMES: Record<DungeonTheme, ThemeDef> = {
-  undead: {
-    monsters:   ['Skeleton Warrior','Zombie Horde','Wight','Shadow','Wraith','Ghoul','Revenant','Banshee',
-                 'Boneless Husk (Unity Victim)','Ambersoul-Tethered Revenant','Spectral Unity Priest',
-                 'Vampire Thrall','Cursed House Cahill Guardsman','Animated Cahill Mine Foreman',
-                 'Lost Soul Fragment','Weeping Wraith of Ambersoul','Undying Militant Cleric'],
-    traps:      ['Pressure-plate spike pit','Bone-dust cloud','Cursed glyph','Collapsing floor',
-                 'Unity ritual circle (triggers on entry)','Necrotic fog vent from old mine shaft',
-                 'Soul-binding sigil (holds target in place)','Bone-splinter scatter trap',
-                 'Cursed Unity effigy (fear effect on approach)'],
-    loot:       ['Tarnished silver chalice','Bone-hilted dagger','Funeral urn (gems inside)','Cursed ring',"Necromancer's tome",
-                 'Unity Militant clerical seal (still active)','Sealed House Cahill employee ledger',
-                 'Ambersoul cathedral reliquary fragment','Corroded soul-steel vial (partial charge)',
-                 'Veteran guardsman dog-tags — House Cahill insignia'],
-    atmosphere: ['The air reeks of decay.','Bones crunch underfoot.','A chill clings to everything.','Shadows move against the light.',
-                 'Unity prayer-marks are scratched into every surface — none of them finished.',
-                 'The walls are coated in something that was blood long ago and is now just part of the stone.',
-                 'A faint hum emanates from deeper in — rhythmic, like a heartbeat that is not quite right.',
-                 'Old House Cahill mining carts sit rusted and full. No one has touched them in years.',
-                 'The smell of ozone and decay mingles into something uniquely horrible.',
-                 'Every door has been barricaded from the inside. Whatever happened, people were trying to keep something out.'],
-    bossNames:  ['Undying Necromancer','Ambersoul Cathedral Sexton (reanimated)','The Last Unity Inquisitor',
-                 'Cahill Deep-Foreman (soul-bound)','Revenant High Priest of the Broken Seal'],
-  },
-  goblin: {
-    monsters:   ['Goblin Scout','Goblin Warrior','Hobgoblin Sergeant','Bugbear Ambusher','Goblin Shaman','Wolf Rider',
-                 'Warclan Thule Raider','Warclan Outrider (mounted)','Thule Giant Conscript',
-                 'Deserter Sell-Sword (gone feral)','Half-Orc Warclan Champion','Kobold Camp Follower (Mt. Perona exiled)'],
-    traps:      ['Tripwire alarm','Net drop','Deadfall log','Greased slope','Pit with sharpened stakes',
-                 'Stolen ATC alarm-bell rigged to tripwire','Crude oil-slick ignition trap',
-                 'Collapsed mine-shaft deadfall (House Cahill salvage)','Stolen crossbow auto-fire rig'],
-    loot:       ['Crude copper coins','Stolen merchant goods','Gnawed ration packs','Filched jewellery','Scavenged weapons',
-                 'Stolen ATC shipping manifest (cargo location marked)','Looted Kewold Siege Ball equipment',
-                 'Beeford Keep mead cask (still sealed)','Pilfered Leviton transit papers',
-                 'Warclan war-banner (worth coin to the right collector)'],
-    atmosphere: ['Crude graffiti covers the walls.','The smell of cooking fires and worse.','Laughter echoes from somewhere ahead.','Scraps of food litter the floor.',
-                 'Stolen ATC crates have been repurposed as furniture. Most are still labelled.',
-                 'A crude map scratched into the wall shows raid routes to nearby settlements.',
-                 'Warclan Thule markings — claiming this territory as a forward staging post.',
-                 'The bones of a Leviton courier are still clutching an undelivered satchel.',
-                 'Someone has attempted to cook something in an old House Cahill smelting pot. It did not go well.'],
-    bossNames:  ['Warchief Gragnuk','Thule Warclan Sub-Commander','Hobgoblin Pit-Boss (ex-Kewold arena)',
-                 'Bugbear Enforcer (ATC deserter)','Half-Giant Raider Captain'],
-  },
-  arcane: {
-    monsters:   ['Arcane Construct','Mage Guardian','Spell Wisp','Rune Golem','Apprentice Shade','Mirror Demon','Animated Armour',
-                 'Department of War AG-Series Prototype (malfunctioning)','Society Field Agent (construct-bonded)',
-                 'Leviton Levitation Engine (animate, hostile)','Burnout Unit (soul-steel degraded)',
-                 'Alaruel Psychic Academy Experiment (escaped containment)','House Delaque Arcane Enforcer'],
-    traps:      ['Arcane feedback rune','Teleport trap (random room)','Force cage','Mana drain field','Explosive sigil',
-                 'Department of War containment field (still active)','Soul-extraction array (partial charge)',
-                 'Leviton anti-tampering ward','Society auto-destruct sigil on classified research',
-                 'Psychic feedback emitter (confusion on failed save)'],
-    loot:       ['Spell scroll','Arcane focus shard','Vial of distilled magic','Cracked crystal orb','Annotated spellbook',
-                 'Department of War AG-unit schematics (classified)','Society research notes (partially burned)',
-                 'Alaruel Psychic Academy field manual','Cracked Leviton levitation crystal (still functional)',
-                 'Soul-steel chargepack (partial)','House Delaque encoded ledger'],
-    atmosphere: ['Magical residue coats every surface.','The air hums with latent energy.','Strange lights pulse rhythmically.','Equations drift across the walls in glowing ink.',
-                 'Department of War containment warnings are still posted on every door. Some have been torn down.',
-                 'A Society experiment log is open on a desk, the last entry mid-sentence.',
-                 'Soul-steel conduits run along the walls, most are cracked and leaking faint luminescence.',
-                 'The AG-unit charging cradles are empty. Whatever was in them left in a hurry.',
-                 'Leviton transport manifests cover the floor — all marked PRIORITY, all overdue.',
-                 'The Psychic Academy seal is above the door. Someone has scratched ABANDONED beneath it.'],
-    bossNames:  ['The Bound Arcanist','Department of War Lead Researcher (still functional, barely)',
-                 'Society Prime Artificer','Rogue AG-02 Prototype','Leviton Chief Engineer (construct-possessed)'],
-  },
-  cult: {
-    monsters:   ['Cult Initiate','Devoted Fanatic','Summoned Fiend','High Cultist','Ritual Construct','Possessed Acolyte',
-                 'Unity Militant Cleric (survivor, radicalized)','House Austel Inquisitor (broken by failure)',
-                 'Evening Glory Devoted (vampiric pact)','Idol-Touched Civilian (The Lost)',
-                 'Duke Bayle Contract-Bound Servant','Moon Rat Intermediary (unusually intelligent)'],
-    traps:      ['Blood-letting trigger','False idol (curse)','Summoning circle (random monster)','Pit of offering (acid)',
-                 'Unity mass-ritual circle (still active, triggers possession)','Evening Glory consecrated ward',
-                 'Idol proximity field (hallucination on entry)','Infernal contract scroll (compulsion trap)',
-                 'House Austel martyrdom device (area denial)'],
-    loot:       ['Ritual dagger','Cult manifesto','Unholy symbol','Darkstone idol','Blood-sealed letter',
-                 'Unity doctrine pamphlet (annotated with heresies in the margins)','Evening Glory high priest vestments',
-                 'Duke Bayle infernal contract (someone else signed it — who?)','Idol statuette (warm to the touch)',
-                 'House Austel kill-order (still bearing valid seals)','Moon Rat encoded message cylinder'],
-    atmosphere: ['Chanting can be heard, faintly.','The walls are stained with old blood.','Strange sigils cover every surface.','The shadows seem to watch.',
-                 'Unity prayer-wheels still turn. There is no wind to explain it.',
-                 'The hand-and-carved-heart symbol of the Unity is carved into the floor at the centre of every room.',
-                 'Evening Glory shrines have been erected over older altars without removing them first.',
-                 'A Duke Bayle contract is nailed to the wall. The signatory line is blank but not empty.',
-                 'Idol-Touched graffiti covers the walls — faces with too many features, too symmetrically arranged.',
-                 'The Moon Rat intermediaries left in a hurry. Their planning documents are still pinned up.'],
-    bossNames:  ['The Bound Herald','House Austel Grand Inquisitor (survivor)','Evening Glory High Consort',
-                 'Duke Bayle Emissary',"The Idol's Chosen Voice",'Moon Rat Prime Intelligence'],
-  },
-  nature: {
-    monsters:   ['Vine Horror','Twig Blight','Dryad Corrupted','Giant Spider','Cave Bear','Root Golem','Swarm of Insects',
-                 'Cochumat Jungle Tendril Horror','Root Father Aspect','Corrupted Immortal Oak Eladrin',
-                 'Tenebrous Fen Shambler','Crystal-Rooted Blight (Cochumat)','Bullywug Warband (Island-touched)',
-                 'Maddox the Fortunate Kobold Follower (scouting)','Carnivora Spawnling (amphibious)'],
-    traps:      ['Thorn snare','Spore cloud','Entangling roots','Pitfall hidden by leaves','Poison dart plant',
-                 'Cochumat crystal resonance trap (psychic damage)','Root Father resin snare (hardening)',
-                 'Tenebrous Fen bog-trap (sinking, slow suffocation)','Immortal Oak fey-ward (charm effect)',
-                 'Carnivora lure-scent emitter (draws wandering monsters)'],
-    loot:       ['Rare herbs','Beast pelt','Natural crystal formation','Petrified wood idol','Honey from giant hive',
-                 'Stable Cochumat crystal (tree-filtered, safe to use)','Root Father resin sample (alchemical value)',
-                 'Immortal Oak heartwood sliver (fey-attuned)','Carnivora scale fragment (armour-grade)',
-                 'Bullywug ceremonial mask','Tenebrous Fen preserved specimen (unknown species)'],
-    atmosphere: ['Roots have cracked the stone walls.','Bioluminescent fungi light the way.','The sound of dripping water is constant.','Something has been nesting here.',
-                 'Cochumat crystal formations protrude from the floor, humming faintly in the dark.',
-                 'The Root Father\'s amber resin has seeped through the walls and hardened into bas-relief patterns.',
-                 'Tenebrous Fen water has flooded the lower passages. Something moved in it when you entered.',
-                 'Immortal Oak saplings grow from the ceiling, roots hanging downward like fingers.',
-                 'The jungle has reclaimed this place. The architects would not recognise a single room.',
-                 'Something enormous has been sleeping here. The impression in the stone is recent.'],
-    bossNames:  ['The Corrupted Ancient','Root Father Aspect (partial manifestation)','Carnivora Spawnling Alpha',
-                 'Corrupted Immortal Oak Dryad','Cochumat Crystal Overgrowth Elemental','Tenebrous Fen Warden'],
-  },
-  aberration: {
-    monsters:   ['Far Realm Tendril','Mind Flayer Thrall','Gibbering Mouther','Spectral Echo','Crystal Corruption Host','Void Stalker',
-                 'Ambersoul Crystal Corruption Host (advanced)','Society Experiment (lost containment)',
-                 'Department of War AG-Unit (full corruption)','Idol-Touched Civilian (terminal stage)',
-                 'Cochumat Corrupted Crystal Elemental','Far Realm Boundary Walker',
-                 'Leviton Engineer (planar-phase accident)','Fractured Soul Construct (AG failure)'],
-    traps:      ['Psychic feedback node','Reality rift (minor)','Gravity inversion plate','Madness glyph',
-                 'Ambersoul crystal resonance array (corruption on contact)','Society containment ward (backfire)',
-                 'Idol proximity field (identity destabilization)','Department of War psychic extraction rig',
-                 'Planar boundary fracture (random teleportation)','AG-unit soul-bleed emitter'],
-    loot:       ['AmberSoul fragment','Void-touched weapon','Far Realm lens shard','Aberrant ichor (alchemical)','Crystal corruption sample',
-                 'Society field research notes (partially self-edited)','Stable AmberSoul crystal (rare, from Cochumat)',
-                 'Department of War soul-extraction report (disturbing reading)','Cracked Far Realm lens (shows things)',
-                 'AG-unit chargepack (corrupted)','Idol fragment (warm, wrong weight for its size)'],
-    atmosphere: ['Reality feels thin here.','The geometry of the room is subtly wrong.','Whispering with no discernable source.','Looking directly at corners causes unease.',
-                 'Ambersoul crystals jut from every surface. They hum in a frequency that sits behind the teeth.',
-                 'Society warning notices are everywhere. None of them agree on what the danger actually is.',
-                 'The walls show AG-unit claw-marks at a height that should have been impossible.',
-                 'The Idol\'s influence is palpable here — familiar faces appear in peripheral vision, then vanish.',
-                 'Department of War experimental logs are scattered across the floor. Pages are missing from all of them.',
-                 'The floor is warm. Not uncomfortably so. Just wrong.'],
-    bossNames:  ['The Fractured Mind','Society Prime Experiment (beyond control)',"The Idol's Emissary",
-                 'AG-02 (full corruption mode)','Department of War Chief Researcher (absorbed)','Cochumat Apex Crystal Entity'],
-  },
-};
-
-// ── Room label tables ─────────────────────────────────────────────────────────
-
-const ROOM_LABELS: Record<string, string[]> = {
-  combat:      ['Guard Post','Patrol Chamber','Ambush Point','Barracks','Training Floor','Warroom',
-                'Department of War Checkpoint','Warclan Thule Rally Point','ATC Security Station',
-                'House Cahill Enforcer Post','Society Field Perimeter Node'],
-  treasure:    ['Vault','Storeroom','Trophy Room','Hidden Cache','Reliquary','Chest Room',
-                'House Delaque Black Ledger Room','ATC Cargo Manifest Office','House Cahill Ore Reserve',
-                'Department of War Classified Archive','Society Research Specimen Storage'],
-  trap:        ['Trapped Corridor','Testing Chamber','Punishment Hall','Killzone','The Gauntlet',
-                'Department of War Field Trial Room','Society Containment Failsafe Corridor',
-                'House Cahill Mine Collapse Zone','Warclan Thule Kill-Corridor','Leviton Anti-Tamper Passage'],
-  empty:       ['Empty Hall','Abandoned Chamber','Ruined Room','Forgotten Alcove','Dusty Corridor','Old Gallery',
-                'Evacuated ATC Sorting Floor','Collapsed House Cahill Mineshaft Junction',
-                'Decommissioned Department of War Briefing Room','Abandoned Society Observation Post',
-                'Unity Prayer Hall (cleared)','Ambersoul Cathedral Side Chapel (looted)'],
-  boss:        ['Inner Sanctum','Throne Room','The Deep Chamber','Final Hall','Ritual Chamber','Lair',
-                'Department of War Black-Site Core','Society Prime Laboratory','House Cahill Deep Vault',
-                'Unity Grand Ritual Hall','The Idol\'s Antechamber','Warclan Thule War-Throne'],
-  entrance:    ['Entrance Hall','Main Gate','Foyer','Gatehouse',
-                'ATC Inspection Point','Department of War Perimeter Post',
-                'House Cahill Access Shaft','Abandoned Unity Reception Hall'],
-  atmosphere:  ['Grand Hall','Pillared Chamber','Antechamber','Collapsed Room','Flooded Chamber','Altar Room',
-                'Ambersoul Cathedral Nave (ruined)','Leviton Logistics Depot (abandoned)',
-                'House Delaque Counting Room','Kewold Siege Ball Training Annex','Formene Elf Quarter Archive',
-                'Chogrove Smugglers\' Hold','Beeford Keep Mead Cellar (repurposed)'],
-  hallway:     ['Connecting Passage','Side Tunnel','Dark Corridor','Narrow Hall','Utility Passage',
-                'House Cahill Mine Tunnel','ATC Service Corridor','Department of War Maintenance Shaft',
-                'Society Blind Passage','Ambersoul Catacomb Run','Leviton Cable Duct'],
-};
-
-function pickFrom<T>(arr: T[], rand: () => number): T {
-  return arr[Math.floor(rand() * arr.length)];
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
-// ── Layout generation ─────────────────────────────────────────────────────────
-// Builds a connected tree/graph with optional loops for larger dungeons.
-
-interface RawNode {
-  id:          string;
-  x:           number;
-  y:           number;
-  depth:       number;
-  connections: string[];
-  isEntrance:  boolean;
-  isBoss:      boolean;
-  roomClass:   'entrance' | 'combat' | 'treasure' | 'trap' | 'empty' | 'atmosphere' | 'boss';
+function randomInt(min: number, max: number, rand: () => number): number {
+  return Math.floor(rand() * (max - min + 1)) + min;
 }
 
-function generateLayout(
-  roomCount: number,
-  rand: () => number,
-): RawNode[] {
-  const nodes: RawNode[] = [];
+function sizeFromDimensions(width: number, height: number): RoomSize {
+  const area = width * height;
+  if (area <= 45) return 'small';
+  if (area <= 90) return 'medium';
+  return 'large';
+}
 
-  // Entrance node at origin
-  const entrance: RawNode = {
-    id: newId(), x: 0, y: 0, depth: 0,
-    connections: [], isEntrance: true, isBoss: false, roomClass: 'entrance',
-  };
-  nodes.push(entrance);
+function inBounds(grid: DungeonGrid, x: number, y: number): boolean {
+  return y >= 0 && y < grid.height && x >= 0 && x < grid.width;
+}
 
-  // BFS-style expansion
-  const frontier: RawNode[] = [entrance];
-  const targetRooms = Math.max(3, roomCount);
+function setTile(grid: DungeonGrid, x: number, y: number, type: TileType): void {
+  if (inBounds(grid, x, y)) {
+    grid.tiles[y]![x] = type;
+  }
+}
 
-  while (nodes.length < targetRooms && frontier.length > 0) {
-    const parent = frontier[Math.floor(rand() * frontier.length)];
-    // Direction offsets: right, down, left, up, diagonals
-    const offsets = [
-      [2, 0],[0, 2],[-2, 0],[0, -2],
-      [2, 2],[-2, 2],[2, -2],[-2, -2],
-    ];
-    const [dx, dy] = pickFrom(offsets, rand);
-    const nx = parent.x + dx;
-    const ny = parent.y + dy;
+function distance(a: Point, b: Point): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
 
-    // Skip if occupied
-    if (nodes.some(n => n.x === nx && n.y === ny)) continue;
+function roomOverlaps(candidate: InternalRoom, rooms: InternalRoom[], spacing: number): boolean {
+  const left = candidate.x - spacing;
+  const right = candidate.x + candidate.width + spacing;
+  const top = candidate.y - spacing;
+  const bottom = candidate.y + candidate.height + spacing;
 
-    const isBoss = nodes.length === targetRooms - 1;
-    const child: RawNode = {
-      id: newId(), x: nx, y: ny,
-      depth: parent.depth + 1,
-      connections: [parent.id],
-      isEntrance: false, isBoss,
-      roomClass: isBoss ? 'boss' : 'empty',
-    };
-    parent.connections.push(child.id);
-    nodes.push(child);
-    if (!isBoss) frontier.push(child);
+  return rooms.some((room) => {
+    const roomLeft = room.x;
+    const roomRight = room.x + room.width;
+    const roomTop = room.y;
+    const roomBottom = room.y + room.height;
+    return left < roomRight && right > roomLeft && top < roomBottom && bottom > roomTop;
+  });
+}
+
+function roomContains(room: InternalRoom, x: number, y: number): boolean {
+  if (x < room.x || y < room.y || x >= room.x + room.width || y >= room.y + room.height) {
+    return false;
   }
 
-  // Add loops for larger dungeons (connect nearby non-adjacent nodes)
-  if (roomCount >= 8) {
-    const loopCount = Math.floor(roomCount / 6);
-    for (let i = 0; i < loopCount; i++) {
-      const a = pickFrom(nodes, rand);
-      const b = pickFrom(nodes, rand);
-      if (a.id !== b.id && !a.connections.includes(b.id)) {
-        const dist = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-        if (dist <= 4) {
-          a.connections.push(b.id);
-          b.connections.push(a.id);
+  if (room.shape === 'rectangle') {
+    return true;
+  }
+
+  const cx = room.x + (room.width - 1) / 2;
+  const cy = room.y + (room.height - 1) / 2;
+  const nx = room.width > 1 ? (x - cx) / (room.width / 2) : 0;
+  const ny = room.height > 1 ? (y - cy) / (room.height / 2) : 0;
+
+  if (room.shape === 'circle') {
+    return (nx * nx) + (ny * ny) <= 1;
+  }
+
+  const jitter = (((x + 31) * 73856093) ^ ((y + 17) * 19349663)) & 3;
+  const radiusBias = jitter === 0 ? 0.2 : jitter === 1 ? -0.2 : 0;
+  return (nx * nx) + (ny * ny) <= 1 + radiusBias;
+}
+
+function carveRoom(grid: DungeonGrid, room: InternalRoom, roomMask: boolean[][]): void {
+  for (let y = room.y; y < room.y + room.height; y++) {
+    for (let x = room.x; x < room.x + room.width; x++) {
+      if (roomContains(room, x, y)) {
+        setTile(grid, x, y, 'floor');
+        roomMask[y]![x] = true;
+      }
+    }
+  }
+}
+
+function collectEdges(rooms: InternalRoom[]): Edge[] {
+  const edges: Edge[] = [];
+  for (let i = 0; i < rooms.length; i++) {
+    for (let j = i + 1; j < rooms.length; j++) {
+      const a = rooms[i];
+      const b = rooms[j];
+      if (!a || !b) continue;
+      edges.push({
+        a: a.id,
+        b: b.id,
+        weight: distance(a.center, b.center),
+      });
+    }
+  }
+  edges.sort((a, b) => a.weight - b.weight);
+  return edges;
+}
+
+function buildMst(roomIds: string[], edges: Edge[]): Edge[] {
+  const parent = new Map<string, string>();
+  for (const id of roomIds) parent.set(id, id);
+
+  function find(id: string): string {
+    const p = parent.get(id);
+    if (!p || p === id) return id;
+    const root = find(p);
+    parent.set(id, root);
+    return root;
+  }
+
+  function union(a: string, b: string): void {
+    parent.set(find(a), find(b));
+  }
+
+  const mst: Edge[] = [];
+  for (const edge of edges) {
+    if (find(edge.a) !== find(edge.b)) {
+      union(edge.a, edge.b);
+      mst.push(edge);
+      if (mst.length === roomIds.length - 1) break;
+    }
+  }
+  return mst;
+}
+
+function addExtraEdges(
+  edges: Edge[],
+  base: Edge[],
+  roomCount: number,
+  corridorDensity: number,
+  allowLoops: boolean,
+  rand: () => number,
+): Edge[] {
+  if (!allowLoops) return base;
+
+  const selected = new Set(base.map((e) => `${e.a}:${e.b}`));
+  const candidates = edges.filter((e) => !selected.has(`${e.a}:${e.b}`));
+  const maxExtras = Math.max(0, Math.floor((roomCount * corridorDensity) / 3));
+  const out = [...base];
+
+  for (let i = 0; i < maxExtras && candidates.length > 0; i++) {
+    const idx = randomInt(0, candidates.length - 1, rand);
+    const [picked] = candidates.splice(idx, 1);
+    if (!picked) continue;
+    out.push(picked);
+  }
+
+  return out;
+}
+
+function carveCorridorLine(
+  grid: DungeonGrid,
+  corridorMask: boolean[][],
+  roomMask: boolean[][],
+  from: Point,
+  to: Point,
+  width: number,
+): void {
+  const dx = Math.sign(to.x - from.x);
+  const dy = Math.sign(to.y - from.y);
+  let x = from.x;
+  let y = from.y;
+
+  while (x !== to.x || y !== to.y) {
+    for (let oy = -Math.floor(width / 2); oy <= Math.floor(width / 2); oy++) {
+      for (let ox = -Math.floor(width / 2); ox <= Math.floor(width / 2); ox++) {
+        const tx = x + ox;
+        const ty = y + oy;
+        if (!inBounds(grid, tx, ty)) continue;
+        if (!roomMask[ty]![tx]) {
+          corridorMask[ty]![tx] = true;
+          setTile(grid, tx, ty, 'floor');
+        }
+      }
+    }
+    if (x !== to.x) x += dx;
+    if (y !== to.y) y += dy;
+  }
+}
+
+function carveCorridor(
+  grid: DungeonGrid,
+  corridorMask: boolean[][],
+  roomMask: boolean[][],
+  start: Point,
+  end: Point,
+  width: number,
+  rand: () => number,
+): void {
+  const cornerFirst = rand() < 0.5;
+  if (cornerFirst) {
+    carveCorridorLine(grid, corridorMask, roomMask, start, { x: end.x, y: start.y }, width);
+    carveCorridorLine(grid, corridorMask, roomMask, { x: end.x, y: start.y }, end, width);
+  } else {
+    carveCorridorLine(grid, corridorMask, roomMask, start, { x: start.x, y: end.y }, width);
+    carveCorridorLine(grid, corridorMask, roomMask, { x: start.x, y: end.y }, end, width);
+  }
+}
+
+function placeDoors(
+  grid: DungeonGrid,
+  rooms: InternalRoom[],
+  roomMask: boolean[][],
+  corridorMask: boolean[][],
+  rand: () => number,
+  nextId: () => string,
+): DungeonDoor[] {
+  const dirs: Point[] = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+  ];
+
+  const doors: DungeonDoor[] = [];
+  const seen = new Set<string>();
+  const roomById = new Map(rooms.map((r) => [r.id, r]));
+
+  function isDoorCandidate(x: number, y: number): boolean {
+    if (!inBounds(grid, x, y) || !roomMask[y]![x]) return false;
+    return dirs.some(({ x: dx, y: dy }) => {
+      const nx = x + dx;
+      const ny = y + dy;
+      const px = x - dx;
+      const py = y - dy;
+      return (
+        inBounds(grid, nx, ny) &&
+        corridorMask[ny]![nx] &&
+        inBounds(grid, px, py) &&
+        roomMask[py]![px]
+      );
+    });
+  }
+
+  function corridorDirectionAt(x: number, y: number): Point | null {
+    for (const dir of dirs) {
+      const nx = x + dir.x;
+      const ny = y + dir.y;
+      const px = x - dir.x;
+      const py = y - dir.y;
+      if (
+        inBounds(grid, nx, ny) &&
+        corridorMask[ny]![nx] &&
+        inBounds(grid, px, py) &&
+        roomMask[py]![px]
+      ) {
+        return dir;
+      }
+    }
+    return null;
+  }
+
+  function findDoorPoint(room: InternalRoom, toward: Point): Point | null {
+    const preferred = nearestEdgePoint(room, toward);
+    if (isDoorCandidate(preferred.x, preferred.y)) {
+      return preferred;
+    }
+
+    let best: Point | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let y = room.y; y < room.y + room.height; y++) {
+      for (let x = room.x; x < room.x + room.width; x++) {
+        if (!isDoorCandidate(x, y)) continue;
+        const d = Math.abs(x - preferred.x) + Math.abs(y - preferred.y);
+        if (d < bestDist) {
+          bestDist = d;
+          best = { x, y };
+        }
+      }
+    }
+    return best;
+  }
+
+  for (const room of rooms) {
+    for (const connId of room.connections) {
+      if (room.id > connId) continue;
+      const target = roomById.get(connId);
+      if (!target) continue;
+
+      const pair: Array<{ room: InternalRoom; toward: Point }> = [
+        { room, toward: target.center },
+        { room: target, toward: room.center },
+      ];
+
+      for (const endpoint of pair) {
+        const point = findDoorPoint(endpoint.room, endpoint.toward);
+        if (!point) continue;
+        const dir = corridorDirectionAt(point.x, point.y);
+        if (!dir) continue;
+        const key = `${point.x}:${point.y}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        // Force wall supports on opposite sides of the door tile to avoid
+        // floating/room-interior-looking doors.
+        if (dir.x !== 0) {
+          const up = { x: point.x, y: point.y - 1 };
+          const down = { x: point.x, y: point.y + 1 };
+          if (
+            inBounds(grid, up.x, up.y) &&
+            !corridorMask[up.y]![up.x] &&
+            grid.tiles[up.y]![up.x] !== 'stairs_up' &&
+            grid.tiles[up.y]![up.x] !== 'stairs_down'
+          ) {
+            setTile(grid, up.x, up.y, 'wall');
+          }
+          if (
+            inBounds(grid, down.x, down.y) &&
+            !corridorMask[down.y]![down.x] &&
+            grid.tiles[down.y]![down.x] !== 'stairs_up' &&
+            grid.tiles[down.y]![down.x] !== 'stairs_down'
+          ) {
+            setTile(grid, down.x, down.y, 'wall');
+          }
+        } else {
+          const left = { x: point.x - 1, y: point.y };
+          const right = { x: point.x + 1, y: point.y };
+          if (
+            inBounds(grid, left.x, left.y) &&
+            !corridorMask[left.y]![left.x] &&
+            grid.tiles[left.y]![left.x] !== 'stairs_up' &&
+            grid.tiles[left.y]![left.x] !== 'stairs_down'
+          ) {
+            setTile(grid, left.x, left.y, 'wall');
+          }
+          if (
+            inBounds(grid, right.x, right.y) &&
+            !corridorMask[right.y]![right.x] &&
+            grid.tiles[right.y]![right.x] !== 'stairs_up' &&
+            grid.tiles[right.y]![right.x] !== 'stairs_down'
+          ) {
+            setTile(grid, right.x, right.y, 'wall');
+          }
+        }
+
+        const hidden = rand() < 0.05;
+        const locked = !hidden && rand() < 0.15;
+        setTile(grid, point.x, point.y, hidden ? 'secret_door' : 'door');
+        doors.push({
+          id: nextId(),
+          x: point.x,
+          y: point.y,
+          roomIds: [endpoint.room.id],
+          hidden,
+          locked,
+        });
+      }
+    }
+  }
+
+  return doors;
+}
+
+function decorateCorridors(
+  grid: DungeonGrid,
+  corridorMask: boolean[][],
+  theme: ThemeDef,
+  dungeonTheme: DungeonTheme,
+  modifier: DungeonModifier,
+  rand: () => number,
+): void {
+  const trapChance = clamp(theme.baseTrapChance * modifier.trapMultiplier, 0, 0.95);
+  const hazardChance = clamp(theme.baseHazardChance * modifier.hazardMultiplier, 0, 0.95);
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      if (!corridorMask[y]![x]) continue;
+
+      if (rand() > 0.28) continue;
+
+      const eventRoll = rollCorridorEvent({
+        rand,
+        theme: dungeonTheme,
+        requiredTags: modifier.corridorTagBias,
+      });
+      const event = eventRoll?.result as CorridorEventPayload | undefined;
+      if (!event) continue;
+
+      if (event.tileImpact === 'trap') {
+        if (rand() < trapChance) {
+          setTile(grid, x, y, 'trap');
+        }
+      } else if (event.tileImpact === 'hazard') {
+        if (rand() < hazardChance) {
+          setTile(grid, x, y, 'hazard');
         }
       }
     }
   }
-
-  return nodes;
 }
 
-// ── Room classification ───────────────────────────────────────────────────────
+function addWalls(grid: DungeonGrid): void {
+  const walkable = new Set<TileType>([
+    'floor',
+    'door',
+    'secret_door',
+    'trap',
+    'hazard',
+    'stairs_up',
+    'stairs_down',
+  ]);
 
-function classifyRooms(nodes: RawNode[], rand: () => number): void {
-  // Ensure at least one treasure room
-  const nonSpecial = nodes.filter(n => !n.isEntrance && !n.isBoss);
-  let hasTreasure = false;
+  const dirs: Point[] = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+    { x: 1, y: 1 },
+    { x: -1, y: -1 },
+    { x: 1, y: -1 },
+    { x: -1, y: 1 },
+  ];
 
-  for (const node of nonSpecial) {
-    const roll = rand();
-    if (!hasTreasure && roll < 0.15) {
-      node.roomClass = 'treasure';
-      hasTreasure = true;
-    } else if (roll < 0.35) {
-      node.roomClass = 'combat';
-    } else if (roll < 0.50) {
-      node.roomClass = 'trap';
-    } else if (roll < 0.65) {
-      node.roomClass = 'atmosphere';
-    } else {
-      node.roomClass = 'empty';
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      if (grid.tiles[y]![x] !== 'empty') continue;
+      if (dirs.some(({ x: dx, y: dy }) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        return inBounds(grid, nx, ny) && walkable.has(grid.tiles[ny]![nx]!);
+      })) {
+        grid.tiles[y]![x] = 'wall';
+      }
     }
   }
-
-  // Force treasure if none assigned
-  if (!hasTreasure && nonSpecial.length > 0) {
-    const candidate = pickFrom(
-      nonSpecial.filter(n => n.roomClass === 'empty'),
-      rand,
-    ) ?? nonSpecial[0];
-    candidate.roomClass = 'treasure';
-  }
 }
 
-// ── Size assignment ───────────────────────────────────────────────────────────
-
-function assignSize(roomClass: string, rand: () => number): RoomSize {
-  if (roomClass === 'boss') return rand() < 0.5 ? 'large' : 'medium';
-  if (roomClass === 'entrance') return 'medium';
-  if (roomClass === 'atmosphere' || roomClass === 'treasure') {
-    return rand() < 0.6 ? 'large' : 'medium';
-  }
-  const r = rand();
-  if (r < 0.3) return 'small';
-  if (r < 0.7) return 'medium';
-  return 'large';
+function hasOpposingWallSupports(grid: DungeonGrid, x: number, y: number): boolean {
+  const left = inBounds(grid, x - 1, y) ? grid.tiles[y]![x - 1] : 'empty';
+  const right = inBounds(grid, x + 1, y) ? grid.tiles[y]![x + 1] : 'empty';
+  const up = inBounds(grid, x, y - 1) ? grid.tiles[y - 1]![x] : 'empty';
+  const down = inBounds(grid, x, y + 1) ? grid.tiles[y + 1]![x] : 'empty';
+  return (left === 'wall' && right === 'wall') || (up === 'wall' && down === 'wall');
 }
 
-// ── Content generation ────────────────────────────────────────────────────────
-
-function generateContent(
-  roomId:     string,
-  roomClass:  string,
-  isBoss:     boolean,
-  theme:      ThemeDef,
-  rand:       () => number,
-): DungeonContent {
-  const id = newId();
-
-  if (isBoss) {
-    return {
-      id, roomId, contentType: 'monster',
-      payload: {
-        name: pickFrom(theme.bossNames, rand),
-        note: 'Boss encounter. Use full tactics and lair actions.',
-        isBoss: true,
-      },
-    };
-  }
-
-  if (roomClass === 'empty') {
-    return { id, roomId, contentType: 'empty', payload: { note: pickFrom(theme.atmosphere, rand) } };
-  }
-
-  if (roomClass === 'treasure') {
-    return {
-      id, roomId, contentType: 'loot',
-      payload: {
-        item: pickFrom(theme.loot, rand),
-        note: rand() < 0.4 ? 'Guarded by a trap.' : 'Accessible.',
-      },
-    };
-  }
-
-  if (roomClass === 'trap') {
-    return {
-      id, roomId, contentType: 'trap',
-      payload: { trap: pickFrom(theme.traps, rand), dc: 10 + Math.floor(rand() * 8) },
-    };
-  }
-
-  if (roomClass === 'atmosphere') {
-    // Chance of a hidden monster or minor loot
-    const r = rand();
-    if (r < 0.3) {
-      return {
-        id, roomId, contentType: 'monster',
-        payload: { name: pickFrom(theme.monsters, rand), note: 'Patrol or lurking threat.' },
-      };
+function pruneFloatingDoors(grid: DungeonGrid, doors: DungeonDoor[]): DungeonDoor[] {
+  const kept: DungeonDoor[] = [];
+  for (const door of doors) {
+    if (hasOpposingWallSupports(grid, door.x, door.y)) {
+      kept.push(door);
+      continue;
     }
-    return { id, roomId, contentType: 'empty', payload: { note: pickFrom(theme.atmosphere, rand) } };
+    if (inBounds(grid, door.x, door.y)) {
+      grid.tiles[door.y]![door.x] = 'floor';
+    }
   }
+  return kept;
+}
 
-  // combat
+function uniqueTags(...groups: string[][]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const group of groups) {
+    for (const tag of group) {
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      out.push(tag);
+    }
+  }
+  return out;
+}
+
+function neutralModifier(): DungeonModifier {
   return {
-    id, roomId, contentType: 'monster',
-    payload: {
-      name: pickFrom(theme.monsters, rand),
-      count: 1 + Math.floor(rand() * 4),
-      note: rand() < 0.25 ? 'Also contains a minor trap.' : '',
+    modifierId: 'none',
+    label: 'Baseline Conditions',
+    trapMultiplier: 1,
+    hazardMultiplier: 1,
+    encounterTierShift: 0,
+    corridorTagBias: [],
+    roomTagBias: [],
+    tags: ['modifier:none'],
+  };
+}
+
+function shiftEncounterTier(tier: EncounterTier, shift: -1 | 0 | 1): EncounterTier {
+  if (shift === 0) return tier;
+  if (tier === 'tier_1') return shift > 0 ? 'tier_2' : 'tier_1';
+  if (tier === 'tier_3') return shift < 0 ? 'tier_2' : 'tier_3';
+  return shift > 0 ? 'tier_3' : 'tier_1';
+}
+
+function encounterTierFromRoom(room: InternalRoom, degree: number, modifier: DungeonModifier): EncounterTier {
+  if (room.isBoss) return 'tier_3';
+  if (room.isEntrance) return 'tier_1';
+
+  let base: EncounterTier = degree <= 1 ? 'tier_1' : degree >= 3 ? 'tier_2' : 'tier_2';
+  if (room.tags.includes('treasure')) {
+    base = 'tier_2';
+  }
+  return shiftEncounterTier(base, modifier.encounterTierShift);
+}
+
+function lootTierFromEncounterTier(tier: EncounterTier): LootTier {
+  if (tier === 'tier_1') return 'tier_1';
+  if (tier === 'tier_2') return 'tier_2';
+  return 'tier_3';
+}
+
+function defaultPurpose(room: InternalRoom): RoomPurposeMetadata {
+  if (room.isEntrance) {
+    return {
+      purposeId: 'entrance_fallback',
+      label: 'Entrance Hall',
+      role: 'entrance',
+      encounterTierBias: 'tier_1',
+      lootTierBias: 'tier_1',
+      tags: ['role:entrance'],
+    };
+  }
+  if (room.isBoss) {
+    return {
+      purposeId: 'boss_fallback',
+      label: 'Boss Chamber',
+      role: 'boss',
+      encounterTierBias: 'tier_3',
+      lootTierBias: 'tier_3',
+      tags: ['role:boss'],
+    };
+  }
+  return {
+    purposeId: 'holding_chamber',
+    label: 'Holding Chamber',
+    role: 'transit',
+    encounterTierBias: 'tier_2',
+    lootTierBias: 'tier_2',
+    tags: ['role:transit'],
+  };
+}
+
+function rollPurpose(
+  room: InternalRoom,
+  degree: number,
+  theme: DungeonTheme,
+  modifier: DungeonModifier,
+  rand: () => number,
+): RoomPurposeMetadata {
+  const requiredTags: string[] = [];
+  if (room.isEntrance) requiredTags.push('role:entrance');
+  if (room.isBoss) requiredTags.push('role:boss');
+  if (degree <= 1 && !room.isEntrance && !room.isBoss) requiredTags.push('room:dead_end');
+  requiredTags.push(...modifier.roomTagBias);
+
+  const roll = rollRoomPurpose({
+    rand,
+    theme,
+    requiredTags,
+  });
+  return (roll?.result as RoomPurposeMetadata | undefined) ?? defaultPurpose(room);
+}
+
+function rollEncounter(
+  tier: EncounterTier,
+  theme: DungeonTheme,
+  rand: () => number,
+  requiredTags: string[] = [],
+): EncounterContentPayload | null {
+  const roll = rollEncounterTier(tier, {
+    rand,
+    theme,
+    requiredTags,
+  });
+  return (roll?.result as EncounterContentPayload | undefined) ?? null;
+}
+
+function rollTrap(
+  tier: EncounterTier,
+  theme: DungeonTheme,
+  rand: () => number,
+  requiredTags: string[] = [],
+): TrapContentPayload | null {
+  const root = rollTrapChain(tier, {
+    rand,
+    theme,
+    requiredTags,
+  });
+  const template = root?.result as TrapTemplateRoll | undefined;
+  if (!template) return null;
+
+  const trigger = extractFromChain<TrapComponentPayload>(root, 'trap_trigger');
+  const effect = extractFromChain<TrapComponentPayload>(root, 'trap_effect');
+  const delivery = extractFromChain<TrapComponentPayload>(root, 'trap_delivery');
+  if (!trigger || !effect || !delivery) return null;
+
+  return {
+    trapId: template.trapId,
+    tier: template.tier,
+    severity: template.severity,
+    trigger,
+    effect,
+    delivery,
+    tileImpact: template.tileImpact,
+    tags: chainTags(root),
+  };
+}
+
+function rollLoot(
+  tier: LootTier,
+  theme: DungeonTheme,
+  rand: () => number,
+  requiredTags: string[] = [],
+): LootContentPayload | null {
+  const root = rollLootChain(tier, {
+    rand,
+    theme,
+    requiredTags,
+  });
+  const template = root?.result as LootTemplateRoll | undefined;
+  if (!template) return null;
+
+  const kind = extractFromChain<LootKindPayload>(root, 'loot_type');
+  const flavor = extractFromChain<LootFlavorPayload>(root, 'loot_flavor');
+  if (!kind || !flavor) return null;
+
+  return {
+    lootId: template.lootId,
+    tier: template.tier,
+    kind,
+    flavor,
+    quantity: template.quantity,
+    tags: chainTags(root),
+  };
+}
+
+function rollFeature(
+  theme: DungeonTheme,
+  rand: () => number,
+  requiredTags: string[] = [],
+): EnvironmentalFeaturePayload | null {
+  const roll = rollEnvironmentalFeature({
+    rand,
+    theme,
+    requiredTags,
+  });
+  return (roll?.result as EnvironmentalFeaturePayload | undefined) ?? null;
+}
+
+function createEmptyGrid(width: number, height: number): DungeonGrid {
+  return {
+    width,
+    height,
+    tiles: Array.from({ length: height }, () => Array.from({ length: width }, () => 'empty' as TileType)),
+  };
+}
+
+function nearestEdgePoint(room: InternalRoom, target: Point): Point {
+  const left = { x: room.x, y: clamp(target.y, room.y, room.y + room.height - 1) };
+  const right = { x: room.x + room.width - 1, y: clamp(target.y, room.y, room.y + room.height - 1) };
+  const top = { x: clamp(target.x, room.x, room.x + room.width - 1), y: room.y };
+  const bottom = { x: clamp(target.x, room.x, room.x + room.width - 1), y: room.y + room.height - 1 };
+
+  const candidates = [left, right, top, bottom];
+  candidates.sort((a, b) => distance(a, target) - distance(b, target));
+  const first = candidates[0];
+  if (!first) {
+    return { x: room.center.x, y: room.center.y };
+  }
+  return first;
+}
+
+export function generateDungeon(dungeonId: string, input: GenerateDungeonInput): Omit<Dungeon, 'createdAt'> {
+  const safeWidth = clamp(Math.floor(input.width), 20, 220);
+  const safeHeight = clamp(Math.floor(input.height), 20, 220);
+  const seed = (input.seed ?? `${dungeonId}:${input.theme}:${input.roomCount}`).toString();
+  const rand = makePrng(seedFromString(seed));
+  const theme = THEMES[input.theme];
+
+  const nextRoomId = makeIdFactory('room', dungeonId);
+  const nextContentId = makeIdFactory('content', dungeonId);
+  const nextDoorId = makeIdFactory('door', dungeonId);
+
+  const roomSizeMin = clamp(Math.floor(input.roomSizeRange[0]), 4, 30);
+  const roomSizeMax = clamp(Math.floor(input.roomSizeRange[1]), roomSizeMin + 1, 40);
+  const spacing = clamp(Math.floor(input.spacing), 1, 3);
+  const targetRooms = clamp(Math.floor(input.roomCount), 3, 80);
+
+  const rooms: InternalRoom[] = [];
+  let attempts = 0;
+  const maxAttempts = targetRooms * 120;
+
+  while (rooms.length < targetRooms && attempts < maxAttempts) {
+    attempts += 1;
+
+    const width = randomInt(roomSizeMin, roomSizeMax, rand);
+    const height = randomInt(roomSizeMin, roomSizeMax, rand);
+    if (width >= safeWidth - 6 || height >= safeHeight - 6) continue;
+
+    const x = randomInt(2, safeWidth - width - 3, rand);
+    const y = randomInt(2, safeHeight - height - 3, rand);
+
+    const shapeWeights = input.shapeWeights
+      ? {
+          rectangle: input.shapeWeights.rectangle ?? theme.roomShapeWeights.rectangle,
+          circle: input.shapeWeights.circle ?? theme.roomShapeWeights.circle,
+          irregular: input.shapeWeights.irregular ?? theme.roomShapeWeights.irregular,
+        }
+      : theme.roomShapeWeights;
+
+    const shape = weightedPick(shapeWeights, rand);
+
+    const room: InternalRoom = {
+      id: nextRoomId(),
+      x,
+      y,
+      width,
+      height,
+      shape,
+      tags: [],
+      center: { x: Math.floor(x + width / 2), y: Math.floor(y + height / 2) },
+      connections: [],
+      isBoss: false,
+      isEntrance: false,
+    };
+
+    if (!roomOverlaps(room, rooms, spacing)) {
+      rooms.push(room);
+    }
+  }
+
+  if (rooms.length < 3) {
+    throw new Error('Unable to place enough rooms for requested dungeon layout.');
+  }
+
+  rooms.sort((a, b) => (a.center.x + a.center.y) - (b.center.x + b.center.y));
+  const entrance = rooms[0]!;
+  entrance.isEntrance = true;
+  entrance.tags.push('entrance');
+
+  let boss = rooms[rooms.length - 1]!;
+  let farthest = -1;
+  for (const room of rooms) {
+    const d = distance(room.center, entrance.center);
+    if (d > farthest) {
+      farthest = d;
+      boss = room;
+    }
+  }
+  boss.isBoss = true;
+  boss.tags.push('boss');
+
+  const grid = createEmptyGrid(safeWidth, safeHeight);
+  const roomMask = Array.from({ length: safeHeight }, () => Array.from({ length: safeWidth }, () => false));
+  const corridorMask = Array.from({ length: safeHeight }, () => Array.from({ length: safeWidth }, () => false));
+
+  for (const room of rooms) {
+    carveRoom(grid, room, roomMask);
+  }
+
+  const ids = rooms.map((r) => r.id);
+  const edges = collectEdges(rooms);
+  const mst = buildMst(ids, edges);
+  const graphEdges = addExtraEdges(edges, mst, rooms.length, clamp(input.corridorDensity, 0, 1), input.allowLoops, rand);
+
+  const roomById = new Map(rooms.map((r) => [r.id, r]));
+
+  for (const edge of graphEdges) {
+    const a = roomById.get(edge.a);
+    const b = roomById.get(edge.b);
+    if (!a || !b) continue;
+
+    if (!a.connections.includes(b.id)) a.connections.push(b.id);
+    if (!b.connections.includes(a.id)) b.connections.push(a.id);
+
+    const width = randomInt(theme.corridorWidthRange[0], theme.corridorWidthRange[1], rand);
+    const start = nearestEdgePoint(a, b.center);
+    const end = nearestEdgePoint(b, a.center);
+    carveCorridor(grid, corridorMask, roomMask, start, end, width, rand);
+  }
+
+  const modifierRoll = rollDungeonModifier({ rand, theme: input.theme });
+  const modifier = (modifierRoll?.result as DungeonModifier | undefined) ?? neutralModifier();
+
+  decorateCorridors(grid, corridorMask, theme, input.theme, modifier, rand);
+
+  setTile(grid, entrance.center.x, entrance.center.y, 'stairs_up');
+  setTile(grid, boss.center.x, boss.center.y, 'stairs_down');
+
+  const doors = placeDoors(grid, rooms, roomMask, corridorMask, rand, nextDoorId);
+
+  addWalls(grid);
+  const anchoredDoors = pruneFloatingDoors(grid, doors);
+
+  const dungeonRooms: DungeonRoom[] = rooms.map((room) => {
+    const degree = room.connections.length;
+    const baseTags = [...room.tags];
+    const isDeadEnd = degree <= 1 && !room.isEntrance && !room.isBoss;
+    if (isDeadEnd) {
+      baseTags.push('dead_end');
+      baseTags.push('room:dead_end');
+    }
+
+    const purpose = rollPurpose(room, degree, input.theme, modifier, rand);
+    const purposeEncounterTier = room.isBoss
+      ? 'tier_3'
+      : room.isEntrance
+      ? 'tier_1'
+      : purpose.encounterTierBias;
+    const encounterTier = shiftEncounterTier(purposeEncounterTier, modifier.encounterTierShift);
+
+    let lootTier = room.isBoss ? 'tier_3' : purpose.lootTierBias;
+    if (isDeadEnd && lootTier === 'tier_1') {
+      lootTier = 'tier_2';
+    }
+
+    const feature =
+      rand() < (room.isEntrance ? 0.35 : 0.55)
+        ? rollFeature(input.theme, rand, uniqueTags(baseTags, purpose.tags))
+        : null;
+
+    const metadata: DungeonRoomMetadata = feature
+      ? {
+          purpose,
+          encounterTier,
+          lootTier,
+          environmentalFeature: feature,
+        }
+      : {
+          purpose,
+          encounterTier,
+          lootTier,
+        };
+
+    const roomContent: DungeonRoomContent = { roomId: room.id };
+    const contents: DungeonContent[] = [];
+
+    const encounterChance = room.isBoss ? 1 : room.isEntrance ? 0.2 : 0.66;
+    if (rand() < encounterChance) {
+      const encounter = rollEncounter(encounterTier, input.theme, rand, uniqueTags(baseTags, purpose.tags));
+      if (encounter) {
+        roomContent.encounters = [encounter];
+        contents.push({
+          id: nextContentId(),
+          roomId: room.id,
+          contentType: 'encounter',
+          payload: encounter as unknown as Record<string, unknown>,
+        });
+      }
+    }
+
+    const lootChance = room.isBoss ? 1 : isDeadEnd ? 0.62 : 0.3;
+    if (rand() < lootChance) {
+      const loot = rollLoot(lootTier, input.theme, rand, uniqueTags(baseTags, purpose.tags));
+      if (loot) {
+        roomContent.loot = [loot];
+        contents.push({
+          id: nextContentId(),
+          roomId: room.id,
+          contentType: 'loot',
+          payload: loot as unknown as Record<string, unknown>,
+        });
+        baseTags.push('treasure');
+        baseTags.push('room:treasure');
+      }
+    }
+
+    const trapChance = room.isEntrance
+      ? theme.baseTrapChance * 0.2
+      : room.isBoss
+      ? theme.baseTrapChance * 0.8
+      : theme.baseTrapChance * 0.65;
+    if (rand() < clamp(trapChance * modifier.trapMultiplier, 0, 0.95)) {
+      const trap = rollTrap(encounterTier, input.theme, rand, uniqueTags(baseTags, purpose.tags));
+      if (trap) {
+        roomContent.traps = [trap];
+        contents.push({
+          id: nextContentId(),
+          roomId: room.id,
+          contentType: 'trap',
+          payload: trap as unknown as Record<string, unknown>,
+        });
+        if (!room.isEntrance && !room.isBoss) {
+          const centerTile = grid.tiles[room.center.y]?.[room.center.x];
+          if (centerTile === 'floor') {
+            setTile(grid, room.center.x, room.center.y, trap.tileImpact === 'trap' ? 'trap' : 'hazard');
+          }
+        }
+      }
+    }
+
+    if (feature) {
+      roomContent.features = [feature];
+      contents.push({
+        id: nextContentId(),
+        roomId: room.id,
+        contentType: 'feature',
+        payload: feature as unknown as Record<string, unknown>,
+      });
+      if (!room.isEntrance && !room.isBoss && feature.tileImpact === 'hazard') {
+        const centerTile = grid.tiles[room.center.y]?.[room.center.x];
+        if (centerTile === 'floor' && rand() < clamp(theme.baseHazardChance * modifier.hazardMultiplier, 0, 0.95)) {
+          setTile(grid, room.center.x, room.center.y, 'hazard');
+        }
+      }
+    }
+
+    if (room.isEntrance) {
+      roomContent.modifiers = [modifier];
+      contents.push({
+        id: nextContentId(),
+        roomId: room.id,
+        contentType: 'modifier',
+        payload: modifier as unknown as Record<string, unknown>,
+      });
+    }
+
+    const nonMetaContent = contents.filter((item) => item.contentType !== 'modifier');
+    if (nonMetaContent.length === 0) {
+      const note = { code: room.isEntrance ? 'entry_staging' : 'quiet_chamber', tags: ['content:empty'] };
+      roomContent.notes = [note];
+      contents.push({
+        id: nextContentId(),
+        roomId: room.id,
+        contentType: 'empty',
+        payload: note as Record<string, unknown>,
+      });
+    }
+
+    const tags = uniqueTags(
+      baseTags,
+      purpose.tags,
+      feature?.tags ?? [],
+      isDeadEnd ? ['dead_end'] : [],
+      room.isEntrance ? ['entrance'] : [],
+      room.isBoss ? ['boss'] : [],
+    );
+
+    return {
+      id: room.id,
+      dungeonId,
+      type: 'room',
+      label: purpose.label,
+      size: sizeFromDimensions(room.width, room.height),
+      x: room.x,
+      y: room.y,
+      width: room.width,
+      height: room.height,
+      shape: room.shape,
+      tags,
+      connections: room.connections,
+      isBoss: room.isBoss,
+      isEntrance: room.isEntrance,
+      metadata,
+      roomContent: roomContent,
+      contents,
+    };
+  });
+
+  const name = input.name?.trim() || `${input.theme.replace('_', ' ')} dungeon`;
+
+  return {
+    id: dungeonId,
+    name,
+    theme: input.theme,
+    roomCount: dungeonRooms.length,
+    seed,
+    grid,
+    rooms: dungeonRooms,
+    doors: anchoredDoors,
+    modifiers: [modifier],
+    generationConfig: {
+      seed,
+      theme: input.theme,
+      roomCount: input.roomCount,
+      width: safeWidth,
+      height: safeHeight,
+      roomSizeRange: [roomSizeMin, roomSizeMax],
+      corridorDensity: clamp(input.corridorDensity, 0, 1),
+      allowLoops: input.allowLoops,
+      spacing,
+      ...(input.shapeWeights ? { shapeWeights: input.shapeWeights } : {}),
     },
   };
 }
 
-// ── Hallway generation ────────────────────────────────────────────────────────
-
-function generateHallways(
-  rooms: DungeonRoom[],
-  theme: ThemeDef,
-  rand: () => number,
-): DungeonRoom[] {
-  const hallways: DungeonRoom[] = [];
-  const seen = new Set<string>();
-
-  for (const room of rooms) {
-    for (const connId of room.connections) {
-      const key = [room.id, connId].sort().join(':');
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const target = rooms.find(r => r.id === connId);
-      if (!target) continue;
-
-      const hwId = newId();
-      const hasContent = rand() < 0.3;
-      let contents: DungeonContent[] = [];
-
-      if (hasContent) {
-        const r = rand();
-        const contentType: ContentType = r < 0.5 ? 'trap' : 'monster';
-        contents = [{
-          id:          newId(),
-          roomId:      hwId,
-          contentType,
-          payload:     contentType === 'trap'
-            ? { trap: pickFrom(theme.traps, rand), dc: 8 + Math.floor(rand() * 6) }
-            : { name: pickFrom(theme.monsters, rand), count: 1, note: 'Patrol' },
-        }];
-      }
-
-      hallways.push({
-        id:          hwId,
-        dungeonId:   room.dungeonId,
-        type:        'hallway',
-        label:       pickFrom(ROOM_LABELS['hallway'], rand),
-        size:        'small',
-        x:           (room.x + target.x) / 2,
-        y:           (room.y + target.y) / 2,
-        connections: [room.id, target.id],
-        isBoss:      false,
-        isEntrance:  false,
-        contents,
-      });
-    }
-  }
-
-  return hallways;
-}
-
-// ── Main entry point ──────────────────────────────────────────────────────────
-
-export function generateDungeon(
-  dungeonId: string,
-  input: GenerateDungeonInput,
-): Omit<Dungeon, 'createdAt'> {
-  const seed = seedFromString(`${dungeonId}-${input.theme}-${input.roomCount}`);
-  const rand = makePrng(seed);
-  const theme = THEMES[input.theme];
-
-  // 1. Layout
-  const rawNodes = generateLayout(input.roomCount, rand);
-  classifyRooms(rawNodes, rand);
-
-  // 2. Build rooms
-  const rooms: DungeonRoom[] = rawNodes.map(node => {
-    const labels = ROOM_LABELS[node.roomClass] ?? ROOM_LABELS['empty'];
-    const content = generateContent(
-      node.id, node.roomClass, node.isBoss, theme, rand,
-    );
-    return {
-      id:          node.id,
-      dungeonId,
-      type:        'room',
-      label:       pickFrom(labels, rand),
-      size:        assignSize(node.roomClass, rand),
-      x:           node.x,
-      y:           node.y,
-      connections: node.connections,
-      isBoss:      node.isBoss,
-      isEntrance:  node.isEntrance,
-      contents:    [content],
-    };
-  });
-
-  // 3. Hallways
-  const hallways = generateHallways(rooms, theme, rand);
-
-  const name = input.name?.trim() || `${input.theme.charAt(0).toUpperCase() + input.theme.slice(1)} Dungeon`;
-
-  return {
-    id:        dungeonId,
-    name,
-    theme:     input.theme,
-    roomCount: input.roomCount,
-    rooms:     [...rooms, ...hallways],
-  };
-}
-
-// ── Text summary ──────────────────────────────────────────────────────────────
-
 export function buildSummary(dungeon: Dungeon): string {
-  const rooms     = dungeon.rooms.filter(r => r.type === 'room');
-  const hallways  = dungeon.rooms.filter(r => r.type === 'hallway');
-  const boss      = rooms.find(r => r.isBoss);
-  const entrance  = rooms.find(r => r.isEntrance);
-  const monsters  = dungeon.rooms.flatMap(r => r.contents).filter(c => c.contentType === 'monster');
-  const traps     = dungeon.rooms.flatMap(r => r.contents).filter(c => c.contentType === 'trap');
-  const loot      = dungeon.rooms.flatMap(r => r.contents).filter(c => c.contentType === 'loot');
+  const roomCount = dungeon.rooms.length;
+  const doorCount = dungeon.doors.length;
+  const trapTiles = dungeon.grid.tiles.flat().filter((tile) => tile === 'trap').length;
+  const hazardTiles = dungeon.grid.tiles.flat().filter((tile) => tile === 'hazard').length;
+  const secretDoors = dungeon.doors.filter((door) => door.hidden).length;
+  const lootRooms = dungeon.rooms.filter((room) => room.contents.some((c) => c.contentType === 'loot')).length;
+  const encounterRooms = dungeon.rooms.filter((room) =>
+    room.contents.some((c) => c.contentType === 'encounter' || c.contentType === 'monster'),
+  ).length;
+  const bossRoom = dungeon.rooms.find((room) => room.isBoss);
+  const modifier = dungeon.modifiers[0];
 
-  const lines: string[] = [
+  return [
     `# ${dungeon.name}`,
-    `Theme: ${dungeon.theme}  |  Rooms: ${rooms.length}  |  Hallways: ${hallways.length}`,
-    '',
-    `## Entrance`,
-    entrance ? `  ${entrance.label} (${entrance.size})` : '  Unknown',
-    '',
-    `## Rooms (${rooms.length})`,
-    ...rooms.map(r => {
-      const c = r.contents[0];
-      const tag = c?.contentType === 'monster'
-        ? `⚔ ${(c.payload as { name: string }).name}${r.isBoss ? ' [BOSS]' : ''}`
-        : c?.contentType === 'trap'   ? `⚠ Trap: ${(c.payload as { trap: string }).trap}`
-        : c?.contentType === 'loot'   ? `★ Loot: ${(c.payload as { item: string }).item}`
-        : `○ ${(c?.payload as { note?: string })?.note ?? 'Empty'}`;
-      return `  ${r.isEntrance ? '[ENTRANCE] ' : r.isBoss ? '[BOSS] ' : ''}${r.label} (${r.size}) — ${tag}`;
-    }),
-    '',
-    `## Hallways with hazards (${hallways.filter(h => h.contents[0]?.contentType !== 'empty').length})`,
-    ...hallways
-      .filter(h => h.contents[0]?.contentType !== 'empty' && h.contents.length > 0)
-      .map(h => {
-        const c = h.contents[0];
-        return `  ${h.label} — ${c.contentType === 'trap'
-          ? `⚠ ${(c.payload as { trap: string }).trap}`
-          : `⚔ ${(c.payload as { name: string }).name}`}`;
-      }),
-    '',
-    `## Totals`,
-    `  Encounters: ${monsters.length}  |  Traps: ${traps.length}  |  Loot: ${loot.length}`,
-    boss ? `  Boss: ${(boss.contents[0]?.payload as { name?: string })?.name ?? 'Unknown'} in ${boss.label}` : '',
-  ];
-
-  return lines.filter(l => l !== '').join('\n');
+    `Theme: ${dungeon.theme}`,
+    `Grid: ${dungeon.grid.width}x${dungeon.grid.height}`,
+    `Rooms: ${roomCount} | Doors: ${doorCount} | Secret Doors: ${secretDoors}`,
+    `Trap Tiles: ${trapTiles} | Hazard Tiles: ${hazardTiles}`,
+    `Encounter Rooms: ${encounterRooms} | Loot Rooms: ${lootRooms}`,
+    modifier ? `Dungeon Modifier: ${modifier.label}` : 'Dungeon Modifier: none',
+    bossRoom ? `Boss Room: ${bossRoom.label}` : 'Boss Room: none',
+  ].join('\n');
 }

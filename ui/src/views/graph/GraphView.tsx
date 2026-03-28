@@ -6,6 +6,7 @@ import styles               from './GraphView.module.css';
 
 interface Node { id:string; type:string; name:string; x:number; y:number; vx:number; vy:number; pinned:boolean; }
 interface Edge { id:string; sourceId:string; targetId:string; label:string; type:string; strength:number|null; }
+interface LayoutPosition { x:number; y:number; vx:number; vy:number; pinned:boolean; }
 
 const TYPE_COLOUR: Record<string,string> = {
   npc:'#e0b060', faction:'#c44040', location:'#4c8fa0',
@@ -16,6 +17,7 @@ const REPULSION  = 2800;
 const ATTRACTION = 0.03;
 const DAMPING    = 0.82;
 const MIN_DIST   = 60;
+const LAYOUT_PERSIST_DEBOUNCE_MS = 750;
 
 const ENTITY_TYPES = ['npc', 'faction', 'location', 'quest', 'session', 'event'] as const;
 type EntityType = typeof ENTITY_TYPES[number];
@@ -28,7 +30,19 @@ const TABLE_FOR_TYPE: Record<EntityType, string> = {
 // Lives outside the component so it survives navigation (unmount/remount).
 // Keyed by node ID → {x, y, vx, vy, pinned}.
 // The simulation writes here every tick; loadGraph reads here to restore positions.
-const positionCache = new Map<string, {x:number;y:number;vx:number;vy:number;pinned:boolean}>();
+const positionCache = new Map<string, LayoutPosition>();
+
+function positionCacheKey(campaignId: string, nodeId: string): string {
+  return `${campaignId}:${nodeId}`;
+}
+
+function getCachedPosition(campaignId: string, nodeId: string): LayoutPosition | undefined {
+  return positionCache.get(positionCacheKey(campaignId, nodeId));
+}
+
+function setCachedPosition(campaignId: string, nodeId: string, value: LayoutPosition): void {
+  positionCache.set(positionCacheKey(campaignId, nodeId), value);
+}
 
 export default function GraphView() {
   const campaign = useCampaignStore(s => s.campaign);
@@ -64,6 +78,53 @@ export default function GraphView() {
   const dragNode       = useRef<string|null>(null);
   const isDraggingNode = useRef(false);
   const isPaused       = useRef(false);
+  const persistTimerRef = useRef<number|null>(null);
+  const lastSavedLayoutRef = useRef<string>('');
+
+  const persistGraphLayout = useCallback(async (force = false) => {
+    if (!campaign) return;
+
+    const positions: Record<string, LayoutPosition> = {};
+    simNodes.current.forEach(n => {
+      positions[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy, pinned: n.pinned };
+    });
+
+    const layoutJson = JSON.stringify(positions);
+    if (!force && layoutJson === lastSavedLayoutRef.current) return;
+
+    const now = new Date().toISOString();
+    try {
+      await atlas.db.run(
+        `INSERT INTO graph_layout_state (campaign_id, positions_json, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(campaign_id) DO UPDATE SET
+           positions_json = excluded.positions_json,
+           updated_at = excluded.updated_at`,
+        [campaign.id, layoutJson, now],
+      );
+      lastSavedLayoutRef.current = layoutJson;
+    } catch {
+      // If migration hasn't run or DB is temporarily unavailable, keep in-memory only.
+    }
+  }, [campaign]);
+
+  const scheduleLayoutPersist = useCallback(() => {
+    if (!campaign || persistTimerRef.current !== null) return;
+    persistTimerRef.current = window.setTimeout(() => {
+      persistTimerRef.current = null;
+      void persistGraphLayout();
+    }, LAYOUT_PERSIST_DEBOUNCE_MS);
+  }, [campaign, persistGraphLayout]);
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current !== null) {
+        window.clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      void persistGraphLayout(true);
+    };
+  }, [persistGraphLayout]);
 
   // ── Entity list loader ────────────────────────────────────────────────────
   async function loadEntityList(type: EntityType) {
@@ -105,6 +166,20 @@ export default function GraphView() {
     setLoading(true);
     try {
       type RelRow = Record<string,unknown>;
+      let persistedPositions: Record<string, LayoutPosition> = {};
+      try {
+        const rows = await atlas.db.query<{ positions_json: string }>(
+          'SELECT positions_json FROM graph_layout_state WHERE campaign_id=? LIMIT 1',
+          [campaign.id],
+        );
+        if (rows[0]?.positions_json) {
+          const parsed = JSON.parse(rows[0].positions_json) as Record<string, LayoutPosition>;
+          if (parsed && typeof parsed === 'object') persistedPositions = parsed;
+        }
+      } catch {
+        // Ignore missing table or parse errors; graph still works with defaults.
+      }
+
       const rels = await atlas.db.query<RelRow>(
         'SELECT * FROM entity_relationships WHERE campaign_id=? LIMIT 200',
         [campaign.id],
@@ -142,7 +217,9 @@ export default function GraphView() {
 
       // Restore positions from the module-level cache (survives unmount/remount)
       const newNodes: Node[] = [...entityMap.values()].map((e, i) => {
-        const cached = positionCache.get(e.id);
+        const persisted = persistedPositions[e.id];
+        if (persisted) setCachedPosition(campaign.id, e.id, persisted);
+        const cached = getCachedPosition(campaign.id, e.id) ?? persisted;
         return {
           id: e.id, type: e.type,
           name: nameMap.get(e.id) ?? e.id.slice(0,8),
@@ -166,7 +243,12 @@ export default function GraphView() {
       // Write into sim ref and position cache before setting React state
       simNodes.current = newNodes;
       simEdges.current = newEdges;
-      newNodes.forEach(n => positionCache.set(n.id, {x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned}));
+      newNodes.forEach(n => {
+        setCachedPosition(campaign.id, n.id, { x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned });
+      });
+      lastSavedLayoutRef.current = JSON.stringify(
+        Object.fromEntries(newNodes.map(n => [n.id, { x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned }])),
+      );
 
       setEdges(newEdges);
       setNodes(newNodes);
@@ -229,7 +311,12 @@ export default function GraphView() {
 
       // Write back to sim ref AND module-level cache
       simNodes.current = ns;
-      ns.forEach(n => positionCache.set(n.id, {x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned}));
+      if (campaign) {
+        ns.forEach(n => {
+          setCachedPosition(campaign.id, n.id, { x:n.x, y:n.y, vx:n.vx, vy:n.vy, pinned:n.pinned });
+        });
+      }
+      scheduleLayoutPersist();
 
       setNodes([...ns]);
       animRef.current = requestAnimationFrame(tick);
@@ -237,7 +324,7 @@ export default function GraphView() {
 
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [edges.length, nodes.length]);
+  }, [campaign, edges.length, nodes.length, scheduleLayoutPersist]);
 
   // ── Node drag ─────────────────────────────────────────────────────────────
   function startDrag(e: React.MouseEvent, nodeId: string) {
@@ -265,6 +352,7 @@ export default function GraphView() {
       simNodes.current = simNodes.current.map(n =>
         n.id===dragNode.current ? {...n, x, y, vx:0, vy:0} : n,
       );
+      scheduleLayoutPersist();
       setNodes([...simNodes.current]);
     } else if (isPanning.current) {
       setPan({
@@ -279,6 +367,7 @@ export default function GraphView() {
     isDraggingNode.current = false;
     isPanning.current      = false;
     isPaused.current       = false;
+    void persistGraphLayout(true);
   }
 
   function onSvgWheel(e: React.WheelEvent<SVGSVGElement>) {

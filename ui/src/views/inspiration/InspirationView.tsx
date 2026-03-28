@@ -82,7 +82,7 @@ export default function InspirationView() {
       const raw = await atlas.inspiration.generate({
         campaignId: campaign.id,
         category:   category === 'any' ? undefined : category,
-        count:      3,
+        count:      1,
       }) as InspirationResult[];
       setVisions(mapResults(raw));
     } catch (e) {
@@ -237,3 +237,4 @@ export default function InspirationView() {
     </div>
   );
 }
+

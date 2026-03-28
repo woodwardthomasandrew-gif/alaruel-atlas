@@ -112,6 +112,14 @@ export interface AtlasBridge {
     showInFolder: (filePath: string)         => Promise<void>;
   };
 
+  // ── Exports ────────────────────────────────────────────────────────────────
+  exports: {
+    saveSessionHtml: (
+      fileName: string,
+      html: string,
+    ) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  };
+
   // ── Events (main → renderer pushes) ──────────────────────────────────────
   on: {
     /** Fired when a campaign is successfully opened. */
@@ -230,6 +238,10 @@ const bridge: AtlasBridge = {
     getVersion:   ()           => invoke('app:getVersion'),
     getPaths:     ()           => invoke('app:getPaths'),
     showInFolder: (filePath)   => invoke('app:showInFolder', { filePath }),
+  },
+
+  exports: {
+    saveSessionHtml: (fileName, html) => invoke('export:saveSessionHtml', { fileName, html }),
   },
 
   on: {

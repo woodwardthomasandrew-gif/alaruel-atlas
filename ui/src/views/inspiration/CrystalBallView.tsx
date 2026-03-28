@@ -72,7 +72,7 @@ export function CrystalBallView({ visions, isGenerating, onCapture, holdMs }: Cr
           <span className={styles.summoning}>Summoning visions…</span>
         )}
 
-        {visions.map((text, idx) => {
+        {visions.slice(0, 1).map((text, idx) => {
           // Assign a grid cell by index, cycling if there are more visions than cells
           const cell = GRID_CELLS[idx % GRID_CELLS.length];
           // Jitter seed unique per text+index so same text in different slots moves
@@ -100,3 +100,4 @@ export function CrystalBallView({ visions, isGenerating, onCapture, holdMs }: Cr
     </div>
   );
 }
+

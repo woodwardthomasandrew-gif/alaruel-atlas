@@ -1,0 +1,105 @@
+{
+  "id": "demo_dungeon_001",
+  "name": "crypt dungeon",
+  "theme": "crypt",
+  "roomCount": 3,
+  "createdAt": "2026-03-26T00:00:00.000Z",
+  "seed": "demo-seed-001",
+  "grid": {
+    "width": 24,
+    "height": 16,
+    "tiles": [
+      ["empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","wall","wall","wall","wall","wall","wall","wall","wall","wall","wall","wall","wall","wall","wall","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","wall","floor","floor","floor","floor","floor","floor","floor","floor","door","floor","floor","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","wall","floor","stairs_up","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","wall","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","wall","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","wall","wall","wall","wall","wall","wall","wall","wall","wall","floor","wall","wall","wall","wall","wall","wall","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","empty","empty","empty","wall","floor","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","empty","wall","wall","wall","floor","wall","wall","wall","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","wall","floor","floor","floor","door","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","wall","floor","floor","floor","floor","floor","trap","floor","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","wall","floor","floor","floor","floor","floor","floor","floor","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","wall","floor","floor","floor","floor","floor","stairs_down","floor","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","wall","wall","wall","wall","wall","wall","wall","wall","wall","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty"],
+      ["empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty","empty"]
+    ]
+  },
+  "doors": [
+    { "id": "door_000", "x": 10, "y": 2, "roomIds": ["room_000"], "locked": true, "hidden": false },
+    { "id": "door_001", "x": 10, "y": 9, "roomIds": ["room_002"], "locked": false, "hidden": false }
+  ],
+  "generationConfig": {
+    "seed": "demo-seed-001",
+    "theme": "crypt",
+    "roomCount": 3,
+    "width": 24,
+    "height": 16,
+    "roomSizeRange": [6, 9],
+    "corridorDensity": 0.3,
+    "allowLoops": true,
+    "spacing": 1
+  },
+  "rooms": [
+    {
+      "id": "room_000",
+      "dungeonId": "demo_dungeon_001",
+      "type": "room",
+      "label": "Entrance",
+      "size": "medium",
+      "x": 2,
+      "y": 2,
+      "width": 14,
+      "height": 4,
+      "shape": "rectangle",
+      "tags": ["entrance"],
+      "connections": ["room_001"],
+      "isBoss": false,
+      "isEntrance": true,
+      "contents": [{ "id": "content_000", "roomId": "room_000", "contentType": "empty", "payload": { "note": "Entrance staging room." } }]
+    },
+    {
+      "id": "room_001",
+      "dungeonId": "demo_dungeon_001",
+      "type": "room",
+      "label": "Room 001",
+      "size": "small",
+      "x": 7,
+      "y": 9,
+      "width": 7,
+      "height": 4,
+      "shape": "rectangle",
+      "tags": ["dead_end", "treasure"],
+      "connections": ["room_000", "room_002"],
+      "isBoss": false,
+      "isEntrance": false,
+      "contents": [
+        { "id": "content_001", "roomId": "room_001", "contentType": "monster", "payload": { "name": "Ghouls" } },
+        { "id": "content_002", "roomId": "room_001", "contentType": "loot", "payload": { "item": "Ancient coins" } }
+      ]
+    },
+    {
+      "id": "room_002",
+      "dungeonId": "demo_dungeon_001",
+      "type": "room",
+      "label": "Boss Chamber",
+      "size": "small",
+      "x": 8,
+      "y": 10,
+      "width": 6,
+      "height": 3,
+      "shape": "rectangle",
+      "tags": ["boss"],
+      "connections": ["room_001"],
+      "isBoss": true,
+      "isEntrance": false,
+      "contents": [
+        { "id": "content_003", "roomId": "room_002", "contentType": "monster", "payload": { "name": "Wights", "elite": true } },
+        { "id": "content_004", "roomId": "room_002", "contentType": "monster", "payload": { "name": "Skeletons", "elite": true } },
+        { "id": "content_005", "roomId": "room_002", "contentType": "loot", "payload": { "item": "Reliquary" } }
+      ]
+    }
+  ]
+}

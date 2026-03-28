@@ -60,6 +60,9 @@ export interface AtlasBridge {
     getPaths(): Promise<AppPaths>;
     showInFolder(filePath: string): Promise<void>;
   };
+  exports: {
+    saveSessionHtml(fileName: string, html: string): Promise<{ ok: boolean; path?: string; error?: string }>;
+  };
   on: {
     campaignOpened(handler: (id: string) => void): () => void;
     campaignClosed(handler: () => void): () => void;
@@ -92,6 +95,9 @@ const devMock: AtlasBridge = {
     getVersion:   async () => '0.1.0-dev',
     getPaths:     async () => ({ userData: '', campaigns: '', assets: '', logs: '', plugins: '', config: '' }),
     showInFolder: async () => {},
+  },
+  exports: {
+    saveSessionHtml: async () => ({ ok: false, error: 'Running in browser' }),
   },
   on: {
     campaignOpened: () => () => {},

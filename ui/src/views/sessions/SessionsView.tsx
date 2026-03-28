@@ -3,6 +3,9 @@ import type React from 'react';
 import { Icon }             from '../../components/ui/Icon';
 import { atlas }            from '../../bridge/atlas';
 import { useCampaignStore } from '../../store/campaign.store';
+import { PrintSessionView } from './PrintSessionView';
+import { getPrintableSession, renderPrintableSessionHtml } from '../../utils/printResolver';
+import type { PrintableSession } from '../../types/print';
 import type {
   Session, SessionStatus, SessionPrepItem, SessionNote, SessionScene,
   SceneMonsterEntry, SceneMiniEntry,
@@ -392,6 +395,8 @@ export default function SessionsView() {
   const [allNpcs,     setAllNpcs]     = useState<NpcRow[]>([]);
   const [allMonsters, setAllMonsters] = useState<MonsterRow[]>([]);
   const [allMinis,    setAllMinis]    = useState<MiniRow[]>([]);
+  const [printSession, setPrintSession] = useState<PrintableSession | null>(null);
+  const [printBusy, setPrintBusy] = useState(false);
 
   type RawSession = Record<string, unknown>;
   type RawScene   = Record<string, unknown>;
@@ -617,6 +622,40 @@ export default function SessionsView() {
     return null;
   }
 
+  async function openPrintPreview() {
+    if (!selected) return;
+    setPrintBusy(true);
+    try {
+      const dto = await getPrintableSession(selected.id);
+      setPrintSession(dto);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPrintBusy(false);
+    }
+  }
+
+  async function exportSessionHtml() {
+    if (!selected) return;
+    setPrintBusy(true);
+    try {
+      const dto = await getPrintableSession(selected.id);
+      const html = renderPrintableSessionHtml(dto);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const fileName = `session-${selected.sessionNumber}-${selected.name}-${stamp}.html`
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/-+/g, '-');
+      const result = await atlas.exports.saveSessionHtml(fileName, html);
+      if (!result.ok || !result.path) throw new Error(result.error ?? 'Failed to export session document');
+      await atlas.app.showInFolder(result.path);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPrintBusy(false);
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -665,14 +704,24 @@ export default function SessionsView() {
         {selected ? (
           <div className={styles.detail}>
             <div className={styles.detailHeader}>
-              <div>
-                <h2 className={styles.detailTitle}><span className={styles.detailNum}>#{selected.sessionNumber}</span> {selected.name}</h2>
-                <div className={styles.statusRow}>
-                  {(['planned', 'in_progress', 'completed', 'cancelled'] as SessionStatus[]).map(st => (
-                    <button key={st} className={`${styles.statusBtn} ${selected.status === st ? styles.statusActive : ''}`}
-                      style={selected.status === st ? { borderColor: STATUS_COLOUR[st], color: STATUS_COLOUR[st] } : {}}
-                      onClick={() => updateStatus(selected.id, st)}>{st.replace('_', ' ')}</button>
-                  ))}
+              <div className={styles.detailHeaderInner}>
+                <div>
+                  <h2 className={styles.detailTitle}><span className={styles.detailNum}>#{selected.sessionNumber}</span> {selected.name}</h2>
+                  <div className={styles.statusRow}>
+                    {(['planned', 'in_progress', 'completed', 'cancelled'] as SessionStatus[]).map(st => (
+                      <button key={st} className={`${styles.statusBtn} ${selected.status === st ? styles.statusActive : ''}`}
+                        style={selected.status === st ? { borderColor: STATUS_COLOUR[st], color: STATUS_COLOUR[st] } : {}}
+                        onClick={() => updateStatus(selected.id, st)}>{st.replace('_', ' ')}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.headerActions}>
+                  <button className={styles.ghostBtn} onClick={openPrintPreview} disabled={printBusy}>
+                    {printBusy ? 'Loading...' : 'Print Preview'}
+                  </button>
+                  <button className={styles.ghostBtn} onClick={exportSessionHtml} disabled={printBusy}>
+                    {printBusy ? 'Working...' : 'Export HTML'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -865,6 +914,12 @@ export default function SessionsView() {
           </div>
         )}
       </div>
+      {printSession && (
+        <PrintSessionView
+          session={printSession}
+          onClose={() => setPrintSession(null)}
+        />
+      )}
     </div>
   );
 }
