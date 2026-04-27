@@ -5,17 +5,19 @@ import { useState }           from 'react';
 import { Icon }               from '../../components/ui/Icon';
 import MagicItemGenerator     from './MagicItemGenerator';
 import MonsterGenerator       from './MonsterGenerator';
+import NameGenerator          from './NameGenerator';
 import NpcGenerator           from './NpcGenerator';
 import SettlementGenerator    from './SettlementGenerator';
 import styles                 from './GeneratorsView.module.css';
 
-type Tab = 'magic-item' | 'monster' | 'npc' | 'settlement';
+type Tab = 'magic-item' | 'monster' | 'npc' | 'settlement' | 'name';
 
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; desc: string }[] = [
   { id: 'magic-item',  label: 'Magic Items',  icon: 'sword',  desc: 'Forge enchanted relics & artefacts'  },
   { id: 'monster',     label: 'Monsters',     icon: 'alert',  desc: 'Conjure beasts & abominations'        },
   { id: 'npc',         label: 'NPCs',         icon: 'users',  desc: 'Birth characters with history'        },
   { id: 'settlement',  label: 'Settlements',  icon: 'map',    desc: 'Raise cities & hidden hamlets'        },
+  { id: 'name',        label: 'Names',        icon: 'bookmark', desc: 'Generate culture-based identities'   },
 ];
 
 export default function GeneratorsView() {
@@ -49,6 +51,7 @@ export default function GeneratorsView() {
         {activeTab === 'monster'     && <MonsterGenerator    />}
         {activeTab === 'npc'         && <NpcGenerator        />}
         {activeTab === 'settlement'  && <SettlementGenerator />}
+        {activeTab === 'name'        && <NameGenerator       />}
       </div>
     </div>
   );

@@ -352,6 +352,141 @@ function playerMap(d: Dungeon): Dungeon {
   };
 }
 
+const TILE_RENDER_ORDER: TileType[] = [
+  'floor',
+  'wall',
+  'door',
+  'secret_door',
+  'trap',
+  'hazard',
+  'stairs_up',
+  'stairs_down',
+];
+
+function createPathBuckets(): Record<TileType, string[]> {
+  return {
+    empty: [],
+    floor: [],
+    wall: [],
+    door: [],
+    secret_door: [],
+    trap: [],
+    hazard: [],
+    stairs_up: [],
+    stairs_down: [],
+  };
+}
+
+function buildTilePaths(grid: DungeonGrid, tileSize: number): Record<TileType, string> {
+  const buckets = createPathBuckets();
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const tile = grid.tiles[y]?.[x] ?? 'empty';
+      if (tile === 'empty') continue;
+      const px = x * tileSize;
+      const py = y * tileSize;
+      buckets[tile].push(`M${px} ${py}h${tileSize}v${tileSize}h-${tileSize}z`);
+    }
+  }
+  return {
+    empty: '',
+    floor: buckets.floor.join(''),
+    wall: buckets.wall.join(''),
+    door: buckets.door.join(''),
+    secret_door: buckets.secret_door.join(''),
+    trap: buckets.trap.join(''),
+    hazard: buckets.hazard.join(''),
+    stairs_up: buckets.stairs_up.join(''),
+    stairs_down: buckets.stairs_down.join(''),
+  };
+}
+
+function buildGridPath(widthTiles: number, heightTiles: number, tileSize: number): string {
+  const widthPx = widthTiles * tileSize;
+  const heightPx = heightTiles * tileSize;
+  const parts: string[] = [];
+  for (let x = 0; x <= widthTiles; x++) {
+    const px = x * tileSize;
+    parts.push(`M${px} 0V${heightPx}`);
+  }
+  for (let y = 0; y <= heightTiles; y++) {
+    const py = y * tileSize;
+    parts.push(`M0 ${py}H${widthPx}`);
+  }
+  return parts.join('');
+}
+
+function buildMapSvgMarkup(
+  dungeon: Dungeon,
+  options: {
+    playerVersion: boolean;
+    showGrid: boolean;
+    showRoomNumbers: boolean;
+    printerFriendly?: boolean;
+    tileSize?: number;
+    tileSizeMm?: number;
+    cncLayers?: boolean;
+  },
+): string {
+  const map = options.playerVersion ? playerMap(dungeon) : dungeon;
+  const printerFriendly = options.printerFriendly ?? true;
+  const tile = options.tileSize ?? TILE_SIZE;
+  const widthPx = map.grid.width * tile;
+  const heightPx = map.grid.height * tile;
+  const widthMm = options.tileSizeMm ? ` width="${(map.grid.width * options.tileSizeMm).toFixed(3)}mm"` : '';
+  const heightMm = options.tileSizeMm ? ` height="${(map.grid.height * options.tileSizeMm).toFixed(3)}mm"` : '';
+  const tilePaths = buildTilePaths(map.grid, tile);
+  const gridPath = options.showGrid ? buildGridPath(map.grid.width, map.grid.height, tile) : '';
+  const bg = printerFriendly ? '#ffffff' : '#11171f';
+  const gridStroke = printerFriendly ? 'rgba(80,80,80,0.28)' : 'rgba(35,42,49,0.55)';
+  const textBg = printerFriendly ? 'rgba(255,255,255,0.95)' : 'rgba(9, 12, 16, 0.86)';
+  const textStroke = printerFriendly ? 'rgba(70,70,70,0.9)' : 'rgba(220, 230, 240, 0.7)';
+  const textColor = printerFriendly ? '#202020' : '#f2f6fb';
+
+  const layers: string[] = [];
+  for (const tileType of TILE_RENDER_ORDER) {
+    const d = tilePaths[tileType];
+    if (!d) continue;
+    const layerBody = `<path d="${d}" fill="${printerFriendly ? exportTileColor(tileType, options.playerVersion) : tileColor(tileType, options.playerVersion)}" shape-rendering="crispEdges" />`;
+    if (options.cncLayers) {
+      layers.push(`<g id="layer_${tileType}" data-tile-type="${tileType}">${layerBody}</g>`);
+    } else {
+      layers.push(layerBody);
+    }
+  }
+
+  const labels = options.showRoomNumbers
+    ? map.rooms.map((room, idx) => {
+      const cx = ((room.x + (room.width / 2)) * tile).toFixed(3);
+      const cy = ((room.y + (room.height / 2)) * tile).toFixed(3);
+      const badge = Math.max(16, Math.floor(tile * 1.2));
+      const half = badge / 2;
+      const fontSize = Math.max(10, Math.floor(tile * 0.75));
+      return [
+        `<rect x="${(Number(cx) - half).toFixed(3)}" y="${(Number(cy) - half).toFixed(3)}" width="${badge}" height="${badge}" fill="${textBg}" stroke="${textStroke}" />`,
+        `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="${textColor}" font-family="monospace" font-size="${fontSize}">${idx + 1}</text>`,
+      ].join('');
+    }).join('')
+    : '';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg"${widthMm}${heightMm} viewBox="0 0 ${widthPx} ${heightPx}" role="img" aria-label="Dungeon Map">
+  <rect x="0" y="0" width="${widthPx}" height="${heightPx}" fill="${bg}" />
+  ${layers.join('\n  ')}
+  ${gridPath ? `<path d="${gridPath}" fill="none" stroke="${gridStroke}" stroke-width="1" shape-rendering="crispEdges" />` : ''}
+  ${labels}
+</svg>`;
+}
+
+function exportSvg(name: string, svgMarkup: string): void {
+  const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function exportCanvasPng(name: string, canvas: HTMLCanvasElement): void {
   canvas.toBlob((blob) => {
     if (!blob) return;
@@ -469,8 +604,14 @@ function buildGmBreakdownHtml(dungeon: Dungeon): string {
 }
 
 function exportGmPdf(dungeon: Dungeon): void {
-  const mapCanvas = buildMapCanvas(dungeon, { playerVersion: false, showGrid: true, showRoomNumbers: true, printerFriendly: true });
-  const mapDataUrl = mapCanvas.toDataURL('image/png');
+  const mapSvg = buildMapSvgMarkup(dungeon, {
+    playerVersion: false,
+    showGrid: true,
+    showRoomNumbers: true,
+    printerFriendly: true,
+    tileSize: DND_TILE_MM,
+    tileSizeMm: DND_TILE_MM,
+  });
   const title = escapeHtml(dungeon.name);
 
   const html = `<!doctype html>
@@ -490,7 +631,7 @@ function exportGmPdf(dungeon: Dungeon): void {
     h3 { font-size: .98rem; margin-bottom: 6px; }
     .meta { color: #5f5247; font-size: .88rem; margin-bottom: 6px; }
     .map-wrap { border: 1px solid #d9ccbf; border-radius: 8px; padding: 8px; background: #f6f0e9; }
-    .map-wrap img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+    .map-wrap svg { display: block; width: auto; height: auto; max-width: none; }
     .room { border: 1px solid #ded2c6; border-radius: 8px; padding: 10px 12px; margin: 8px 0; break-inside: avoid; page-break-inside: avoid; }
     .row { margin: 3px 0; line-height: 1.35; }
     .muted { color: #6b5e52; font-style: italic; }
@@ -506,7 +647,7 @@ function exportGmPdf(dungeon: Dungeon): void {
     <h1>${title} (GM Reference)</h1>
     <div class="meta">Theme: ${escapeHtml(dungeon.theme)} | Seed: ${escapeHtml(dungeon.seed)} | Grid: ${dungeon.grid.width} x ${dungeon.grid.height} | Rooms: ${dungeon.rooms.length}</div>
     <h2>Map</h2>
-    <div class="map-wrap"><img src="${mapDataUrl}" alt="GM Dungeon Map" /></div>
+    <div class="map-wrap">${mapSvg}</div>
     <h2>Room Breakdown</h2>
     ${buildGmBreakdownHtml(dungeon)}
   </main>
@@ -604,6 +745,7 @@ const TILE_PALETTE: { value: PaletteTile; label: string; previewTile?: TileType 
   { value: 'empty', label: 'Empty' },
 ];
 const TILE_SIZE = 14;
+const DND_TILE_MM = 25.4;
 
 async function ensureDungeonSchemaColumns(): Promise<void> {
   const dungeonCols = await atlas.db.query<RawRow>('PRAGMA table_info(dungeons)');
@@ -662,9 +804,8 @@ function GridCanvas({
     modifiers: { shift: boolean; ctrl: boolean },
   ) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const baseLayerRef = useRef<HTMLCanvasElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 10, y: 10 });
   const zoomRef = useRef(zoom);
@@ -678,98 +819,50 @@ function GridCanvas({
   });
 
   const screenToTile = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const worldX = (clientX - rect.left) / zoom;
-    const worldY = (clientY - rect.top) / zoom;
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const currentZoom = zoomRef.current;
+    const worldX = (clientX - rect.left) / currentZoom;
+    const worldY = (clientY - rect.top) / currentZoom;
     const tx = Math.floor(worldX / TILE_SIZE);
     const ty = Math.floor(worldY / TILE_SIZE);
     if (tx < 0 || ty < 0 || tx >= dungeon.grid.width || ty >= dungeon.grid.height) return null;
     return { x: tx, y: ty };
-  }, [dungeon.grid.height, dungeon.grid.width, zoom]);
+  }, [dungeon.grid.height, dungeon.grid.width]);
 
   useEffect(() => {
     zoomRef.current = zoom;
     panRef.current = pan;
   }, [zoom, pan]);
 
-  useEffect(() => {
-    const viewCanvas = canvasRef.current;
-    if (!viewCanvas) return;
-    const tile = TILE_SIZE;
-    const width = dungeon.grid.width * tile;
-    const height = dungeon.grid.height * tile;
-
-    const baseCanvas = document.createElement('canvas');
-    baseCanvas.width = width;
-    baseCanvas.height = height;
-    const ctx = baseCanvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#11171f';
-    ctx.fillRect(0, 0, width, height);
-    for (let y = 0; y < dungeon.grid.height; y++) for (let x = 0; x < dungeon.grid.width; x++) {
-      ctx.fillStyle = tileColor(dungeon.grid.tiles[y]?.[x] ?? 'empty', playerVersion);
-      ctx.fillRect(x * tile, y * tile, tile, tile);
-      if (showGrid) { ctx.strokeStyle = 'rgba(35,42,49,0.5)'; ctx.strokeRect(x * tile, y * tile, tile, tile); }
-    }
-    if (showLabels) {
-      ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (const room of dungeon.rooms) {
-        const cx = (room.x + room.width / 2) * tile;
-        const cy = (room.y + room.height / 2) * tile;
-        ctx.fillStyle = 'rgba(10, 12, 14, 0.7)';
-        ctx.fillRect(cx - 45, cy - 8, 90, 16);
-        ctx.fillStyle = '#dce2e8';
-        ctx.fillText(room.label, cx, cy);
-      }
-    }
-
-    baseLayerRef.current = baseCanvas;
-    viewCanvas.width = width;
-    viewCanvas.height = height;
-    const viewCtx = viewCanvas.getContext('2d');
-    if (viewCtx) {
-      viewCtx.clearRect(0, 0, width, height);
-      viewCtx.drawImage(baseCanvas, 0, 0);
-    }
-  }, [dungeon, showGrid, showLabels, playerVersion]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const tile = TILE_SIZE;
-    const base = baseLayerRef.current;
-    if (base) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(base, 0, 0);
-    }
-
-    if (previewRect) {
-      const minX = Math.min(previewRect.x1, previewRect.x2);
-      const minY = Math.min(previewRect.y1, previewRect.y2);
-      const width = Math.abs(previewRect.x2 - previewRect.x1) + 1;
-      const height = Math.abs(previewRect.y2 - previewRect.y1) + 1;
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255, 214, 128, 0.96)';
-      ctx.fillStyle = 'rgba(255, 214, 128, 0.15)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 4]);
-      ctx.fillRect(minX * tile, minY * tile, width * tile, height * tile);
-      ctx.strokeRect(minX * tile + 1, minY * tile + 1, (width * tile) - 2, (height * tile) - 2);
-      ctx.restore();
-    }
+  const mapWidth = dungeon.grid.width * TILE_SIZE;
+  const mapHeight = dungeon.grid.height * TILE_SIZE;
+  const tilePaths = useMemo(() => buildTilePaths(dungeon.grid, TILE_SIZE), [dungeon.grid]);
+  const gridPath = useMemo(
+    () => (showGrid ? buildGridPath(dungeon.grid.width, dungeon.grid.height, TILE_SIZE) : ''),
+    [dungeon.grid.width, dungeon.grid.height, showGrid],
+  );
+  const previewMetrics = useMemo(() => {
+    if (!previewRect) return null;
+    const minX = Math.min(previewRect.x1, previewRect.x2);
+    const minY = Math.min(previewRect.y1, previewRect.y2);
+    const widthTiles = Math.abs(previewRect.x2 - previewRect.x1) + 1;
+    const heightTiles = Math.abs(previewRect.y2 - previewRect.y1) + 1;
+    return {
+      x: minX * TILE_SIZE,
+      y: minY * TILE_SIZE,
+      width: widthTiles * TILE_SIZE,
+      height: heightTiles * TILE_SIZE,
+    };
   }, [previewRect]);
 
   const onWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     const wrap = wrapRef.current;
-    const canvas = canvasRef.current;
-    if (!wrap || !canvas) {
+    const svg = svgRef.current;
+    if (!wrap || !svg) {
       const next = clamp(zoomRef.current + (e.deltaY < 0 ? 0.1 : -0.1), 0.3, 3);
       zoomRef.current = next;
       setZoom(next);
@@ -777,19 +870,19 @@ function GridCanvas({
     }
 
     const wrapRect = wrap.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
+    const svgRect = svg.getBoundingClientRect();
     const currentZoom = zoomRef.current;
     const nextZoom = clamp(currentZoom + (e.deltaY < 0 ? 0.1 : -0.1), 0.3, 3);
 
-    // Compute world point under cursor using actual transformed canvas bounds.
-    const worldX = (e.clientX - canvasRect.left) / currentZoom;
-    const worldY = (e.clientY - canvasRect.top) / currentZoom;
+    // Compute world point under cursor using actual transformed svg bounds.
+    const worldX = (e.clientX - svgRect.left) / currentZoom;
+    const worldY = (e.clientY - svgRect.top) / currentZoom;
 
-    // Re-anchor transformed canvas so the same world point stays under cursor.
-    const nextCanvasLeft = e.clientX - (worldX * nextZoom);
-    const nextCanvasTop = e.clientY - (worldY * nextZoom);
-    const nextPanX = nextCanvasLeft - wrapRect.left;
-    const nextPanY = nextCanvasTop - wrapRect.top;
+    // Re-anchor transformed svg so the same world point stays under cursor.
+    const nextSvgLeft = e.clientX - (worldX * nextZoom);
+    const nextSvgTop = e.clientY - (worldY * nextZoom);
+    const nextPanX = nextSvgLeft - wrapRect.left;
+    const nextPanY = nextSvgTop - wrapRect.top;
 
     zoomRef.current = nextZoom;
     panRef.current = { x: nextPanX, y: nextPanY };
@@ -797,6 +890,7 @@ function GridCanvas({
     setPan({ x: nextPanX, y: nextPanY });
   }, []);
   const onDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
     if (editable && e.button === 0) {
       const tile = screenToTile(e.clientX, e.clientY);
       draw.current = { active: true, start: tile, current: tile };
@@ -807,6 +901,7 @@ function GridCanvas({
   }, [editable, screenToTile]);
   const onMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (draw.current.active) {
+      e.preventDefault();
       const tile = screenToTile(e.clientX, e.clientY);
       if (tile) {
         draw.current.current = tile;
@@ -850,7 +945,53 @@ function GridCanvas({
       onMouseLeave={onUp}
       onContextMenu={(e) => { if (editable) e.preventDefault(); }}
     >
-      <canvas ref={canvasRef} className={styles.canvas} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top left' }} />
+      <svg
+        ref={svgRef}
+        className={styles.canvasSvg}
+        width={mapWidth}
+        height={mapHeight}
+        viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top left' }}
+      >
+        <rect x={0} y={0} width={mapWidth} height={mapHeight} fill="#11171f" />
+        {TILE_RENDER_ORDER.map((tileType) => {
+          const d = tilePaths[tileType];
+          if (!d) return null;
+          return (
+            <path
+              key={tileType}
+              d={d}
+              fill={tileColor(tileType, playerVersion)}
+              shapeRendering="crispEdges"
+            />
+          );
+        })}
+        {showGrid && (
+          <path d={gridPath} fill="none" stroke="rgba(35,42,49,0.5)" strokeWidth={1} shapeRendering="crispEdges" />
+        )}
+        {showLabels && dungeon.rooms.map((room) => {
+          const cx = (room.x + (room.width / 2)) * TILE_SIZE;
+          const cy = (room.y + (room.height / 2)) * TILE_SIZE;
+          return (
+            <g key={room.id}>
+              <rect x={cx - 45} y={cy - 8} width={90} height={16} fill="rgba(10, 12, 14, 0.7)" />
+              <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill="#dce2e8" fontFamily="monospace" fontSize={11}>{room.label}</text>
+            </g>
+          );
+        })}
+        {previewMetrics && (
+          <rect
+            x={previewMetrics.x + 1}
+            y={previewMetrics.y + 1}
+            width={Math.max(0, previewMetrics.width - 2)}
+            height={Math.max(0, previewMetrics.height - 2)}
+            fill="rgba(255, 214, 128, 0.15)"
+            stroke="rgba(255, 214, 128, 0.96)"
+            strokeWidth={2}
+            strokeDasharray="6 4"
+          />
+        )}
+      </svg>
     </div>
   );
 }
@@ -1196,6 +1337,37 @@ export default function DungeonView() {
               }}
             >
               Export Player Map
+            </button>
+            <button
+              onClick={() => {
+                const gmSvg = buildMapSvgMarkup(active, {
+                  playerVersion: false,
+                  showGrid: true,
+                  showRoomNumbers: true,
+                  printerFriendly: true,
+                  tileSize: DND_TILE_MM,
+                  tileSizeMm: DND_TILE_MM,
+                });
+                exportSvg(`${active.name.replace(/\s+/g, '_')}_GM_Map.svg`, gmSvg);
+              }}
+            >
+              Export GM SVG
+            </button>
+            <button
+              onClick={() => {
+                const cncSvg = buildMapSvgMarkup(active, {
+                  playerVersion: false,
+                  showGrid: true,
+                  showRoomNumbers: false,
+                  printerFriendly: true,
+                  tileSize: DND_TILE_MM,
+                  tileSizeMm: DND_TILE_MM,
+                  cncLayers: true,
+                });
+                exportSvg(`${active.name.replace(/\s+/g, '_')}_CNC_1in.svg`, cncSvg);
+              }}
+            >
+              Export CNC SVG
             </button>
           </>}
         </div>

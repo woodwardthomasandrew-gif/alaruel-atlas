@@ -16,7 +16,7 @@ export class NpcsModule extends BaseModule<NpcsRepository, NpcsService> {
     version:     '1.0.0',
     dependsOn:   [],
     required:    false,
-    description: 'NPC and faction management',
+    description: 'NPC lifecycle and notes',
   });
 
   protected createRepository(db: IDatabaseManager): NpcsRepository {

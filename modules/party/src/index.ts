@@ -1,0 +1,1 @@
+export { PartyModule } from './module';

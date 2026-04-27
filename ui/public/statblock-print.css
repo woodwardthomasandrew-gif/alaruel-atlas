@@ -51,6 +51,7 @@
     width: 100%;
     margin: 0;
     padding: 0;
+    overflow: visible !important;
   }
 
   /* ── Page setup ──────────────────────────────────────────────────────────── */
@@ -62,8 +63,8 @@
 
   /* Avoid breaks inside a block (action, trait, etc.) */
   .sb-block-item {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   /* ── Statblock card reset ──────────────────────────────────────────────── */
@@ -78,6 +79,8 @@
     font-family: 'Crimson Pro', 'Georgia', 'Times New Roman', serif !important;
     font-size: 9.5pt !important;
     color: #1a1008 !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   /* ── Banner ──────────────────────────────────────────────────────────────── */
@@ -151,6 +154,8 @@
     margin-bottom: 4pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    break-after: avoid-page;
+    page-break-after: avoid;
   }
 
   /* ── Core stats row ──────────────────────────────────────────────────────── */

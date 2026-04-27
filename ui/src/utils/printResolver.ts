@@ -309,7 +309,9 @@ export function renderPrintableSessionHtml(session: PrintableSession): string {
       @page { size: A4 portrait; margin: 16mm 12mm 16mm; }
       body { background: #fff; }
       .doc { max-width: none; margin: 0; padding: 0; }
-      .section, .scene { break-inside: avoid; page-break-inside: avoid; }
+      .doc, .section, .scene, .entity-grid, .entity-block, .entity-table, .notes-list, .prep-list { break-inside: auto; page-break-inside: auto; }
+      .section > h2, .scene > h3, .entity-block > h4 { break-after: avoid-page; page-break-after: avoid; }
+      .entity-table thead { display: table-header-group; }
       .page-header, .page-footer { display: block; position: fixed; left: 0; right: 0; color: #6b5a46; font-size: 10px; }
       .page-header { top: -10mm; border-bottom: 1px solid #d8ccbf; padding: 1mm 2mm; }
       .page-footer { bottom: -10mm; border-top: 1px solid #d8ccbf; padding: 1mm 2mm; text-align: right; }

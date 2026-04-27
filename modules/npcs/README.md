@@ -1,6 +1,6 @@
 # modules/npcs
 
-Npcs module — NPC and faction management
+Npcs module — NPC lifecycle and notes
 
 ## DB tables
 _(none yet — define in schema.ts)_

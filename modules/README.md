@@ -13,7 +13,8 @@ Feature modules. Each module is a self-contained package.
 | Module          | Responsibility                          |
 |-----------------|-----------------------------------------|
 | `atlas`         | Interactive world maps                  |
-| `npcs`          | NPC and faction management              |
+| `npcs`          | NPC lifecycle and notes                 |
+| `factions`      | GM faction manager                      |
 | `quests`        | Quest and plot tracking                 |
 | `sessions`      | Session planning and notes              |
 | `timeline`      | Campaign timeline and chronology        |

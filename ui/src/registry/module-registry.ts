@@ -4,7 +4,9 @@
 // the React component to render. New modules add an entry here only —
 // the sidebar and router read from this registry automatically.
 import type { ComponentType } from 'react';
+import PartyView         from '../views/party/PartyView';
 import NpcsView          from '../views/npcs/NpcsView';
+import FactionsView      from '../views/factions/FactionsView';
 import QuestsView        from '../views/quests/QuestsView';
 import SessionsView      from '../views/sessions/SessionsView';
 import TimelineView      from '../views/timeline/TimelineView';
@@ -28,6 +30,14 @@ export interface ModuleRegistryEntry {
 }
 export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
   {
+    id:               'party',
+    displayName:      'Party',
+    icon:             'users',
+    route:            '/party',
+    component:        PartyView,
+    requiresCampaign: true,
+  },
+  {
     id:               'atlas',
     displayName:      'World Atlas',
     icon:             'map',
@@ -41,6 +51,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'users',
     route:            '/npcs',
     component:        NpcsView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'factions',
+    displayName:      'Factions',
+    icon:             'bookmark',
+    route:            '/factions',
+    component:        FactionsView,
     requiresCampaign: true,
   },
   {

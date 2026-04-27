@@ -15,6 +15,7 @@ import styles from './InspirationView.module.css';
 interface InspirationResult {
   text: string;
   category?: string;
+  tags?: string[];
 }
 
 interface CapturedVision {
@@ -26,6 +27,41 @@ interface CapturedVision {
 
 function mapResults(raw: InspirationResult[]): string[] {
   return raw.map(r => r.text).filter(Boolean);
+}
+
+type MaterializationMode = 'text' | 'pictogram';
+
+const CATEGORY_PICTOGRAMS: Record<string, string[]> = {
+  any: ['✦', '✧', '☽', '☼', '✶', '⚝', '◈'],
+  plot: ['📜', '🕯️', '🗝️', '⚖️', '⏳', '🔮', '🜂'],
+  npc: ['🜁', '👁️', '🧿', '🗡️', '🫀', '☗', '♜'],
+  location: ['🏰', '🗺️', '🜃', '⛰️', '🌫️', '🛖', '🜄'],
+  encounter: ['⚔️', '🛡️', '🩸', '🕸️', '🐺', '☠️', '♞'],
+  item: ['💎', '📿', '🔑', '🧭', '📖', '🧪', '🜍'],
+  name: ['✶', '✺', '☾', '✹', '♕', '☉', '⚜'],
+};
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function mapPictogram(result: InspirationResult): string {
+  const source = CATEGORY_PICTOGRAMS[result.category ?? 'any'] ?? CATEGORY_PICTOGRAMS.any;
+  const seed = hashString(`${result.text}-${result.category ?? 'any'}`);
+  const first = source[seed % source.length];
+  const second = source[(seed >> 3) % source.length];
+  return `${first}${second}`;
+}
+
+function mapMaterializedResults(raw: InspirationResult[], mode: MaterializationMode): string[] {
+  if (mode === 'text') {
+    return mapResults(raw);
+  }
+  return raw.map(mapPictogram).filter(Boolean);
 }
 
 // ── Speed settings ────────────────────────────────────────────────────────────
@@ -50,7 +86,7 @@ const CATEGORIES = [
   { value: 'location',  label: 'Location',    icon: '🗺️' },
   { value: 'encounter', label: 'Encounter',   icon: '⚔️' },
   { value: 'item',      label: 'Magic Item',  icon: '💎' },
-  { value: 'event',     label: 'World Event', icon: '🌩️' },
+  { value: 'name',      label: 'Fantasy Name', icon: '✶' },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -60,6 +96,7 @@ export default function InspirationView() {
 
   const [visions,         setVisions]        = useState<string[]>([]);
   const [category,        setCategory]       = useState('any');
+  const [materialization, setMaterialization] = useState<MaterializationMode>('text');
   const [error,           setError]          = useState<string | null>(null);
   const [speed,           setSpeed]          = useState(3);           // 1–5
   const [capturedVisions, setCapturedVisions] = useState<CapturedVision[]>([]);
@@ -84,13 +121,13 @@ export default function InspirationView() {
         category:   category === 'any' ? undefined : category,
         count:      1,
       }) as InspirationResult[];
-      setVisions(mapResults(raw));
+      setVisions(mapMaterializedResults(raw, materialization));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       fetchingRef.current = false;
     }
-  }, [campaign, category]);
+  }, [campaign, category, materialization]);
 
   // ── Auto-cycle ─────────────────────────────────────────────────────────────
   // Fetch immediately on mount/category/speed change, then repeat at interval.
@@ -161,6 +198,18 @@ export default function InspirationView() {
                   {c.icon} {c.label}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className={styles.controlLabel}>
+            Materialization
+            <select
+              className={styles.select}
+              value={materialization}
+              onChange={e => setMaterialization(e.target.value as MaterializationMode)}
+            >
+              <option value="text">Text Visions</option>
+              <option value="pictogram">Pictograms / Pictures</option>
             </select>
           </label>
 

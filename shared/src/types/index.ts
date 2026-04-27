@@ -8,7 +8,8 @@
 // File layout:
 //   common.ts        — primitives: EntityBase, ID, Timestamp, Result, Paginated
 //   campaign.ts      — Campaign, CampaignSettings, CampaignSummary
-//   npc.ts           — NPC, Faction, NpcRelationship, NpcNote
+//   npc.ts           — NPC, NpcRelationship, NpcNote
+//   faction.ts       — Faction, OrgNode, FactionRelation
 //   location.ts      — Location, CampaignMap, LocationPin
 //   quest.ts         — Quest, PlotThread, QuestObjective
 //   session.ts       — Session, SessionScene, SessionNote
@@ -46,13 +47,20 @@ export type {
 // ── NPCs & Factions ───────────────────────────────────────────────────────────
 export type {
   NPC,
-  Faction,
   NpcRelationship,
   NpcNote,
   DispositionLevel,
   NpcRole,
   VitalStatus,
 } from './npc';
+
+// ── Factions ──────────────────────────────────────────────────────────────────
+export type {
+  Faction,
+  OrgNode,
+  FactionRelation,
+  FactionRelationType,
+} from './faction';
 
 // ── Locations & Maps ──────────────────────────────────────────────────────────
 export type {

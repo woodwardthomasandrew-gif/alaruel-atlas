@@ -339,6 +339,9 @@ export function registerEventForwards(win: BrowserWindow): void {
   const forwarded = [
     'quest:created', 'quest:updated', 'quest:completed',
     'npc:created',   'npc:updated',
+    'faction:created', 'faction:updated', 'faction:deleted',
+    'faction:organization_updated', 'faction:territory_updated',
+    'faction:relation_updated', 'faction:reputation_updated',
     'session:started', 'session:ended',
     'timeline:entry-added',
     'atlas:map-loaded',

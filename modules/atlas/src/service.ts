@@ -31,6 +31,7 @@ export class AtlasService extends BaseService<AtlasRepository> {
   deleteLocation(id: string): void {
     this.assertInitialised();
     if (!this.repository.deleteLocation(id)) throw new Error(`Location not found: ${id}`);
+    this.emit('location:deleted', { locationId: id });
   }
 
   listMaps(): CampaignMap[] { this.assertInitialised(); return this.repository.findAllMaps(); }

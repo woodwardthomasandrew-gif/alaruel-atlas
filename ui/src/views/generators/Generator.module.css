@@ -273,6 +273,30 @@
   line-height: 1.7;
 }
 
+.batchList {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.batchItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  padding: .5rem .6rem;
+}
+
+.batchItemText {
+  display: flex;
+  flex-direction: column;
+  gap: .12rem;
+  min-width: 0;
+}
+
 .traitList {
   display: flex;
   flex-direction: column;

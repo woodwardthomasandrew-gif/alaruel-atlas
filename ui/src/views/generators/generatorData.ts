@@ -369,6 +369,227 @@ export function generateMonster(options: {
 // NPCs
 // ─────────────────────────────────────────────────────────────────
 
+type NameGender = 'Male' | 'Female';
+
+interface NameCultureTable {
+  culture: string;
+  style: string;
+  male: string[];
+  female: string[];
+  family: string[];
+}
+
+const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
+  Human: [
+    {
+      culture: 'Aldale Lowlands',
+      style: 'Pragmatic northern trader families common along the North Road.',
+      male: ['Aldric','Bram','Corven','Derric','Edrin','Haldon','Merek','Tavin','Rorik','Jossan'],
+      female: ['Aelith','Brenna','Catrin','Delia','Elira','Fiora','Mina','Roslin','Tamsin','Vera'],
+      family: ['Aldgate','Bramblewood','Coldwater','Dawnfield','Hayward','Leony','Stonewake','Whitlock','Yarrow','Frostleaf'],
+    },
+    {
+      culture: 'Chogrove Coast',
+      style: 'Harbor slang and pirate-era contractions from the western coast.',
+      male: ['Bren','Cass','Datch','Fenn','Jarek','Kell','Redd','Silas','Vossen','Wyke'],
+      female: ['Ara','Brine','Cira','Edda','Kira','Lysa','Mara','Nessa','Sable','Veyla'],
+      family: ['Blackby','Crowbarrow','Datchley','Flatroot','Harrowfield','Keelward','Netherby','Ravenscar','Saltmere','Thale'],
+    },
+    {
+      culture: 'Kewold Courtly',
+      style: 'Formal names still used by old houses and city bureaucrats.',
+      male: ['Caelan','Dorian','Emrys','Leoric','Nathren','Oswin','Percival','Roland','Theron','Ulric'],
+      female: ['Arabella','Camellia','Elspeth','Gwyneth','Isadora','Jessamine','Lirien','Rosamund','Sylvie','Zelara'],
+      family: ['Crestfall','Dunmore','Evensong','Fairweather','Greymantle','Langstrom','Mordecai','Pryce','Silvertongue','Underwick'],
+    },
+  ],
+  Elf: [
+    {
+      culture: 'Formene Highborn',
+      style: 'Long-vowel forms favored by old Formene lineages.',
+      male: ['Arafir','Belion','Caelith','Elaran','Faelor','Ithorien','Lethar','Nyvaris','Saren','Theriel'],
+      female: ['Aelindra','Caelithra','Elowen','Ilyra','Lirael','Nerisse','Sylara','Thalia','Vashara','Ysara'],
+      family: ['Arafir','Moonwhisper','Nightbloom','Silverleaf','Starbough','Thornveil','Valewind','Virelune','Whispergrove','Winterbranch'],
+    },
+    {
+      culture: 'Immortal Oak Exile',
+      style: 'Shorter battlefield forms taken by exiles and mercenary circles.',
+      male: ['Corin','Daven','Erris','Joren','Lorcan','Nethor','Quillan','Sorren','Taras','Vance'],
+      female: ['Adara','Corinna','Elana','Greer','Ilara','Lyra','Myra','Quinn','Rowena','Talia'],
+      family: ['Ashveil','Briarwake','Duskmantle','Holloway','Ironweld','Nighthollow','Quellar','Stormbark','Thorne','Vanhollow'],
+    },
+  ],
+  Dwarf: [
+    {
+      culture: 'Cahill Deep-Miner',
+      style: 'Stonehouse naming with heavy consonants and lineage pride.',
+      male: ['Brom','Durgan','Gurn','Harbek','Krag','Murn','Orsik','Rurik','Tordek','Varric'],
+      female: ['Arga','Diesa','Gunnloda','Helja','Ilde','Kathra','Riswynn','Sannl','Torbera','Vistra'],
+      family: ['Anvilborn','Blackvein','Deepbarrel','Forgeheart','Granitehand','Ironshield','Mithforge','Rockseam','Stonewake','Underpick'],
+    },
+  ],
+  Halfling: [
+    {
+      culture: 'Aldale Riverfolk',
+      style: 'Warm household names, usually paired with practical surnames.',
+      male: ['Alton','Bingo','Corrin','Eldon','Finn','Milo','Perrin','Rollo','Tobin','Wellby'],
+      female: ['Andry','Callie','Cora','Jillian','Kithri','Lavinia','Marigold','Nedda','Seraphina','Verna'],
+      family: ['Brushgather','Goodbarrel','Kettlebrook','Mudford','Puddlewick','Reedway','Shortmead','Underhill','Willowbank','Wormwood'],
+    },
+  ],
+  Gnome: [
+    {
+      culture: 'Moon Rat Tinker',
+      style: 'Quick clipped names used by engineers and salvage crews.',
+      male: ['Alston','Boddynock','Dimble','Fonkin','Jebeddo','Nackle','Pock','Ribbit','Wrenn','Zook'],
+      female: ['Bimpnottin','Caramip','Ellyjoy','Loopmottin','Nissa','Nyx','Pella','Roywyn','Tana','Zanna'],
+      family: ['Cogspinner','Coppercoil','Fizzwrench','Geargrin','Rattlecap','Sprocket','Tinroot','Togglewick','Weldspark','Wizzle'],
+    },
+  ],
+  Tiefling: [
+    {
+      culture: 'Ambersoul Diaspora',
+      style: 'Chosen names and inherited house names from displaced survivors.',
+      male: ['Amon','Cassian','Kairon','Levin','Malrec','Nox','Raith','Sevren','Varek','Zev'],
+      female: ['Akta','Bryseis','Kallista','Lerissa','Makaria','Nemeia','Orianna','Rieta','Vesper','Zara'],
+      family: ['Ashmark','Cindershard','Delaque','Emberstone','Hollowsign','Mirebrand','Nightscar','Pactward','Riftwell','Sablecross'],
+    },
+  ],
+  Dragonborn: [
+    {
+      culture: 'Warclan Thule',
+      style: 'Clan-honor names with hard stops and martial prefixes.',
+      male: ['Arjhan','Balasar','Bharash','Donaar','Ghesh','Heskan','Kriv','Medrash','Nadarr','Rhogar'],
+      female: ['Akra','Biri','Daar','Farideh','Harann','Jheri','Kava','Mishann','Nala','Uadjit'],
+      family: ['Bloodscale','Coldmaw','Dreadhorn','Emberclaw','Frostjaw','Ironthroat','Redtalon','Stormfang','Thulekhan','Warbrand'],
+    },
+  ],
+  'Half-Orc': [
+    {
+      culture: 'Frontier Warbands',
+      style: 'Brief first names and earned surnames from raid companies.',
+      male: ['Brug','Dorn','Gell','Henk','Karg','Mog','Ront','Shump','Thokk','Ugar'],
+      female: ['Baggi','Emen','Engong','Kansif','Myev','Neega','Ovak','Ownka','Shautha','Sutha'],
+      family: ['Ashscar','Bonefist','Crowbreaker','Grimtooth','Ironhide','Ravager','Stonejaw','Thornmaul','Warborn','Wolfgrin'],
+    },
+  ],
+  Aasimar: [
+    {
+      culture: 'Evening Glory Devout',
+      style: 'Temple names preserved through liturgy and oath records.',
+      male: ['Aurin','Cassiel','Elyon','Ithiel','Jophiel','Laziel','Maeron','Raphen','Sariel','Uriel'],
+      female: ['Arielle','Cassia','Elora','Irielle','Liora','Mariel','Nadira','Seraphine','Taliah','Zophia'],
+      family: ['Brightwater','Dawnward','Evensong','Lightwell','Mercyfall','Starcrest','Sunmantle','Valebright','Wardglow','Whitepath'],
+    },
+  ],
+  Tabaxi: [
+    {
+      culture: 'Carnivora Tideclans',
+      style: 'Poetic two-word lineages condensed into trade shorthand.',
+      male: ['Barks-at-Storm','Hunts-Low-Tide','Leaps-Over-Masts','Rests-in-Reeds','Tracks-Deep-Wake'],
+      female: ['Dances-with-Spray','Listens-to-Gulls','Shines-in-Moonfoam','Sings-at-Dawn','Walks-the-Rigging'],
+      family: ['of Coral Step','of Low Tide','of Salt Wind','of Sea Mist','of Sharp Current'],
+    },
+  ],
+  Kenku: [
+    {
+      culture: 'Dock Echo Flocks',
+      style: 'Borrowed sounds, often transcribed as short marker names.',
+      male: ['Click','Rattle','Scrape','Skirl','Tap'],
+      female: ['Chime','Cricket','Hush','Peal','Whistle'],
+      family: ['Black Feathers','Broken Bell','Crow Banner','Gray Wing','Rope Perch'],
+    },
+  ],
+  Firbolg: [
+    {
+      culture: 'Cochumat Root-Kin',
+      style: 'Old grove names tied to season and place.',
+      male: ['Aeron','Bramble','Fenric','Ivor','Kerrin','Mossan','Rhuv','Tarn','Weylin','Yorren'],
+      female: ['Asha','Briala','Eirys','Fenna','Ilyse','Merris','Nuala','Rhosyn','Sylra','Tavia'],
+      family: ['Amberroot','Briarhand','Greenmantle','Mosswhisper','Oakveil','Reedwalker','Rootbound','Thornbloom','Valefern','Wildbark'],
+    },
+  ],
+  Goliath: [
+    {
+      culture: 'Thule Highland Clans',
+      style: 'Short given names plus earned deed surnames.',
+      male: ['Aukan','Eglath','Gauthak','Korth','Lo-Kag','Manneo','Maveith','Rangrim','Thornn','Vaunea'],
+      female: ['Ariok','Gae-Al','Kava','Nalla','Orilo','Pethani','Thalai','Uthal','Vauna','Yesha'],
+      family: ['Bearkiller','Cloudpiercer','Frostrunner','Highstone','Mammothheart','Ridgewalker','Skysunder','Stormcaller','Tundraborn','Wolfrunner'],
+    },
+  ],
+  Warforged: [
+    {
+      culture: 'Department of War Forge-Line',
+      style: 'Serial-designator naming with optional self-chosen call signs.',
+      male: ['AG-3 Corven','AG-7 Roland','Bastion-12','DoW Unit Kestrel','Forgeguard M-4'],
+      female: ['AG-2 Elira','AG-9 Veyla','Aegis-5','DoW Unit Lumen','Wardframe N-1'],
+      family: ['of Atlas Division','of Blacksite Nine','of Cahill Annex','of Foundry Delta','of North Bastion'],
+    },
+  ],
+  Kobold: [
+    {
+      culture: 'Maddox Warren',
+      style: 'Fast monosyllabic names common in tunnel crews.',
+      male: ['Bix','Drik','Krik','Mek','Nip','Rik','Skab','Tik','Vek','Zrik'],
+      female: ['Izz','Kez','Lix','Nix','Pik','Rizz','Sik','Tiz','Vix','Zez'],
+      family: ['Cindertail','Deepscratch','Dustsnout','Ironclaw','Quicktongue','Redscale','Sootpaw','Sparktooth','Tunnelstep','Underflame'],
+    },
+  ],
+};
+
+export const NAME_SPECIES_OPTIONS = Object.keys(NAME_DATA_BY_SPECIES);
+
+export function getNameCultureOptions(species?: string): string[] {
+  if (!species) {
+    const seen = new Set<string>();
+    for (const speciesName of NAME_SPECIES_OPTIONS) {
+      const cultures = NAME_DATA_BY_SPECIES[speciesName] ?? [];
+      for (const entry of cultures) seen.add(entry.culture);
+    }
+    return [...seen];
+  }
+  return (NAME_DATA_BY_SPECIES[species] ?? []).map(entry => entry.culture);
+}
+
+export interface GeneratedName {
+  name: string;
+  gender: NameGender;
+  species: string;
+  culture: string;
+  style: string;
+}
+
+export function generateName(options: {
+  species?: string;
+  culture?: string;
+  gender?: NameGender | 'Any';
+}): GeneratedName {
+  const species = options.species && NAME_DATA_BY_SPECIES[options.species]
+    ? options.species
+    : pick(NAME_SPECIES_OPTIONS);
+  const culturePool = NAME_DATA_BY_SPECIES[species] ?? [];
+  const selectedCulture = options.culture
+    ? culturePool.find(entry => entry.culture === options.culture)
+    : undefined;
+  const cultureTable = selectedCulture ?? pick(culturePool);
+  const gender: NameGender = options.gender && options.gender !== 'Any'
+    ? options.gender
+    : pick<NameGender>(['Male','Female']);
+  const firstNamePool = gender === 'Female' ? cultureTable.female : cultureTable.male;
+  const firstName = pick(firstNamePool);
+  const includeFamily = cultureTable.family.length > 0 && Math.random() > 0.2;
+  const familyName = includeFamily ? ` ${pick(cultureTable.family)}` : '';
+
+  return {
+    name: `${firstName}${familyName}`,
+    gender,
+    species,
+    culture: cultureTable.culture,
+    style: cultureTable.style,
+  };
+}
+
 const NPC_FIRST_NAMES_MALE = [
   'Aldric','Bastian','Caelan','Dorian','Emrys','Faolan','Gavric','Hadwin',
   'Idris','Jasper','Kern','Leoric','Maddox','Niall','Oswin','Percival',

@@ -18,6 +18,15 @@ export type AppEventMap = {
   'npc:created':     { npcId: string };
   'npc:updated':     { npcId: string };
 
+  // -- Factions --
+  'faction:created':              { factionId: string };
+  'faction:updated':              { factionId: string };
+  'faction:deleted':              { factionId: string };
+  'faction:organization_updated': { factionId: string };
+  'faction:territory_updated':    { factionId: string };
+  'faction:relation_updated':     { factionId: string };
+  'faction:reputation_updated':   { factionId: string };
+
   // -- Sessions --
   'session:started': { sessionId: string };
   'session:ended':   { sessionId: string };
@@ -27,6 +36,7 @@ export type AppEventMap = {
 
   // -- Atlas --
   'atlas:map-loaded': { mapId: string };
+  'location:deleted': { locationId: string };
 
   // -- Plugins --
   'plugin:loaded':    { pluginId: string };

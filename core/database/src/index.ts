@@ -60,6 +60,12 @@ const REQUIRED_TABLES = [
   'session_scene_monsters',
   'session_scene_minis',
   'npcs',
+  'party_members',
+  'party_member_gear',
+  'party_airships',
+  'party_airship_cargo',
+  'party_pets',
+  'factions',
   'quests',
   'campaign_events',
 ];

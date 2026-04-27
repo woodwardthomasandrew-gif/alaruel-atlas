@@ -159,8 +159,14 @@
   cursor: grabbing;
 }
 
-.canvas {
+.canvas,
+.canvasSvg {
   display: block;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.canvas {
   image-rendering: pixelated;
 }
 

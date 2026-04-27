@@ -22,6 +22,7 @@
     width: 100%;
     margin: 0;
     padding: 0;
+    overflow: visible !important;
   }
 
   html,
@@ -38,6 +39,8 @@
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   @page {
@@ -47,9 +50,22 @@
 
   body.printing-session #session-print-root .section,
   body.printing-session #session-print-root .sceneBlock,
-  body.printing-session #session-print-root .entityBlock {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  body.printing-session #session-print-root .entityBlock,
+  body.printing-session #session-print-root .entityTable,
+  body.printing-session #session-print-root .list {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  body.printing-session #session-print-root .sectionTitle,
+  body.printing-session #session-print-root .sceneHeader,
+  body.printing-session #session-print-root .entityTitle {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  body.printing-session #session-print-root .entityTable thead {
+    display: table-header-group;
   }
 
   body.printing-session #session-print-root .pageHeader,

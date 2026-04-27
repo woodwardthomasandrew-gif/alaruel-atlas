@@ -12,7 +12,8 @@ export type InspirationCategory =
   | 'npc'
   | 'location'
   | 'encounter'
-  | 'item';
+  | 'item'
+  | 'name';
 
 export interface InspirationResult {
   text:     string;
@@ -438,6 +439,49 @@ function generateItem(): InspirationResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tables — Fantasy Names
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NAME_PREFIXES = [
+  'Ael', 'Aer', 'Al', 'Ar', 'Bael', 'Bel', 'Cae', 'Cal', 'Cor', 'Dae', 'Dar',
+  'Eld', 'El', 'Faer', 'Fen', 'Gal', 'Hal', 'Iri', 'Is', 'Jar', 'Kael', 'Kel',
+  'Lae', 'Lor', 'Mae', 'Mal', 'Mor', 'Nae', 'Nar', 'Or', 'Per', 'Quor', 'Rae',
+  'Sar', 'Sel', 'Tal', 'Ther', 'Uri', 'Val', 'Var', 'Vor', 'Wyn', 'Xan', 'Yor',
+  'Zar',
+];
+
+const NAME_MIDDLES = [
+  'a', 'ae', 'ai', 'al', 'an', 'ar', 'e', 'ea', 'el', 'en', 'er', 'i', 'ia',
+  'il', 'in', 'ir', 'o', 'oa', 'ol', 'on', 'or', 'u', 'ul', 'un', 'ur', 'y',
+];
+
+const NAME_SUFFIXES = [
+  'anor', 'aris', 'ath', 'ael', 'bor', 'driel', 'dan', 'dorn', 'dris', 'eth',
+  'eros', 'ian', 'ira', 'is', 'ion', 'ius', 'lith', 'lor', 'lyn', 'mir',
+  'mond', 'nar', 'nor', 'or', 'orin', 'ra', 'rion', 'ric', 'ros', 'sar',
+  'seth', 'thas', 'thir', 'thus', 'tor', 'vyr', 'wyn', 'xis', 'yra', 'zor',
+];
+
+const NAME_TITLES = [
+  'Ashborne', 'Blackbriar', 'Brightwater', 'Dawncrest', 'Duskwhisper',
+  'Emberfall', 'Farsong', 'Frostvein', 'Gloamward', 'Goldthorn', 'Greyhollow',
+  'Ironveil', 'Moonvale', 'Nightbloom', 'Ravenmark', 'Rimewatch', 'Runeweaver',
+  'Silverfen', 'Stormcaller', 'Thornmere', 'Umberfield', 'Valeborn',
+  'Whisperwind', 'Wolfward',
+];
+
+function generateName(): InspirationResult {
+  const addMiddle = Math.random() < 0.35;
+  const givenName = `${pick(NAME_PREFIXES)}${addMiddle ? pick(NAME_MIDDLES) : ''}${pick(NAME_SUFFIXES)}`;
+  const useTitle = Math.random() < 0.55;
+  return {
+    text:     useTitle ? `${givenName} ${pick(NAME_TITLES)}` : givenName,
+    category: 'name',
+    tags:     ['name', 'fantasy'],
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Generator class
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -447,9 +491,10 @@ const GENERATORS: Record<InspirationCategory, () => InspirationResult> = {
   location:  generateLocation,
   encounter: generateEncounter,
   item:      generateItem,
+  name:      generateName,
 };
 
-const ALL_CATEGORIES: InspirationCategory[] = ['plot', 'npc', 'location', 'encounter', 'item'];
+const ALL_CATEGORIES: InspirationCategory[] = ['plot', 'npc', 'location', 'encounter', 'item', 'name'];
 
 export class InspirationGenerator {
   constructor(_opts: { db?: unknown; log?: unknown } = {}) {}

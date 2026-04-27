@@ -41,6 +41,7 @@ import { moduleLoader }  from '../../../modules/_framework/src/index';
 
 // ── Feature modules ───────────────────────────────────────────────────────────
 import { AtlasModule }    from '../../../modules/atlas/src/index';
+import { PartyModule }    from '../../../modules/party/src/index';
 import { NpcsModule }     from '../../../modules/npcs/src/index';
 import { QuestsModule }   from '../../../modules/quests/src/index';
 import { SessionsModule } from '../../../modules/sessions/src/index';
@@ -50,6 +51,7 @@ import { AssetsUiModule } from '../../../modules/assets-ui/src/index';
 import { DungeonModule }   from '../../../modules/dungeon/src/index';
 import { BestiaryModule }        from '../../../modules/bestiary/src/index';
 import { MiniCatalogueModule }   from '../../../modules/mini-catalogue/src/index';
+import { FactionsModule }        from '../../../modules/factions/src/index';
 
 // ── Desktop-local modules ─────────────────────────────────────────────────────
 import { createMainWindow, isWindowAvailable, focusWindow } from './window';
@@ -134,6 +136,7 @@ async function boot(): Promise<void> {
   // and will run when a campaign is opened.
   log.info('Registering feature modules');
   moduleLoader.register(new AtlasModule());
+  moduleLoader.register(new PartyModule());
   moduleLoader.register(new NpcsModule());
   moduleLoader.register(new QuestsModule());
   moduleLoader.register(new SessionsModule());
@@ -143,6 +146,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new DungeonModule());
   moduleLoader.register(new BestiaryModule());
   moduleLoader.register(new MiniCatalogueModule());
+  moduleLoader.register(new FactionsModule());
 
   const summary = await moduleLoader.initAll();
   log.info('Module boot complete', {
