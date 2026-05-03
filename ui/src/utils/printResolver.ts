@@ -4,10 +4,12 @@
 import { atlas } from '../bridge/atlas';
 import type {
   PrintableEntityRef,
+  PrintableEncounterTypeDetails,
   PrintablePrepItem,
   PrintableScene,
   PrintableSession,
   PrintableSessionNote,
+  PrintableTravelMontageDetails,
 } from '../types/print';
 
 interface SessionRow {
@@ -78,7 +80,46 @@ interface EncounterContent {
   objective?: string;
   setup?: string;
   reward?: string;
+  typeDetails?: PrintableEncounterTypeDetails;
 }
+
+const EMPTY_TRAVEL_MONTAGE: PrintableTravelMontageDetails = {
+  route: '',
+  travelGoal: '',
+  montagePrompt: '',
+  partyApproach: '',
+  obstacle: '',
+  complication: '',
+  progress: '',
+  consequence: '',
+};
+
+const PRINT_TYPE_FIELDS: Record<string, { title: string; fields: { key: string; label: string }[] }> = {
+  combat: { title: 'Combat Frame', fields: [
+    { key: 'battlefield', label: 'Battlefield' }, { key: 'stakes', label: 'Stakes' }, { key: 'tactics', label: 'Enemy Tactics' }, { key: 'escalation', label: 'Escalation' },
+  ] },
+  roleplay: { title: 'Roleplay Beat', fields: [
+    { key: 'speaker', label: 'Key Speaker' }, { key: 'agenda', label: 'Agenda' }, { key: 'leverage', label: 'Leverage' }, { key: 'reveal', label: 'Possible Reveal' },
+  ] },
+  exploration: { title: 'Exploration Site', fields: [
+    { key: 'feature', label: 'Signature Feature' }, { key: 'discovery', label: 'Discovery' }, { key: 'hazard', label: 'Hazard' }, { key: 'clue', label: 'Clue / Lead' },
+  ] },
+  puzzle: { title: 'Puzzle Structure', fields: [
+    { key: 'mechanism', label: 'Mechanism' }, { key: 'clue', label: 'Clue' }, { key: 'solution', label: 'Solution' }, { key: 'failure', label: 'Failure State' },
+  ] },
+  social: { title: 'Social Scene', fields: [
+    { key: 'audience', label: 'Audience' }, { key: 'mood', label: 'Mood' }, { key: 'ask', label: 'Ask / Offer' }, { key: 'consequence', label: 'Consequence' },
+  ] },
+  rest: { title: 'Downtime Beat', fields: [
+    { key: 'haven', label: 'Haven' }, { key: 'options', label: 'Downtime Options' }, { key: 'interruption', label: 'Interruption' }, { key: 'benefit', label: 'Benefit' },
+  ] },
+  revelation: { title: 'Revelation Beat', fields: [
+    { key: 'truth', label: 'Truth' }, { key: 'delivery', label: 'Delivery' }, { key: 'evidence', label: 'Evidence' }, { key: 'reaction', label: 'Expected Reaction' },
+  ] },
+  other: { title: 'Custom Encounter Frame', fields: [
+    { key: 'focus', label: 'Focus' }, { key: 'structure', label: 'Structure' }, { key: 'twist', label: 'Twist' }, { key: 'resolution', label: 'Resolution' },
+  ] },
+};
 
 function parseEncounterContent(raw: string | null | undefined): EncounterContent {
   if (!raw) return {};
@@ -171,6 +212,52 @@ function renderEntityTable(title: string, items: PrintableEntityRef[]): string {
   `;
 }
 
+function normalizeTypeDetails(content: EncounterContent): PrintableEncounterTypeDetails {
+  return {
+    ...(content.typeDetails ?? {}),
+    travel: { ...EMPTY_TRAVEL_MONTAGE, ...(content.typeDetails?.travel ?? {}) },
+  };
+}
+
+function renderTravelMontageHtml(details?: PrintableTravelMontageDetails): string {
+  if (!details) return '';
+  const rows = [
+    ['Route / Region', details.route],
+    ['Travel Goal', details.travelGoal],
+    ['Montage Prompt', details.montagePrompt],
+    ['Party Approach', details.partyApproach],
+    ['Main Obstacle', details.obstacle],
+    ['Complication', details.complication],
+    ['Progress / Win State', details.progress],
+    ['Cost / Consequence', details.consequence],
+  ].filter(([, value]) => value.trim());
+
+  if (rows.length === 0) return '';
+  return `
+    <div class="type-detail">
+      <h4>Travel Montage</h4>
+      ${rows.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join('')}
+    </div>
+  `;
+}
+
+function renderEncounterTypeDetailsHtml(scene: PrintableScene): string {
+  if (scene.encounterType === 'travel') return renderTravelMontageHtml(scene.typeDetails.travel);
+  const config = PRINT_TYPE_FIELDS[scene.encounterType];
+  const values = scene.typeDetails[scene.encounterType] as Record<string, string> | undefined;
+  if (!config || !values) return '';
+  const rows = config.fields
+    .map(field => [field.label, values[field.key] ?? ''] as const)
+    .filter(([, value]) => value.trim());
+  if (rows.length === 0) return '';
+  return `
+    <div class="type-detail">
+      <h4>${escapeHtml(config.title)}</h4>
+      ${rows.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join('')}
+    </div>
+  `;
+}
+
 export async function getPrintableSession(sessionId: string): Promise<PrintableSession> {
   const sessions = await atlas.db.query<SessionRow>(
     'SELECT id,name,description,status,scheduled_at FROM sessions WHERE id = ?',
@@ -239,6 +326,7 @@ export async function getPrintableSession(sessionId: string): Promise<PrintableS
       objective: content.objective ?? '',
       setup: content.setup ?? '',
       reward: content.reward ?? '',
+      typeDetails: normalizeTypeDetails(content),
       played: scene.played === 1,
       order: scene.sort_order ?? 0,
       npcs: (npcsByScene.get(scene.id) ?? []).map(normalizeNpcRow),
@@ -300,6 +388,8 @@ export function renderPrintableSessionHtml(session: PrintableSession): string {
     .scene { margin-top: .8rem; border-top: 1px solid #e3d8cc; padding-top: .8rem; }
     .scene:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
     .entity-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: .65rem; }
+    .type-detail { margin: .65rem 0; padding: .55rem .65rem; border: 1px solid #e3d8cc; background: #fbf7f1; border-radius: 6px; }
+    .type-detail p { margin: .18rem 0 .35rem; }
     .entity-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
     .entity-table th, .entity-table td { border: 1px solid #decebd; padding: .35rem .45rem; text-align: left; vertical-align: top; }
     .entity-table th { background: #f4ede5; font-size: .78rem; letter-spacing: .03em; text-transform: uppercase; color: #5d4b38; }
@@ -345,6 +435,7 @@ export function renderPrintableSessionHtml(session: PrintableSession): string {
           ${scene.objective ? `<p><strong>Objective:</strong> ${escapeHtml(scene.objective)}</p>` : ''}
           ${scene.setup ? `<p><strong>Setup:</strong> ${escapeHtml(scene.setup)}</p>` : ''}
           ${scene.reward ? `<p><strong>Reward:</strong> ${escapeHtml(scene.reward)}</p>` : ''}
+          ${renderEncounterTypeDetailsHtml(scene)}
           <div class="entity-grid">
             ${renderEntityTable('NPCs', scene.npcs)}
             ${renderEntityTable('Monsters', scene.monsters)}

@@ -13,15 +13,15 @@ import styles                 from './GeneratorsView.module.css';
 type Tab = 'magic-item' | 'monster' | 'npc' | 'settlement' | 'name';
 
 const TABS: { id: Tab; label: string; icon: Parameters<typeof Icon>[0]['name']; desc: string }[] = [
-  { id: 'magic-item',  label: 'Magic Items',  icon: 'sword',  desc: 'Forge enchanted relics & artefacts'  },
-  { id: 'monster',     label: 'Monsters',     icon: 'alert',  desc: 'Conjure beasts & abominations'        },
+  { id: 'name',        label: 'Names',        icon: 'bookmark', desc: 'Generate culture-based identities'   },
   { id: 'npc',         label: 'NPCs',         icon: 'users',  desc: 'Birth characters with history'        },
   { id: 'settlement',  label: 'Settlements',  icon: 'map',    desc: 'Raise cities & hidden hamlets'        },
-  { id: 'name',        label: 'Names',        icon: 'bookmark', desc: 'Generate culture-based identities'   },
+  { id: 'monster',     label: 'Monsters',     icon: 'alert',  desc: 'Conjure beasts & abominations'        },
+  { id: 'magic-item',  label: 'Magic Items',  icon: 'sword',  desc: 'Forge enchanted relics & artefacts'  },
 ];
 
 export default function GeneratorsView() {
-  const [activeTab, setActiveTab] = useState<Tab>('magic-item');
+  const [activeTab, setActiveTab] = useState<Tab>('name');
 
   return (
     <div className={styles.root}>

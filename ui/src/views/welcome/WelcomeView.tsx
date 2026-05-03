@@ -11,6 +11,7 @@ import { useOpenCampaign,
          useRecentCampaigns }   from '../../hooks/useBridge';
 import { useCampaignStore }     from '../../store/campaign.store';
 import { ROUTES }               from '../../router/routes';
+import { compactPathLabel, fileNameWithoutExtension } from '../../utils/pathDisplay';
 import styles                   from './WelcomeView.module.css';
 import { atlas }               from '../../bridge/atlas';
 
@@ -46,8 +47,6 @@ export function WelcomeView() {
     await createCampaign({ name: newName.trim(), gmName: newGm.trim() || undefined, system: newSystem.trim() || undefined });
     setShowNewForm(false);
   }
-
-  const basename = (p: string) => p.split(/[\/]/).pop() ?? p;
 
   return (
     <div className={styles.root}>
@@ -173,10 +172,11 @@ export function WelcomeView() {
                       className={styles.recentItem}
                       onClick={() => openCampaign(filePath)}
                       disabled={busy}
+                      title={filePath}
                     >
                       <Icon name="scroll" size={15} className={styles.recentIcon} />
-                      <span className={styles.recentName}>{basename(filePath).replace(/\.db$/, '')}</span>
-                      <span className={styles.recentPath}>{filePath}</span>
+                      <span className={styles.recentName}>{fileNameWithoutExtension(filePath, '.db')}</span>
+                      <span className={styles.recentPath}>{compactPathLabel(filePath)}</span>
                       <Icon name="chevron-right" size={14} className={styles.recentArrow} />
                     </button>
                   </li>

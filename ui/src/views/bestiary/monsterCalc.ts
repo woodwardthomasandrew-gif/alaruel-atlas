@@ -362,7 +362,7 @@ export function buildHitDiceString(
 
 export interface ActionPreset {
   /** Category for grouping in the dropdown */
-  category:     'melee' | 'ranged' | 'special' | 'trait' | 'legendary' | 'spellcasting';
+  category:     ActionPresetCategory;
   /** Display name for the preset in the dropdown */
   label:        string;
   /** Pre-filled name field */
@@ -380,6 +380,16 @@ export interface ActionPreset {
   /** Recharge expression if applicable */
   recharge?:    string;
 }
+
+export type ActionPresetCategory =
+  | 'melee'
+  | 'ranged'
+  | 'special'
+  | 'trait'
+  | 'bonus'
+  | 'reaction'
+  | 'legendary'
+  | 'spellcasting';
 
 export const ACTION_PRESETS: ActionPreset[] = [
   // ── Melee attacks ──────────────────────────────────────────────────────────
@@ -423,6 +433,36 @@ export const ACTION_PRESETS: ActionPreset[] = [
     description: 'Melee Weapon Attack: {atkBonus} to hit, reach 10 ft., one target. Hit: {dmgDice}{dmgBonus} bludgeoning damage. If the target is Medium or smaller, it is grappled (escape DC {dc}).',
     abilityKey: 'str', proficient: true, damageDice: '2d6', damageType: 'bludgeoning',
   },
+  {
+    category: 'melee', label: 'Dagger', name: 'Dagger',
+    description: 'Melee or Ranged Weapon Attack: {atkBonus} to hit, reach 5 ft. or range 20/60 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage.',
+    abilityKey: 'dex', proficient: true, damageDice: '1d4', damageType: 'piercing',
+  },
+  {
+    category: 'melee', label: 'Spear', name: 'Spear',
+    description: 'Melee or Ranged Weapon Attack: {atkBonus} to hit, reach 5 ft. or range 20/60 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage, or {dmgDice}{dmgBonus} piercing damage if used with two hands to make a melee attack.',
+    abilityKey: 'str', proficient: true, damageDice: '1d6', damageType: 'piercing',
+  },
+  {
+    category: 'melee', label: 'Scimitar', name: 'Scimitar',
+    description: 'Melee Weapon Attack: {atkBonus} to hit, reach 5 ft., one target. Hit: {dmgDice}{dmgBonus} slashing damage.',
+    abilityKey: 'dex', proficient: true, damageDice: '1d6', damageType: 'slashing',
+  },
+  {
+    category: 'melee', label: 'Gore', name: 'Gore',
+    description: 'Melee Weapon Attack: {atkBonus} to hit, reach 5 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage.',
+    abilityKey: 'str', proficient: true, damageDice: '2d8', damageType: 'piercing',
+  },
+  {
+    category: 'melee', label: 'Stinger', name: 'Stinger',
+    description: 'Melee Weapon Attack: {atkBonus} to hit, reach 5 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage, and the target must succeed on a DC {dc} Constitution saving throw or take poison damage.',
+    abilityKey: 'dex', proficient: true, damageDice: '1d8', damageType: 'piercing',
+  },
+  {
+    category: 'melee', label: 'Hooves', name: 'Hooves',
+    description: 'Melee Weapon Attack: {atkBonus} to hit, reach 5 ft., one prone target. Hit: {dmgDice}{dmgBonus} bludgeoning damage.',
+    abilityKey: 'str', proficient: true, damageDice: '2d6', damageType: 'bludgeoning',
+  },
   // ── Ranged attacks ─────────────────────────────────────────────────────────
   {
     category: 'ranged', label: 'Shortbow', name: 'Shortbow',
@@ -438,6 +478,26 @@ export const ACTION_PRESETS: ActionPreset[] = [
     category: 'ranged', label: 'Spit / Acid Spray', name: 'Acid Spit',
     description: 'Ranged Weapon Attack: {atkBonus} to hit, range 30/60 ft., one target. Hit: {dmgDice}{dmgBonus} acid damage.',
     abilityKey: 'dex', proficient: true, damageDice: '2d8', damageType: 'acid',
+  },
+  {
+    category: 'ranged', label: 'Light Crossbow', name: 'Light Crossbow',
+    description: 'Ranged Weapon Attack: {atkBonus} to hit, range 80/320 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage.',
+    abilityKey: 'dex', proficient: true, damageDice: '1d8', damageType: 'piercing',
+  },
+  {
+    category: 'ranged', label: 'Javelin', name: 'Javelin',
+    description: 'Melee or Ranged Weapon Attack: {atkBonus} to hit, reach 5 ft. or range 30/120 ft., one target. Hit: {dmgDice}{dmgBonus} piercing damage.',
+    abilityKey: 'str', proficient: true, damageDice: '1d6', damageType: 'piercing',
+  },
+  {
+    category: 'ranged', label: 'Rock', name: 'Rock',
+    description: 'Ranged Weapon Attack: {atkBonus} to hit, range 60/240 ft., one target. Hit: {dmgDice}{dmgBonus} bludgeoning damage.',
+    abilityKey: 'str', proficient: true, damageDice: '3d10', damageType: 'bludgeoning',
+  },
+  {
+    category: 'ranged', label: 'Fire Ray', name: 'Fire Ray',
+    description: 'Ranged Spell Attack: {atkBonus} to hit, range 120 ft., one target. Hit: {dmgDice}{dmgBonus} fire damage.',
+    abilityKey: 'cha', proficient: true, damageDice: '3d6', damageType: 'fire',
   },
   // ── Special / area ─────────────────────────────────────────────────────────
   {
@@ -464,6 +524,31 @@ export const ACTION_PRESETS: ActionPreset[] = [
     category: 'special', label: 'Multiattack (3)', name: 'Multiattack',
     description: 'The creature makes three attacks.',
     abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'special', label: 'Poison Breath', name: 'Poison Breath',
+    description: 'The creature exhales poisonous gas in a 30-foot cone. Each creature in that area must make a DC {dc} Constitution saving throw, taking {dmgDice} poison damage on a failed save, or half as much on a successful one.',
+    abilityKey: 'con', proficient: false, damageDice: '6d6', recharge: '5-6',
+  },
+  {
+    category: 'special', label: 'Lightning Line', name: 'Lightning Line',
+    description: 'The creature exhales lightning in a 60-foot line that is 5 feet wide. Each creature in that line must make a DC {dc} Dexterity saving throw, taking {dmgDice} lightning damage on a failed save, or half as much on a successful one.',
+    abilityKey: 'con', proficient: false, damageDice: '8d6', recharge: '5-6',
+  },
+  {
+    category: 'special', label: 'Web', name: 'Web',
+    description: 'Ranged Weapon Attack: {atkBonus} to hit, range 30/60 ft., one creature. Hit: The target is restrained by webbing. As an action, the restrained target can make a DC {dc} Strength check, escaping on a success.',
+    abilityKey: 'dex', proficient: true, recharge: '5-6',
+  },
+  {
+    category: 'special', label: 'Swallow', name: 'Swallow',
+    description: 'The creature makes one bite attack against a grappled target. If the attack hits, the target is swallowed, blinded and restrained, and has total cover against attacks and other effects outside the creature.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'special', label: 'Terrifying Roar', name: 'Terrifying Roar',
+    description: 'Each enemy within 30 feet that can hear the creature must succeed on a DC {dc} Wisdom saving throw or become frightened until the end of the creature\'s next turn.',
+    abilityKey: 'cha', proficient: false, recharge: '5-6',
   },
   // ── Traits ─────────────────────────────────────────────────────────────────
   {
@@ -501,7 +586,154 @@ export const ACTION_PRESETS: ActionPreset[] = [
     description: 'While in sunlight, the creature has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight.',
     abilityKey: 'wis', proficient: false,
   },
-  // ── Legendary ──────────────────────────────────────────────────────────────
+  {
+    category: 'trait', label: 'Amphibious', name: 'Amphibious',
+    description: 'The creature can breathe air and water.',
+    abilityKey: 'con', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Charge', name: 'Charge',
+    description: 'If the creature moves at least 20 feet straight toward a target and then hits it with a melee attack on the same turn, the target takes extra damage and must succeed on a DC {dc} Strength saving throw or be knocked prone.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Pounce', name: 'Pounce',
+    description: 'If the creature moves at least 20 feet straight toward a creature and hits it with a claw attack on the same turn, that target must succeed on a DC {dc} Strength saving throw or be knocked prone.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Flyby', name: 'Flyby',
+    description: 'The creature doesn\'t provoke opportunity attacks when it flies out of an enemy\'s reach.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'trait', label: 'False Appearance', name: 'False Appearance',
+    description: 'While the creature remains motionless, it is indistinguishable from a natural or crafted feature of its surroundings.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Legendary Resistance', name: 'Legendary Resistance',
+    description: 'If the creature fails a saving throw, it can choose to succeed instead.',
+    abilityKey: 'cha', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Magic Weapons', name: 'Magic Weapons',
+    description: 'The creature\'s weapon attacks are magical.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Siege Monster', name: 'Siege Monster',
+    description: 'The creature deals double damage to objects and structures.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Incorporeal Movement', name: 'Incorporeal Movement',
+    description: 'The creature can move through other creatures and objects as if they were difficult terrain. It takes force damage if it ends its turn inside an object.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Immutable Form', name: 'Immutable Form',
+    description: 'The creature is immune to any spell or effect that would alter its form.',
+    abilityKey: 'con', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Heated Body', name: 'Heated Body',
+    description: 'A creature that touches the creature or hits it with a melee attack while within 5 feet takes fire damage.',
+    abilityKey: 'con', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Blood Frenzy', name: 'Blood Frenzy',
+    description: 'The creature has advantage on melee attack rolls against any creature that doesn\'t have all its hit points.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'trait', label: 'Web Walker', name: 'Web Walker',
+    description: 'The creature ignores movement restrictions caused by webbing.',
+    abilityKey: 'dex', proficient: false,
+  },
+  // Bonus actions
+  {
+    category: 'bonus', label: 'Aggressive', name: 'Aggressive',
+    description: 'The creature moves up to its speed toward an enemy it can see.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Nimble Escape', name: 'Nimble Escape',
+    description: 'The creature takes the Disengage or Hide action.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Cunning Action', name: 'Cunning Action',
+    description: 'The creature takes the Dash, Disengage, or Hide action.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Rampage', name: 'Rampage',
+    description: 'When the creature reduces a creature to 0 hit points with a melee attack on its turn, it can move up to half its speed and make a bite attack.',
+    abilityKey: 'str', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Shadow Step', name: 'Shadow Step',
+    description: 'While in dim light or darkness, the creature teleports up to 60 feet to an unoccupied space it can see that is also in dim light or darkness.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Misty Step', name: 'Misty Step',
+    description: 'The creature magically teleports up to 30 feet to an unoccupied space it can see.',
+    abilityKey: 'cha', proficient: false,
+  },
+  {
+    category: 'bonus', label: 'Second Wind', name: 'Second Wind',
+    description: 'The creature regains hit points equal to {dmgDice} plus its challenge rating or level.',
+    abilityKey: 'con', proficient: false, damageDice: '1d10',
+  },
+  {
+    category: 'bonus', label: 'Command Ally', name: 'Command Ally',
+    description: 'One ally the creature can see within 30 feet can use its reaction to make one weapon attack or move up to half its speed.',
+    abilityKey: 'cha', proficient: false,
+  },
+  // Reactions
+  {
+    category: 'reaction', label: 'Parry', name: 'Parry',
+    description: 'The creature adds 2 to its AC against one melee attack that would hit it. To do so, the creature must see the attacker and be wielding a melee weapon.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'reaction', label: 'Shield', name: 'Shield',
+    description: 'When the creature is hit by an attack or targeted by magic missile, it gains a +5 bonus to AC until the start of its next turn, including against the triggering attack.',
+    abilityKey: 'int', proficient: false,
+  },
+  {
+    category: 'reaction', label: 'Uncanny Dodge', name: 'Uncanny Dodge',
+    description: 'The creature halves the damage that it takes from an attack that hits it. The creature must be able to see the attacker.',
+    abilityKey: 'dex', proficient: false,
+  },
+  {
+    category: 'reaction', label: 'Deflect Missile', name: 'Deflect Missile',
+    description: 'When the creature is hit by a ranged weapon attack, it reduces the damage by {dmgDice} plus its Dexterity modifier. If this reduces the damage to 0, the creature can catch the missile.',
+    abilityKey: 'dex', proficient: false, damageDice: '1d10',
+  },
+  {
+    category: 'reaction', label: 'Retaliating Strike', name: 'Retaliating Strike',
+    description: 'When a creature within 5 feet hits the creature with a melee attack, the creature makes one melee weapon attack against that attacker.',
+    abilityKey: 'str', proficient: true,
+  },
+  {
+    category: 'reaction', label: 'Tail Swipe', name: 'Tail Swipe',
+    description: 'When a creature the creature can see moves within 10 feet of it, the creature makes one tail attack against that creature.',
+    abilityKey: 'str', proficient: true, damageDice: '2d8', damageType: 'bludgeoning',
+  },
+  {
+    category: 'reaction', label: 'Absorb Elements', name: 'Absorb Elements',
+    description: 'When the creature takes acid, cold, fire, lightning, or thunder damage, it gains resistance to that damage type until the start of its next turn.',
+    abilityKey: 'con', proficient: false,
+  },
+  {
+    category: 'reaction', label: 'Reactive Teleport', name: 'Reactive Teleport',
+    description: 'When the creature takes damage, it teleports up to 30 feet to an unoccupied space it can see.',
+    abilityKey: 'cha', proficient: false,
+  },
+  // Legendary actions
   {
     category: 'legendary', label: 'Detect', name: 'Detect',
     description: 'The creature makes a Wisdom (Perception) check.',
@@ -520,10 +752,12 @@ export const ACTION_PRESETS: ActionPreset[] = [
 ];
 
 /** Group presets by category for the dropdown */
-export function groupPresets(): Map<string, ActionPreset[]> {
+export function groupPresets(categories?: ActionPresetCategory[]): Map<string, ActionPreset[]> {
   const groups = new Map<string, ActionPreset[]>();
-  const order = ['melee','ranged','special','trait','legendary','spellcasting'];
+  const order: ActionPresetCategory[] = ['melee','ranged','special','trait','bonus','reaction','legendary','spellcasting'];
+  const allowed = categories ? new Set(categories) : null;
   for (const cat of order) {
+    if (allowed && !allowed.has(cat)) continue;
     const items = ACTION_PRESETS.filter(p => p.category === cat);
     if (items.length) groups.set(cat, items);
   }

@@ -29,6 +29,7 @@ import {
   type AbilityKey,
   type SaveThrowConfigs,
   type ActionPreset,
+  type ActionPresetCategory,
 } from './monsterCalc';
 import styles from './MonsterDetail.module.css';
 
@@ -349,7 +350,8 @@ interface PresetPickerProps {
 
 function ActionPresetPicker({ onSelect, onBlank, label }: PresetPickerProps) {
   const [open, setOpen] = useState(false);
-  const groups  = groupPresets();
+  const groups  = groupPresets(presetCategoriesForLabel(label));
+  const hasPresets = groups.size > 0;
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // Close when clicking outside the dropdown
@@ -369,7 +371,7 @@ function ActionPresetPicker({ onSelect, onBlank, label }: PresetPickerProps) {
       <button className={styles.addBtn} style={{ flex: 1 }} onClick={onBlank}>
         <Icon name="plus" size={13} /> Blank {label.replace(/s$/, '')}
       </button>
-      <div className={styles.presetDropWrap} ref={wrapRef}>
+      {hasPresets && <div className={styles.presetDropWrap} ref={wrapRef}>
         <button
           className={styles.presetBtn}
           onClick={() => setOpen(v => !v)}
@@ -397,12 +399,29 @@ function ActionPresetPicker({ onSelect, onBlank, label }: PresetPickerProps) {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
 
 // ── Tag editor ────────────────────────────────────────────────────────────────
+
+function presetCategoriesForLabel(label: string): ActionPresetCategory[] {
+  switch (label) {
+    case 'Traits':
+      return ['trait'];
+    case 'Actions':
+      return ['melee', 'ranged', 'special', 'spellcasting'];
+    case 'Bonus Actions':
+      return ['bonus'];
+    case 'Legendary Actions':
+      return ['legendary'];
+    case 'Reactions':
+      return ['reaction'];
+    default:
+      return ['melee', 'ranged', 'special', 'trait', 'bonus', 'reaction', 'legendary', 'spellcasting'];
+  }
+}
 
 function TagEditor({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
   const [input, setInput] = useState('');

@@ -102,6 +102,11 @@ p{color:var(--text-muted);font-size:.9rem}
 .sceneFormInput{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:var(--font-body);font-size:.88rem;padding:.4rem .65rem;outline:none;transition:border-color .15s;width:100%;box-sizing:border-box}
 .sceneFormInput:focus{border-color:var(--gold-600)}
 .sceneFormTextarea{resize:vertical;min-height:70px}
+.typeForm{display:flex;flex-direction:column;gap:.6rem;margin-top:.1rem;padding:.7rem;background:rgba(196,144,64,.06);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.typeFormHeader{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.typeFormTitle{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--gold-500);font-weight:700}
+.typeFormHint{font-size:.76rem;color:var(--ink-500);line-height:1.4}
+.typeDetail{display:flex;flex-direction:column;gap:.55rem;margin-top:.25rem;padding-top:.65rem;border-top:1px solid var(--border-subtle)}
 .sceneFormActions{display:flex;justify-content:flex-end;gap:.5rem;padding-top:.25rem}
 .saveSceneBtn{display:flex;align-items:center;gap:.35rem;padding:.38rem .85rem;background:var(--gold-600);border:none;border-radius:var(--radius-sm);color:var(--ink-950);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
 .saveSceneBtn:hover:not(:disabled){background:var(--gold-500)}

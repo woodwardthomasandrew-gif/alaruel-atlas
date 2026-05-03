@@ -36,6 +36,133 @@ type DetailTab = typeof DETAIL_TABS[number];
 const ENC_TABS  = ['details', 'npcs', 'monsters', 'minis'] as const;
 type EncTab     = typeof ENC_TABS[number];
 
+interface TravelMontageDetails {
+  route: string;
+  travelGoal: string;
+  montagePrompt: string;
+  partyApproach: string;
+  obstacle: string;
+  complication: string;
+  progress: string;
+  consequence: string;
+}
+
+interface EncounterTypeDetails {
+  travel?: TravelMontageDetails;
+  [key: string]: TravelMontageDetails | Record<string, string> | undefined;
+}
+
+interface SceneFormState {
+  title: string;
+  encounterType: string;
+  objective: string;
+  setup: string;
+  reward: string;
+  typeDetails: EncounterTypeDetails;
+}
+
+const EMPTY_TRAVEL_MONTAGE: TravelMontageDetails = {
+  route: '',
+  travelGoal: '',
+  montagePrompt: '',
+  partyApproach: '',
+  obstacle: '',
+  complication: '',
+  progress: '',
+  consequence: '',
+};
+
+function emptyTypeDetails(): EncounterTypeDetails {
+  return { travel: { ...EMPTY_TRAVEL_MONTAGE } };
+}
+
+function emptySceneForm(): SceneFormState {
+  return { title: '', encounterType: 'combat', objective: '', setup: '', reward: '', typeDetails: emptyTypeDetails() };
+}
+
+const TYPE_SPECIFIC_FIELDS: Record<string, { title: string; hint: string; fields: { key: string; label: string; placeholder: string; multiline?: boolean }[] }> = {
+  combat: {
+    title: 'Combat Frame',
+    hint: 'Define the fight beyond stat blocks: space, stakes, behavior, and escalation.',
+    fields: [
+      { key: 'battlefield', label: 'Battlefield', placeholder: 'Chokepoints, cover, hazards, verticality...' },
+      { key: 'stakes', label: 'Stakes', placeholder: 'What changes if the enemies win?' },
+      { key: 'tactics', label: 'Enemy Tactics', placeholder: 'Ambush, split the party, protect the leader...', multiline: true },
+      { key: 'escalation', label: 'Escalation', placeholder: 'Reinforcements, collapsing bridge, ritual timer...' },
+    ],
+  },
+  roleplay: {
+    title: 'Roleplay Beat',
+    hint: 'Anchor the conversation in motives, leverage, and what can be learned.',
+    fields: [
+      { key: 'speaker', label: 'Key Speaker', placeholder: 'Who drives this exchange?' },
+      { key: 'agenda', label: 'Agenda', placeholder: 'What do they want from the party?' },
+      { key: 'leverage', label: 'Leverage', placeholder: 'What makes them move, soften, or harden?' },
+      { key: 'reveal', label: 'Possible Reveal', placeholder: 'Truth, clue, lie, or emotional turn...', multiline: true },
+    ],
+  },
+  exploration: {
+    title: 'Exploration Site',
+    hint: 'Give the players something to notice, test, and choose around.',
+    fields: [
+      { key: 'feature', label: 'Signature Feature', placeholder: 'Ancient lift, glass bog, singing stones...' },
+      { key: 'discovery', label: 'Discovery', placeholder: 'What can they find here?' },
+      { key: 'hazard', label: 'Hazard', placeholder: 'What pressures careless movement?' },
+      { key: 'clue', label: 'Clue / Lead', placeholder: 'What points to the next scene?', multiline: true },
+    ],
+  },
+  puzzle: {
+    title: 'Puzzle Structure',
+    hint: 'Keep the mechanism, clues, and failure state visible at the table.',
+    fields: [
+      { key: 'mechanism', label: 'Mechanism', placeholder: 'Runes, weights, melody, mirrored rooms...' },
+      { key: 'clue', label: 'Clue', placeholder: 'How can players infer the solution?' },
+      { key: 'solution', label: 'Solution', placeholder: 'What works?' },
+      { key: 'failure', label: 'Failure State', placeholder: 'What happens without blocking the session?', multiline: true },
+    ],
+  },
+  social: {
+    title: 'Social Scene',
+    hint: 'Track the room, the ask, the mood, and the fallout.',
+    fields: [
+      { key: 'audience', label: 'Audience', placeholder: 'Court, guild hall, tavern crowd, war council...' },
+      { key: 'mood', label: 'Mood', placeholder: 'Suspicious, celebratory, grieving, divided...' },
+      { key: 'ask', label: 'Ask / Offer', placeholder: 'What is being requested or traded?' },
+      { key: 'consequence', label: 'Consequence', placeholder: 'Reputation, alliance, insult, promise...', multiline: true },
+    ],
+  },
+  rest: {
+    title: 'Downtime Beat',
+    hint: 'Make rest useful while preserving hooks, interruptions, and recovery.',
+    fields: [
+      { key: 'haven', label: 'Haven', placeholder: 'Camp, shrine, inn, safehouse...' },
+      { key: 'options', label: 'Downtime Options', placeholder: 'Craft, train, research, carouse, recover...', multiline: true },
+      { key: 'interruption', label: 'Interruption', placeholder: 'Dream, messenger, weather, rival...' },
+      { key: 'benefit', label: 'Benefit', placeholder: 'What do they regain or learn?' },
+    ],
+  },
+  revelation: {
+    title: 'Revelation Beat',
+    hint: 'Plan how the truth lands and what it changes.',
+    fields: [
+      { key: 'truth', label: 'Truth', placeholder: 'What is revealed?' },
+      { key: 'delivery', label: 'Delivery', placeholder: 'Vision, confession, evidence, scene detail...' },
+      { key: 'evidence', label: 'Evidence', placeholder: 'What makes it credible?' },
+      { key: 'reaction', label: 'Expected Reaction', placeholder: 'Who is shaken, angry, relieved, exposed?', multiline: true },
+    ],
+  },
+  other: {
+    title: 'Custom Encounter Frame',
+    hint: 'A flexible shape for scenes that do not fit the other buckets.',
+    fields: [
+      { key: 'focus', label: 'Focus', placeholder: 'What is this scene really about?' },
+      { key: 'structure', label: 'Structure', placeholder: 'Opening, pressure, turn, exit...' },
+      { key: 'twist', label: 'Twist', placeholder: 'What changes midway?' },
+      { key: 'resolution', label: 'Resolution', placeholder: 'What closes the scene?', multiline: true },
+    ],
+  },
+};
+
 // ── DB row shapes (renderer-local) ─────────────────────────────────────────────
 
 interface MonsterRow { id: string; name: string; creature_type: string; size: string; challenge_rating: string; is_homebrew: number; }
@@ -52,29 +179,154 @@ interface Encounter extends SessionScene {
   objective:     string;
   setup:         string;
   reward:        string;
+  typeDetails:   EncounterTypeDetails;
 }
 
 function parseEncounter(scene: SessionScene): Encounter {
   try {
     const p = JSON.parse(scene.content);
-    return { ...scene, encounterType: p.type ?? 'other', objective: p.objective ?? '', setup: p.setup ?? '', reward: p.reward ?? '' };
+    return {
+      ...scene,
+      encounterType: p.type ?? 'other',
+      objective: p.objective ?? '',
+      setup: p.setup ?? '',
+      reward: p.reward ?? '',
+      typeDetails: {
+        ...emptyTypeDetails(),
+        ...(p.typeDetails ?? {}),
+        travel: { ...EMPTY_TRAVEL_MONTAGE, ...(p.typeDetails?.travel ?? {}) },
+      },
+    };
   } catch {
-    return { ...scene, encounterType: 'other', objective: '', setup: scene.content, reward: '' };
+    return { ...scene, encounterType: 'other', objective: '', setup: scene.content, reward: '', typeDetails: emptyTypeDetails() };
   }
 }
 
-function encodeEncounter(e: { type: string; objective: string; setup: string; reward: string }): string {
-  return JSON.stringify({ type: e.type, objective: e.objective, setup: e.setup, reward: e.reward });
+function encodeEncounter(e: { type: string; objective: string; setup: string; reward: string; typeDetails: EncounterTypeDetails }): string {
+  return JSON.stringify({ type: e.type, objective: e.objective, setup: e.setup, reward: e.reward, typeDetails: e.typeDetails });
 }
 
 // ── SceneFormPanel ─────────────────────────────────────────────────────────────
 
 interface SceneFormPanelProps {
-  sceneForm:    { title: string; encounterType: string; objective: string; setup: string; reward: string };
-  setSceneForm: React.Dispatch<React.SetStateAction<{ title: string; encounterType: string; objective: string; setup: string; reward: string }>>;
+  sceneForm:    SceneFormState;
+  setSceneForm: React.Dispatch<React.SetStateAction<SceneFormState>>;
   editingId:    string | null;
   onSave:       () => void;
   onCancel:     () => void;
+}
+
+function TravelMontageForm({ sceneForm, setSceneForm }: Pick<SceneFormPanelProps, 'sceneForm' | 'setSceneForm'>) {
+  const montage = sceneForm.typeDetails.travel ?? EMPTY_TRAVEL_MONTAGE;
+  const updateMontage = (field: keyof TravelMontageDetails, value: string) => {
+    setSceneForm(f => ({
+      ...f,
+      typeDetails: {
+        ...f.typeDetails,
+        travel: { ...EMPTY_TRAVEL_MONTAGE, ...(f.typeDetails.travel ?? {}), [field]: value },
+      },
+    }));
+  };
+
+  return (
+    <div className={styles.typeForm}>
+      <div className={styles.typeFormHeader}>
+        <span className={styles.typeFormTitle}>Travel Montage</span>
+        <span className={styles.typeFormHint}>Frame the journey as fast scenes, player spotlights, pressure, and fallout.</span>
+      </div>
+      <div className={styles.sceneFormRow}>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Route / Region</label>
+          <input className={styles.sceneFormInput} placeholder="Old road through the Glassfen"
+            value={montage.route} onChange={e => updateMontage('route', e.target.value)} />
+        </div>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Travel Goal</label>
+          <input className={styles.sceneFormInput} placeholder="Reach the watchtower before sunset"
+            value={montage.travelGoal} onChange={e => updateMontage('travelGoal', e.target.value)} />
+        </div>
+      </div>
+      <div className={styles.sceneFormField}>
+        <label className={styles.sceneFormLabel}>Montage Prompt</label>
+        <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={2}
+          placeholder="Ask each player how they help the group cross, hide, endure, navigate, or keep spirits up."
+          value={montage.montagePrompt} onChange={e => updateMontage('montagePrompt', e.target.value)} />
+      </div>
+      <div className={styles.sceneFormRow}>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Party Approach</label>
+          <input className={styles.sceneFormInput} placeholder="Stealth, speed, caution, charm, survival..."
+            value={montage.partyApproach} onChange={e => updateMontage('partyApproach', e.target.value)} />
+        </div>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Main Obstacle</label>
+          <input className={styles.sceneFormInput} placeholder="Flooded ford, patrols, cursed weather..."
+            value={montage.obstacle} onChange={e => updateMontage('obstacle', e.target.value)} />
+        </div>
+      </div>
+      <div className={styles.sceneFormRow}>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Complication</label>
+          <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={2}
+            placeholder="What goes wrong if the montage turns against them?"
+            value={montage.complication} onChange={e => updateMontage('complication', e.target.value)} />
+        </div>
+        <div className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>Progress / Win State</label>
+          <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={2}
+            placeholder="What success earns: time saved, clue found, ally impressed..."
+            value={montage.progress} onChange={e => updateMontage('progress', e.target.value)} />
+        </div>
+      </div>
+      <div className={styles.sceneFormField}>
+        <label className={styles.sceneFormLabel}>Cost / Consequence</label>
+        <input className={styles.sceneFormInput} placeholder="Lost supplies, fatigue, enemy warning, changed route..."
+          value={montage.consequence} onChange={e => updateMontage('consequence', e.target.value)} />
+      </div>
+    </div>
+  );
+}
+
+function GenericTypeForm({ sceneForm, setSceneForm }: Pick<SceneFormPanelProps, 'sceneForm' | 'setSceneForm'>) {
+  const config = TYPE_SPECIFIC_FIELDS[sceneForm.encounterType];
+  if (!config) return null;
+  const values = sceneForm.typeDetails[sceneForm.encounterType] as Record<string, string> | undefined ?? {};
+  const updateField = (field: string, value: string) => {
+    setSceneForm(f => ({
+      ...f,
+      typeDetails: {
+        ...f.typeDetails,
+        [f.encounterType]: { ...((f.typeDetails[f.encounterType] as Record<string, string> | undefined) ?? {}), [field]: value },
+      },
+    }));
+  };
+
+  return (
+    <div className={styles.typeForm}>
+      <div className={styles.typeFormHeader}>
+        <span className={styles.typeFormTitle}>{config.title}</span>
+        <span className={styles.typeFormHint}>{config.hint}</span>
+      </div>
+      {config.fields.map((field) => (
+        <div key={field.key} className={styles.sceneFormField}>
+          <label className={styles.sceneFormLabel}>{field.label}</label>
+          {field.multiline ? (
+            <textarea className={`${styles.sceneFormInput} ${styles.sceneFormTextarea}`} rows={2}
+              placeholder={field.placeholder}
+              value={values[field.key] ?? ''} onChange={e => updateField(field.key, e.target.value)} />
+          ) : (
+            <input className={styles.sceneFormInput} placeholder={field.placeholder}
+              value={values[field.key] ?? ''} onChange={e => updateField(field.key, e.target.value)} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TypeSpecificForm(props: Pick<SceneFormPanelProps, 'sceneForm' | 'setSceneForm'>) {
+  if (props.sceneForm.encounterType === 'travel') return <TravelMontageForm {...props} />;
+  return <GenericTypeForm {...props} />;
 }
 
 function SceneFormPanel({ sceneForm, setSceneForm, editingId, onSave, onCancel }: SceneFormPanelProps) {
@@ -110,6 +362,7 @@ function SceneFormPanel({ sceneForm, setSceneForm, editingId, onSave, onCancel }
         <input className={styles.sceneFormInput} placeholder="XP, loot, story consequence…"
           value={sceneForm.reward} onChange={e => setSceneForm(f => ({ ...f, reward: e.target.value }))} />
       </div>
+      <TypeSpecificForm sceneForm={sceneForm} setSceneForm={setSceneForm} />
       <div className={styles.sceneFormActions}>
         <button className={styles.ghostBtn} onClick={onCancel}>Cancel</button>
         <button className={styles.saveSceneBtn} onClick={onSave} disabled={!sceneForm.title.trim()}>
@@ -121,6 +374,59 @@ function SceneFormPanel({ sceneForm, setSceneForm, editingId, onSave, onCancel }
 }
 
 // ── EncounterImportPanel ───────────────────────────────────────────────────────
+
+function TravelMontageDetail({ details }: { details: TravelMontageDetails }) {
+  const rows = [
+    ['Route / Region', details.route],
+    ['Travel Goal', details.travelGoal],
+    ['Montage Prompt', details.montagePrompt],
+    ['Party Approach', details.partyApproach],
+    ['Main Obstacle', details.obstacle],
+    ['Complication', details.complication],
+    ['Progress / Win State', details.progress],
+    ['Cost / Consequence', details.consequence],
+  ].filter(([, value]) => value.trim());
+
+  if (rows.length === 0) return <p className={styles.encDetailEmpty}>No travel montage details yet. Click edit to add them.</p>;
+  return (
+    <div className={styles.typeDetail}>
+      <span className={styles.typeFormTitle}>Travel Montage</span>
+      {rows.map(([label, value]) => (
+        <div key={label} className={styles.encDetailRow}>
+          <span className={styles.encDetailLabel}>{label}</span>
+          <span className={`${styles.encDetailValue} ${styles.encDetailPre}`}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GenericTypeDetail({ enc }: { enc: Encounter }) {
+  const config = TYPE_SPECIFIC_FIELDS[enc.encounterType];
+  if (!config) return null;
+  const values = enc.typeDetails[enc.encounterType] as Record<string, string> | undefined ?? {};
+  const rows = config.fields
+    .map(field => [field.label, values[field.key] ?? ''] as const)
+    .filter(([, value]) => value.trim());
+
+  if (rows.length === 0) return <p className={styles.encDetailEmpty}>No {config.title.toLowerCase()} details yet. Click edit to add them.</p>;
+  return (
+    <div className={styles.typeDetail}>
+      <span className={styles.typeFormTitle}>{config.title}</span>
+      {rows.map(([label, value]) => (
+        <div key={label} className={styles.encDetailRow}>
+          <span className={styles.encDetailLabel}>{label}</span>
+          <span className={`${styles.encDetailValue} ${styles.encDetailPre}`}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EncounterTypeDetail({ enc }: { enc: Encounter }) {
+  if (enc.encounterType === 'travel') return <TravelMontageDetail details={enc.typeDetails.travel ?? EMPTY_TRAVEL_MONTAGE} />;
+  return <GenericTypeDetail enc={enc} />;
+}
 
 interface ImportPanelProps {
   encTab:      EncTab;
@@ -390,7 +696,7 @@ export default function SessionsView() {
   const [encTab,      setEncTab]      = useState<EncTab>('details');
   const [addingScene, setAddingScene] = useState(false);
   const [editingId,   setEditingId]   = useState<string | null>(null);
-  const [sceneForm,   setSceneForm]   = useState({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' });
+  const [sceneForm,   setSceneForm]   = useState<SceneFormState>(emptySceneForm);
 
   const [allNpcs,     setAllNpcs]     = useState<NpcRow[]>([]);
   const [allMonsters, setAllMonsters] = useState<MonsterRow[]>([]);
@@ -561,18 +867,18 @@ export default function SessionsView() {
   // ── Encounter CRUD ────────────────────────────────────────────────────────
 
   function openAddScene() {
-    setSceneForm({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' });
+    setSceneForm(emptySceneForm());
     setEditingId(null); setAddingScene(true);
   }
 
   function openEditScene(enc: Encounter) {
-    setSceneForm({ title: enc.title, encounterType: enc.encounterType, objective: enc.objective, setup: enc.setup, reward: enc.reward });
+    setSceneForm({ title: enc.title, encounterType: enc.encounterType, objective: enc.objective, setup: enc.setup, reward: enc.reward, typeDetails: enc.typeDetails });
     setEditingId(enc.id); setAddingScene(false);
   }
 
   async function saveScene() {
     if (!selected || !sceneForm.title.trim()) return;
-    const content = encodeEncounter({ type: sceneForm.encounterType, objective: sceneForm.objective, setup: sceneForm.setup, reward: sceneForm.reward });
+    const content = encodeEncounter({ type: sceneForm.encounterType, objective: sceneForm.objective, setup: sceneForm.setup, reward: sceneForm.reward, typeDetails: sceneForm.typeDetails });
     if (editingId) {
       await atlas.db.run('UPDATE session_scenes SET title=?,content=?,updated_at=? WHERE id=?', [sceneForm.title.trim(), content, new Date().toISOString(), editingId]);
       setEditingId(null);
@@ -582,7 +888,7 @@ export default function SessionsView() {
       setAddingScene(false);
     }
     await loadScenes(selected.id);
-    setSceneForm({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' });
+    setSceneForm(emptySceneForm());
   }
 
   async function togglePlayed(enc: Encounter) {
@@ -755,7 +1061,7 @@ export default function SessionsView() {
 
                   {addingScene && (
                     <SceneFormPanel sceneForm={sceneForm} setSceneForm={setSceneForm} editingId={editingId}
-                      onSave={saveScene} onCancel={() => { setAddingScene(false); setSceneForm({ title: '', encounterType: 'combat', objective: '', setup: '', reward: '' }); }} />
+                      onSave={saveScene} onCancel={() => { setAddingScene(false); setSceneForm(emptySceneForm()); }} />
                   )}
 
                   <div className={styles.encounterList}>
@@ -842,7 +1148,7 @@ export default function SessionsView() {
                                     {enc.objective && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Objective</span><span className={styles.encDetailValue}>{enc.objective}</span></div>}
                                     {enc.setup     && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Setup / Notes</span><span className={`${styles.encDetailValue} ${styles.encDetailPre}`}>{enc.setup}</span></div>}
                                     {enc.reward    && <div className={styles.encDetailRow}><span className={styles.encDetailLabel}>Reward / Outcome</span><span className={styles.encDetailValue}>{enc.reward}</span></div>}
-                                    {!enc.objective && !enc.setup && !enc.reward && <p className={styles.encDetailEmpty}>No details yet. Click edit to add some.</p>}
+                                    <EncounterTypeDetail enc={enc} />
                                   </div>
                                 )
                               )}

@@ -18,6 +18,33 @@ const TYPE_LABEL: Record<string, string> = {
   other: 'Other',
 };
 
+const PRINT_TYPE_FIELDS: Record<string, { title: string; fields: { key: string; label: string }[] }> = {
+  combat: { title: 'Combat Frame', fields: [
+    { key: 'battlefield', label: 'Battlefield' }, { key: 'stakes', label: 'Stakes' }, { key: 'tactics', label: 'Enemy Tactics' }, { key: 'escalation', label: 'Escalation' },
+  ] },
+  roleplay: { title: 'Roleplay Beat', fields: [
+    { key: 'speaker', label: 'Key Speaker' }, { key: 'agenda', label: 'Agenda' }, { key: 'leverage', label: 'Leverage' }, { key: 'reveal', label: 'Possible Reveal' },
+  ] },
+  exploration: { title: 'Exploration Site', fields: [
+    { key: 'feature', label: 'Signature Feature' }, { key: 'discovery', label: 'Discovery' }, { key: 'hazard', label: 'Hazard' }, { key: 'clue', label: 'Clue / Lead' },
+  ] },
+  puzzle: { title: 'Puzzle Structure', fields: [
+    { key: 'mechanism', label: 'Mechanism' }, { key: 'clue', label: 'Clue' }, { key: 'solution', label: 'Solution' }, { key: 'failure', label: 'Failure State' },
+  ] },
+  social: { title: 'Social Scene', fields: [
+    { key: 'audience', label: 'Audience' }, { key: 'mood', label: 'Mood' }, { key: 'ask', label: 'Ask / Offer' }, { key: 'consequence', label: 'Consequence' },
+  ] },
+  rest: { title: 'Downtime Beat', fields: [
+    { key: 'haven', label: 'Haven' }, { key: 'options', label: 'Downtime Options' }, { key: 'interruption', label: 'Interruption' }, { key: 'benefit', label: 'Benefit' },
+  ] },
+  revelation: { title: 'Revelation Beat', fields: [
+    { key: 'truth', label: 'Truth' }, { key: 'delivery', label: 'Delivery' }, { key: 'evidence', label: 'Evidence' }, { key: 'reaction', label: 'Expected Reaction' },
+  ] },
+  other: { title: 'Custom Encounter Frame', fields: [
+    { key: 'focus', label: 'Focus' }, { key: 'structure', label: 'Structure' }, { key: 'twist', label: 'Twist' }, { key: 'resolution', label: 'Resolution' },
+  ] },
+};
+
 function labelForType(value: string): string {
   return TYPE_LABEL[value] ?? TYPE_LABEL.other;
 }
@@ -52,6 +79,52 @@ function EntityTable({ title, rows }: { title: string; rows: PrintableEntityRef[
   );
 }
 
+function TravelMontageBlock({ scene }: { scene: PrintableScene }) {
+  const details = scene.typeDetails.travel;
+  if (!details) return null;
+
+  const rows = [
+    ['Route / Region', details.route],
+    ['Travel Goal', details.travelGoal],
+    ['Montage Prompt', details.montagePrompt],
+    ['Party Approach', details.partyApproach],
+    ['Main Obstacle', details.obstacle],
+    ['Complication', details.complication],
+    ['Progress / Win State', details.progress],
+    ['Cost / Consequence', details.consequence],
+  ].filter(([, value]) => value.trim());
+
+  if (rows.length === 0) return null;
+  return (
+    <div className={styles.typeDetail}>
+      <h4 className={styles.entityTitle}>Travel Montage</h4>
+      {rows.map(([label, value]) => (
+        <p key={label}><strong>{label}:</strong> {value}</p>
+      ))}
+    </div>
+  );
+}
+
+function EncounterTypeDetails({ scene }: { scene: PrintableScene }) {
+  if (scene.encounterType === 'travel') return <TravelMontageBlock scene={scene} />;
+  const config = PRINT_TYPE_FIELDS[scene.encounterType];
+  const values = scene.typeDetails[scene.encounterType] as Record<string, string> | undefined;
+  if (!config || !values) return null;
+  const rows = config.fields
+    .map(field => [field.label, values[field.key] ?? ''] as const)
+    .filter(([, value]) => value.trim());
+
+  if (rows.length === 0) return null;
+  return (
+    <div className={styles.typeDetail}>
+      <h4 className={styles.entityTitle}>{config.title}</h4>
+      {rows.map(([label, value]) => (
+        <p key={label}><strong>{label}:</strong> {value}</p>
+      ))}
+    </div>
+  );
+}
+
 function SceneBlock({ scene, index }: { scene: PrintableScene; index: number }) {
   return (
     <article className={styles.sceneBlock}>
@@ -65,6 +138,7 @@ function SceneBlock({ scene, index }: { scene: PrintableScene; index: number }) 
       {scene.objective && <p><strong>Objective:</strong> {scene.objective}</p>}
       {scene.setup && <p><strong>Setup:</strong> {scene.setup}</p>}
       {scene.reward && <p><strong>Reward:</strong> {scene.reward}</p>}
+      <EncounterTypeDetails scene={scene} />
       <div className={styles.entityGrid}>
         <EntityTable title="NPCs" rows={scene.npcs} />
         <EntityTable title="Monsters" rows={scene.monsters} />

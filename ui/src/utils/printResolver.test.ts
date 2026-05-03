@@ -20,6 +20,7 @@ describe('renderPrintableSessionHtml', () => {
           objective: 'Find route',
           setup: 'Falling stones',
           reward: 'Map fragment',
+          typeDetails: {},
           played: false,
           order: 0,
           npcs: [{ id: 'npc_1', name: 'Jorek', count: 1, notes: 'Role: ally' }],

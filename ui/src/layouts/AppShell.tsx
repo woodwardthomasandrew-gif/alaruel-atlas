@@ -8,6 +8,7 @@ import { Icon }                          from '../components/ui/Icon';
 import { useCampaignStore }              from '../store/campaign.store';
 import { MODULE_REGISTRY }               from '../registry/module-registry';
 import { atlas }                         from '../bridge/atlas';
+import { fileNameWithoutExtension }       from '../utils/pathDisplay';
 import styles                            from './AppShell.module.css';
 
 export function AppShell() {
@@ -16,7 +17,7 @@ export function AppShell() {
   const setClosed  = useCampaignStore(s => s.setCampaignClosed);
 
   const campaignName = campaign
-    ? ((campaign.name || campaign.filePath.split(/[\/]/).pop()?.replace(/\.db$/, '')) ?? 'Campaign')
+    ? (campaign.name || fileNameWithoutExtension(campaign.filePath, '.db') || 'Campaign')
     : '';
 
   async function handleClose() {

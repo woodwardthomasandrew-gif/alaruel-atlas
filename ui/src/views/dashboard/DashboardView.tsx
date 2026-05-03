@@ -7,6 +7,7 @@ import { useNavigate }   from 'react-router-dom';
 import { Icon }          from '../../components/ui/Icon';
 import { useCampaignStore } from '../../store/campaign.store';
 import { MODULE_REGISTRY }  from '../../registry/module-registry';
+import { compactPathLabel, fileNameFromPath, fileNameWithoutExtension } from '../../utils/pathDisplay';
 import styles            from './DashboardView.module.css';
 
 export function DashboardView() {
@@ -19,7 +20,7 @@ export function DashboardView() {
     return null;
   }
 
-  const campaignName = (campaign.name || campaign.filePath.split(/[\/]/).pop()?.replace(/\.db$/, '')) ?? 'Campaign';
+  const campaignName = campaign.name || fileNameWithoutExtension(campaign.filePath, '.db') || 'Campaign';
 
   return (
     <div className={styles.root}>
@@ -29,7 +30,9 @@ export function DashboardView() {
           <span className={styles.headerLabel}>Active Campaign</span>
           <h1 className={styles.campaignTitle}>{campaignName}</h1>
           {campaign.filePath && (
-            <p className={styles.filePath}>{campaign.filePath}</p>
+            <p className={styles.filePath} title={campaign.filePath}>
+              Database: {compactPathLabel(campaign.filePath)}
+            </p>
           )}
         </div>
         <div className={styles.headerRight}>
@@ -75,7 +78,7 @@ export function DashboardView() {
           <div className={styles.infoCard}>
             <span className={styles.infoLabel}>Database File</span>
             <span className={styles.infoValue}>
-              {campaign.filePath ? campaign.filePath.split(/[\/]/).pop() : '—'}
+              {campaign.filePath ? fileNameFromPath(campaign.filePath) : '—'}
             </span>
           </div>
         </div>

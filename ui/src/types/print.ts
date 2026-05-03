@@ -21,6 +21,22 @@ export interface PrintablePrepItem {
   done: boolean;
 }
 
+export interface PrintableTravelMontageDetails {
+  route: string;
+  travelGoal: string;
+  montagePrompt: string;
+  partyApproach: string;
+  obstacle: string;
+  complication: string;
+  progress: string;
+  consequence: string;
+}
+
+export interface PrintableEncounterTypeDetails {
+  travel?: PrintableTravelMontageDetails;
+  [key: string]: PrintableTravelMontageDetails | Record<string, string> | undefined;
+}
+
 export interface PrintableScene {
   id: string;
   title: string;
@@ -28,6 +44,7 @@ export interface PrintableScene {
   objective: string;
   setup: string;
   reward: string;
+  typeDetails: PrintableEncounterTypeDetails;
   played: boolean;
   order: number;
   npcs: PrintableEntityRef[];

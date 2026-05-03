@@ -209,6 +209,18 @@
   gap: .55rem;
 }
 
+.typeDetail {
+  margin: .55rem 0;
+  padding: .55rem .65rem;
+  border: 1px solid #e5d7c8;
+  border-radius: 6px;
+  background: #fbf7f1;
+}
+
+.typeDetail p {
+  margin: .18rem 0 .35rem;
+}
+
 .entityBlock {
   border: 1px solid #e5d7c8;
   border-radius: 6px;
