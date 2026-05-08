@@ -1,133 +1,209 @@
+/* ── AppShell Layout ─────────────────────────────────────────────────────── */
+
 .shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 210px 1fr;
   height: 100%;
   overflow: hidden;
 }
 
-/* Sidebar */
+/* ══ Sidebar ══════════════════════════════════════════════════════════════════ */
+
 .sidebar {
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
+  background:
+    linear-gradient(180deg, var(--ink-900) 0%, var(--ink-950) 100%);
   border-right: 1px solid var(--border-subtle);
-  padding: .75rem 0;
+  padding: .6rem 0;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
 }
+
+/* Subtle right-edge glow */
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(196,144,64,.08) 30%,
+    rgba(196,144,64,.12) 50%,
+    rgba(196,144,64,.08) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* ── Brand ──────────────────────────────────────────────────────────────────── */
 
 .brand {
   display: flex;
   align-items: center;
   gap: .6rem;
-  padding: .4rem .9rem .7rem;
+  padding: .5rem .85rem .6rem;
 }
+
 .brandIcon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: var(--bg-raised);
+  background: linear-gradient(135deg, var(--ink-800), var(--ink-700));
   border: 1px solid var(--gold-600);
   border-radius: 6px;
   color: var(--gold-400);
   flex-shrink: 0;
+  box-shadow: var(--shadow-inner), 0 0 8px rgba(196,144,64,.15);
 }
+
 .brandName {
   font-family: var(--font-display);
-  font-size: .8rem;
-  letter-spacing: .08em;
-  color: var(--text-muted);
+  font-size: .75rem;
+  letter-spacing: .1em;
+  color: var(--ink-500);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* ── Campaign block ─────────────────────────────────────────────────────────── */
+
 .campaignBlock {
   display: flex;
   flex-direction: column;
   gap: .15rem;
-  padding: .3rem .9rem .65rem;
+  padding: .2rem .85rem .65rem;
 }
+
 .campaignLabel {
-  font-size: .65rem;
+  font-size: .6rem;
   text-transform: uppercase;
-  letter-spacing: .1em;
+  letter-spacing: .14em;
   color: var(--ink-600);
+  font-family: var(--font-display);
 }
+
 .campaignName {
-  font-size: .875rem;
+  font-size: .82rem;
   color: var(--gold-400);
   font-family: var(--font-display);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: .04em;
+  text-shadow: 0 0 20px rgba(196,144,64,.2);
 }
+
+/* ── Dividers ───────────────────────────────────────────────────────────────── */
 
 .navDivider {
   height: 1px;
-  background: var(--border-subtle);
-  margin: .3rem .75rem;
+  margin: .3rem .7rem;
+  background: linear-gradient(90deg, transparent 0%, var(--border-subtle) 30%, var(--border-subtle) 70%, transparent 100%);
 }
 
-.navSection { display: flex; flex-direction: column; margin-top: .35rem; }
-.navSectionLabel {
-  font-size: .62rem;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  color: var(--ink-600);
-  padding: .5rem .9rem .2rem;
+/* ── Navigation Groups ──────────────────────────────────────────────────────── */
+
+.navSection {
+  display: flex;
+  flex-direction: column;
+  margin-top: .4rem;
 }
+
+.navSectionLabel {
+  font-size: .58rem;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: var(--ink-600);
+  padding: .45rem .85rem .2rem;
+  font-family: var(--font-display);
+}
+
+/* ── Nav Items ──────────────────────────────────────────────────────────────── */
 
 .navItem {
   display: flex;
   align-items: center;
-  gap: .6rem;
-  padding: .48rem .9rem;
+  gap: .55rem;
+  padding: .44rem .85rem;
   color: var(--text-muted);
-  font-size: .875rem;
+  font-size: .82rem;
+  font-family: var(--font-body);
   text-decoration: none;
-  transition: all .12s;
+  transition: background .12s ease, color .12s ease, border-left-color .12s ease;
   border-left: 2px solid transparent;
+  margin: .04rem .3rem .04rem 0;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  margin: .05rem .35rem .05rem 0;
+  position: relative;
 }
-.navItem:hover { background: var(--bg-raised); color: var(--text-secondary); }
+
+.navItem:hover {
+  background: rgba(255,255,255,.03);
+  color: var(--text-secondary);
+}
+
+/* Active state — distinct accent highlight */
 .navItemActive {
-  background: rgba(196,144,64,.1);
+  background: linear-gradient(90deg, rgba(196,144,64,.12) 0%, rgba(196,144,64,.04) 100%);
   color: var(--gold-300);
   border-left-color: var(--gold-500);
+  text-shadow: 0 0 20px rgba(196,144,64,.2);
 }
-.navItemActive .navIcon { color: var(--gold-400); }
-.navIcon { color: var(--ink-600); flex-shrink: 0; transition: color .12s; }
+
+.navItemActive::before {
+  content: '';
+  position: absolute;
+  left: -1px; top: 20%; bottom: 20%;
+  width: 2px;
+  background: var(--gold-400);
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(196,144,64,.6);
+}
+
+.navItemActive .navIcon { color: var(--gold-500); }
+
+.navIcon {
+  color: var(--ink-600);
+  flex-shrink: 0;
+  transition: color .12s;
+}
 .navItem:hover .navIcon { color: var(--ink-400); }
 
+/* ── Spacer ─────────────────────────────────────────────────────────────────── */
+
 .sidebarSpacer { flex: 1; }
+
+/* ── Close button ───────────────────────────────────────────────────────────── */
 
 .closeBtn {
   display: flex;
   align-items: center;
-  gap: .55rem;
+  gap: .5rem;
   width: calc(100% - 1rem);
   margin: 0 .5rem;
-  padding: .42rem .75rem;
+  padding: .4rem .7rem;
   background: transparent;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  color: var(--ink-500);
-  font-size: .8rem;
+  color: var(--ink-600);
+  font-size: .75rem;
+  font-family: var(--font-body);
   cursor: pointer;
-  transition: all .15s;
+  transition: all .15s ease;
 }
+
 .closeBtn:hover {
-  background: rgba(196,64,64,.08);
+  background: rgba(196,64,64,.06);
   border-color: var(--crimson-600);
   color: var(--crimson-400);
 }
 
-/* Main content area */
+/* ══ Main Content ═════════════════════════════════════════════════════════════ */
+
 .main {
   background: var(--bg-base);
   overflow: hidden;

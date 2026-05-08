@@ -47,9 +47,35 @@
   --accent:       var(--gold-400);
   --accent-hover: var(--gold-300);
   --danger:       var(--crimson-400);
-  --shadow-sm:    0 1px 3px rgba(0,0,0,.6);
-  --shadow-md:    0 4px 16px rgba(0,0,0,.7);
-  --shadow-lg:    0 8px 32px rgba(0,0,0,.8);
+
+  /* ── Fantasy design tokens ── */
+  --color-bg-primary:    var(--ink-950);
+  --color-bg-secondary:  var(--ink-900);
+  --color-accent:        var(--gold-400);
+  --color-accent-soft:   rgba(224, 176, 96, 0.12);
+  --color-border:        var(--ink-700);
+  --color-glow:          rgba(224, 176, 96, 0.25);
+
+  --shadow-inner:    inset 0 2px 6px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+  --shadow-elevated: 0 4px 20px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-glow:     0 0 20px rgba(224, 176, 96, 0.15), 0 4px 20px rgba(0,0,0,0.7);
+
+  /* Module identity accent colors */
+  --mod-party:       #4a7fa5;
+  --mod-sessions:    #c47a30;
+  --mod-quests:      #c4a230;
+  --mod-npcs:        #8a4a7a;
+  --mod-factions:    #6a8a6a;
+  --mod-atlas:       #4a7a6a;
+  --mod-timeline:    #7a6a4a;
+  --mod-graph:       #5a6a8a;
+  --mod-bestiary:    #4a7a4a;
+  --mod-dungeon:     #4a6a8a;
+  --mod-assets:      #7a7a5a;
+  --mod-mini:        #7a5a4a;
+  --mod-generators:  #5a4a8a;
+  --mod-inspiration: #4a7a8a;
+
   --radius-sm:    4px;
   --radius-md:    8px;
   --radius-lg:    12px;
@@ -58,6 +84,10 @@
   --font-display: 'Cinzel', Georgia, serif;
   --font-body:    'Crimson Pro', 'Georgia', serif;
   --font-mono:    'Courier New', monospace;
+
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.6);
+  --shadow-md:    0 4px 16px rgba(0,0,0,.7);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,.8);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────────────── */
@@ -71,10 +101,9 @@ body {
   font-size:   16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* Subtle parchment noise texture */
   background-image:
-    radial-gradient(ellipse 120% 80% at 20% 10%, rgba(196,144,64,.04) 0%, transparent 60%),
-    radial-gradient(ellipse 80% 100% at 80% 90%, rgba(154,111,42,.03) 0%, transparent 60%);
+    radial-gradient(ellipse 120% 80% at 20% 10%, rgba(196,144,64,.05) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 100% at 80% 90%, rgba(154,111,42,.04) 0%, transparent 60%);
 }
 
 /* ── Typography ────────────────────────────────────────────────────────────── */

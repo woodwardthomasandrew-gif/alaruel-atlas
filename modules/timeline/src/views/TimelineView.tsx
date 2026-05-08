@@ -1,9 +1,10 @@
 /**
- * TimelineView — root view component for the timeline module.
- * Rendered by the UI router when the user navigates to this module.
+ * modules/timeline/src/views/TimelineView.tsx
  *
- * TODO: implement
+ * Re-exports the UI-layer TimelineView for any server-side or SSR contexts
+ * that import directly from the module package.
+ *
+ * The primary implementation lives at:
+ *   ui/src/views/timeline/TimelineView.tsx
  */
-export default function TimelineView() {
-  return null;
-}
+export { default } from '../../../../ui/src/views/timeline/TimelineView';
