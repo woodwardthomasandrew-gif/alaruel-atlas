@@ -58,7 +58,7 @@
 /* ── Generic section wrapper ──────────────────────────────────────────────────── */
 
 .sbSection {
-  padding: .65rem 1.25rem;
+  padding: .8rem 1.25rem;
   border-bottom: 1px solid var(--border-subtle);
 }
 .sbSection:last-child { border-bottom: none; }
@@ -81,13 +81,20 @@
 .coreRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem;
+  gap: .9rem 1.35rem;
+}
+
+.coreStat,
+.statLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .2rem .35rem;
+  min-width: 0;
 }
 
 .coreStat {
-  display: flex;
-  flex-direction: column;
-  gap: .08rem;
+  flex: 1 1 160px;
 }
 
 .coreLabel {
@@ -98,9 +105,29 @@
 }
 
 .coreValue {
-  font-size: .95rem;
+  font-size: .98rem;
   color: var(--text-primary);
   font-weight: 600;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLine {
+  flex: 1 1 160px;
+}
+
+.statLabel {
+  font-weight: 700;
+  color: var(--text-accent);
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.statValue {
+  color: var(--text-primary);
+  line-height: 1.45;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ── Ability score grid ────────────────────────────────────────────────────────── */
@@ -135,6 +162,7 @@
   color: var(--text-primary);
   font-weight: 700;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .abilityMod {
@@ -148,22 +176,29 @@
 .propList {
   display: flex;
   flex-direction: column;
-  gap: .3rem;
+  gap: .45rem;
 }
 
 .prop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .15rem .35rem;
   font-size: .875rem;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .propLabel {
   font-weight: 700;
   color: var(--text-accent);
-  margin-right: .3rem;
+  letter-spacing: .01em;
+  white-space: nowrap;
 }
 
 .propValue {
   color: var(--text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ── CR / Proficiency row ──────────────────────────────────────────────────────── */
@@ -188,6 +223,7 @@
   font-size: 1rem;
   color: var(--text-accent);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .crXp {
@@ -213,7 +249,7 @@
 .blockBody {
   font-size: .875rem;
   color: var(--text-secondary);
-  line-height: 1.55;
+  line-height: 1.6;
   margin: 0;
 }
 
@@ -245,7 +281,7 @@
 .loreText {
   font-size: .875rem;
   color: var(--text-secondary);
-  line-height: 1.65;
+  line-height: 1.7;
   margin: 0;
   white-space: pre-wrap;
 }

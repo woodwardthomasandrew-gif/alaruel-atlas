@@ -1,44 +1,55 @@
 // ui/src/views/inspiration/InspirationView.tsx
 // Auto-generating: fetches visions on mount and on a repeating interval.
 // Speed slider controls how quickly visions cycle.
-// Capture functionality unchanged.
+// Image assets from the campaign are blended into the vision pool;
+// each image gets a random CSS filter applied when displayed.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { atlas } from '../../bridge/atlas';
 import { useCampaignStore } from '../../store/campaign.store';
 import { Icon } from '../../components/ui/Icon';
 import { CrystalBallView } from './CrystalBallView';
+import type { Vision, ImageVision } from './CrystalBallView';
 import styles from './InspirationView.module.css';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface InspirationResult {
-  text: string;
-  category?: string;
-  tags?: string[];
+  text:        string;
+  category?:   string;
+  tags?:       string[];
+  imageUrl?:   string;
+  imageFilter?: string;
+}
+
+interface ImageAsset {
+  id:          string;
+  name:        string;
+  virtualPath: string;
+  category:    string;
+  imageUrl:    string;
+  imageFilter: string;
+  filterName:  string;
 }
 
 interface CapturedVision {
-  id:   number;
-  text: string;
+  id:       number;
+  text:     string;
+  imageUrl?: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-function mapResults(raw: InspirationResult[]): string[] {
-  return raw.map(r => r.text).filter(Boolean);
-}
-
-type MaterializationMode = 'text' | 'pictogram';
+type MaterializationMode = 'text' | 'pictogram' | 'image';
 
 const CATEGORY_PICTOGRAMS: Record<string, string[]> = {
-  any: ['✦', '✧', '☽', '☼', '✶', '⚝', '◈'],
-  plot: ['📜', '🕯️', '🗝️', '⚖️', '⏳', '🔮', '🜂'],
-  npc: ['🜁', '👁️', '🧿', '🗡️', '🫀', '☗', '♜'],
-  location: ['🏰', '🗺️', '🜃', '⛰️', '🌫️', '🛖', '🜄'],
+  any:       ['✦', '✧', '☽', '☼', '✶', '⚝', '◈'],
+  plot:      ['📜', '🕯️', '🗝️', '⚖️', '⏳', '🔮', '🜂'],
+  npc:       ['🜁', '👁️', '🧿', '🗡️', '🫀', '☗', '♜'],
+  location:  ['🏰', '🗺️', '🜃', '⛰️', '🌫️', '🛖', '🜄'],
   encounter: ['⚔️', '🛡️', '🩸', '🕸️', '🐺', '☠️', '♞'],
-  item: ['💎', '📿', '🔑', '🧭', '📖', '🧪', '🜍'],
-  name: ['✶', '✺', '☾', '✹', '♕', '☉', '⚜'],
+  item:      ['💎', '📿', '🔑', '🧭', '📖', '🧪', '🜍'],
+  name:      ['✶', '✺', '☾', '✹', '♕', '☉', '⚜'],
 };
 
 function hashString(value: string): number {
@@ -51,23 +62,52 @@ function hashString(value: string): number {
 
 function mapPictogram(result: InspirationResult): string {
   const source = CATEGORY_PICTOGRAMS[result.category ?? 'any'] ?? CATEGORY_PICTOGRAMS.any;
-  const seed = hashString(`${result.text}-${result.category ?? 'any'}`);
-  const first = source[seed % source.length];
+  const seed   = hashString(`${result.text}-${result.category ?? 'any'}`);
+  const first  = source[seed % source.length];
   const second = source[(seed >> 3) % source.length];
   return `${first}${second}`;
 }
 
-function mapMaterializedResults(raw: InspirationResult[], mode: MaterializationMode): string[] {
-  if (mode === 'text') {
-    return mapResults(raw);
-  }
-  return raw.map(mapPictogram).filter(Boolean);
+/** Pick a random element from an array */
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// ── Speed settings ────────────────────────────────────────────────────────────
-// Slider goes 1–5. Each level defines:
-//   intervalMs — how long between fetching a new batch
-//   holdMs     — how long each vision lingers (passed down to VisionItem)
+/**
+ * Convert raw InspirationResult[] + optional image pool into Vision[].
+ * In 'image' mode each vision is randomly drawn from the image asset pool
+ * (falling back to text if no images exist). In other modes images are never shown.
+ */
+function buildVisions(
+  raw:       InspirationResult[],
+  mode:      MaterializationMode,
+  imagePool: ImageAsset[],
+): Vision[] {
+  if (mode === 'image' && imagePool.length > 0) {
+    // Pick one random image from the pool
+    const asset = pickRandom(imagePool);
+    const vision: ImageVision = {
+      kind:        'image',
+      text:        asset.name,
+      imageUrl:    asset.imageUrl,
+      imageFilter: asset.imageFilter,
+      filterName:  asset.filterName,
+    };
+    return [vision];
+  }
+
+  if (mode === 'pictogram') {
+    return raw.map(r => ({ kind: 'text' as const, text: mapPictogram(r) }));
+  }
+
+  // 'text' (default)
+  return raw
+    .map(r => r.text)
+    .filter(Boolean)
+    .map(t => ({ kind: 'text' as const, text: t }));
+}
+
+// ── Speed settings ─────────────────────────────────────────────────────────────
 
 const SPEED_LEVELS = [
   { label: 'Slow',    intervalMs: 18000, holdMs: 6000 },  // 1
@@ -77,63 +117,107 @@ const SPEED_LEVELS = [
   { label: 'Rapid',   intervalMs:  3000, holdMs: 1400 },  // 5
 ];
 
-// ── Category options ──────────────────────────────────────────────────────────
+// ── Category options ───────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { value: 'any',       label: 'Any',         icon: '✨' },
-  { value: 'plot',      label: 'Plot Hook',   icon: '📜' },
-  { value: 'npc',       label: 'NPC Trait',   icon: '🧙' },
-  { value: 'location',  label: 'Location',    icon: '🗺️' },
-  { value: 'encounter', label: 'Encounter',   icon: '⚔️' },
-  { value: 'item',      label: 'Magic Item',  icon: '💎' },
+  { value: 'any',       label: 'Any',          icon: '✨' },
+  { value: 'plot',      label: 'Plot Hook',    icon: '📜' },
+  { value: 'npc',       label: 'NPC Trait',    icon: '🧙' },
+  { value: 'location',  label: 'Location',     icon: '🗺️' },
+  { value: 'encounter', label: 'Encounter',    icon: '⚔️' },
+  { value: 'item',      label: 'Magic Item',   icon: '💎' },
   { value: 'name',      label: 'Fantasy Name', icon: '✶' },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export default function InspirationView() {
   const campaign = useCampaignStore(s => s.campaign);
 
-  const [visions,         setVisions]        = useState<string[]>([]);
-  const [category,        setCategory]       = useState('any');
-  const [materialization, setMaterialization] = useState<MaterializationMode>('text');
-  const [error,           setError]          = useState<string | null>(null);
-  const [speed,           setSpeed]          = useState(3);           // 1–5
-  const [capturedVisions, setCapturedVisions] = useState<CapturedVision[]>([]);
-  const [captureSeq,      setCaptureSeq]     = useState(0);
+  const [visions,          setVisions]         = useState<Vision[]>([]);
+  const [category,         setCategory]        = useState('any');
+  const [materialization,  setMaterialization] = useState<MaterializationMode>('text');
+  const [error,            setError]           = useState<string | null>(null);
+  const [speed,            setSpeed]           = useState(3);
+  const [capturedVisions,  setCapturedVisions] = useState<CapturedVision[]>([]);
+  const [captureSeq,       setCaptureSeq]      = useState(0);
+  const [imagePool,        setImagePool]       = useState<ImageAsset[]>([]);
+  const [imagePoolLoaded,  setImagePoolLoaded] = useState(false);
 
   const speedCfg    = SPEED_LEVELS[speed - 1];
   const fetchingRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Keep a ref so the interval callback always reads the latest intervalMs
-  // without needing to be recreated on every speed change.
   const speedCfgRef = useRef(speedCfg);
   useEffect(() => { speedCfgRef.current = speedCfg; }, [speedCfg]);
 
-  // ── Fetch one batch ────────────────────────────────────────────────────────
+  // Keep latest values accessible in the cycle closure without restarting it
+  const materializationRef = useRef(materialization);
+  useEffect(() => { materializationRef.current = materialization; }, [materialization]);
+  const imagePoolRef = useRef<ImageAsset[]>([]);
+  useEffect(() => { imagePoolRef.current = imagePool; }, [imagePool]);
+
+  // ── Load image pool once per campaign ───────────────────────────────────────
+  useEffect(() => {
+    if (!campaign) { setImagePool([]); setImagePoolLoaded(false); return; }
+    setImagePoolLoaded(false);
+    const listImages = atlas.inspiration.listImages;
+    if (typeof listImages !== 'function') {
+      setImagePool([]);
+      setImagePoolLoaded(true);
+      return;
+    }
+    listImages({ campaignId: campaign.id })
+      .then((assets) => {
+        setImagePool(assets as ImageAsset[]);
+        setImagePoolLoaded(true);
+      })
+      .catch((err) => {
+        // Non-fatal — fall back to text-only mode
+        console.warn('inspiration: could not load image pool', err);
+        setImagePool([]);
+        setImagePoolLoaded(true);
+      });
+  }, [campaign?.id]);
+
+  // ── Fetch one batch ──────────────────────────────────────────────────────────
   const fetchBatch = useCallback(async () => {
     if (!campaign || fetchingRef.current) return;
     fetchingRef.current = true;
     setError(null);
     try {
+      const mode = materializationRef.current;
+      const pool = imagePoolRef.current;
+
+      // Image mode: no need to hit the generator — just pick from the pool
+      if (mode === 'image' && pool.length > 0) {
+        const asset = pickRandom(pool);
+        const vision: Vision = {
+          kind:        'image',
+          text:        asset.name,
+          imageUrl:    asset.imageUrl,
+          imageFilter: asset.imageFilter,
+          filterName:  asset.filterName,
+        };
+        setVisions([vision]);
+        return;
+      }
+
+      // Text / pictogram mode: call the generator
       const raw = await atlas.inspiration.generate({
         campaignId: campaign.id,
         category:   category === 'any' ? undefined : category,
         count:      1,
       }) as InspirationResult[];
-      setVisions(mapMaterializedResults(raw, materialization));
+
+      setVisions(buildVisions(raw, mode, pool));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       fetchingRef.current = false;
     }
-  }, [campaign, category, materialization]);
+  }, [campaign, category]); // materializationRef & imagePoolRef are stable refs — no need in deps
 
-  // ── Auto-cycle ─────────────────────────────────────────────────────────────
-  // Fetch immediately on mount/category/speed change, then repeat at interval.
-  // Using a self-scheduling setTimeout (instead of setInterval) means each new
-  // cycle reads the *current* intervalMs from the ref, so speed changes take
-  // effect on the very next cycle rather than waiting for the old interval to fire.
+  // ── Auto-cycle ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!campaign) return;
 
@@ -153,23 +237,29 @@ export default function InspirationView() {
       if (intervalRef.current) clearTimeout(intervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?.id, category, speed]);
+  }, [campaign?.id, category, speed, materialization]);
 
-  // ── Capture ────────────────────────────────────────────────────────────────
+  // ── Capture ──────────────────────────────────────────────────────────────────
   const handleCapture = useCallback((text: string) => {
+    // Find the current vision's image URL if it's an image vision
+    const currentVision = visions.find(v => v.text === text);
+    const imageUrl = currentVision?.kind === 'image' ? currentVision.imageUrl : undefined;
+
     setCapturedVisions(prev => {
       if (prev.some(v => v.text === text)) return prev;
       const id = captureSeq;
       setCaptureSeq(s => s + 1);
-      return [{ id, text }, ...prev];
+      return [{ id, text, imageUrl }, ...prev];
     });
-  }, [captureSeq]);
+  }, [captureSeq, visions]);
 
   const removeCapture = (id: number) => {
     setCapturedVisions(prev => prev.filter(v => v.id !== id));
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const hasImages = imagePool.length > 0;
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className={styles.root}>
       <header className={styles.toolbar}>
@@ -192,6 +282,7 @@ export default function InspirationView() {
               className={styles.select}
               value={category}
               onChange={e => setCategory(e.target.value)}
+              disabled={materialization === 'image'}
             >
               {CATEGORIES.map(c => (
                 <option key={c.value} value={c.value}>
@@ -209,9 +300,27 @@ export default function InspirationView() {
               onChange={e => setMaterialization(e.target.value as MaterializationMode)}
             >
               <option value="text">Text Visions</option>
-              <option value="pictogram">Pictograms / Pictures</option>
+              <option value="pictogram">Pictograms</option>
+              <option value="image" disabled={!hasImages}>
+                {hasImages
+                  ? `🖼 Asset Images (${imagePool.length})`
+                  : '🖼 Asset Images (none imported)'}
+              </option>
             </select>
           </label>
+
+          {materialization === 'image' && hasImages && (
+            <p className={styles.imageHint}>
+              Showing {imagePool.length} image{imagePool.length !== 1 ? 's' : ''} from your asset
+              library — each with a random mystical filter.
+            </p>
+          )}
+
+          {materialization === 'image' && !hasImages && imagePoolLoaded && (
+            <p className={styles.hint}>
+              No image assets found. Import maps or portraits in the Assets panel first.
+            </p>
+          )}
 
           {/* ── Speed slider ── */}
           <label className={styles.controlLabel}>
@@ -249,6 +358,13 @@ export default function InspirationView() {
             )}
             {capturedVisions.map(cv => (
               <div key={cv.id} className={styles.capturedItem}>
+                {cv.imageUrl && (
+                  <img
+                    src={cv.imageUrl}
+                    alt={cv.text}
+                    className={styles.capturedThumb}
+                  />
+                )}
                 <span className={styles.capturedText}>{cv.text}</span>
                 <button
                   className={styles.capturedRemove}
@@ -286,4 +402,3 @@ export default function InspirationView() {
     </div>
   );
 }
-

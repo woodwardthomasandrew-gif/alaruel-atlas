@@ -1,20 +1,24 @@
 # modules/atlas
 
-Atlas module — Interactive world maps and location management
+Interactive world maps and location management.
 
-## DB tables
-_(none yet — define in schema.ts)_
+## Responsibility
 
-## Events emitted
-_(none yet — define in events.ts)_
+- Owns the `locations`, `maps`, and `location_pins` tables
+- Emits `atlas:map-loaded`
+- Exposes `AtlasModule` and `AtlasService`
 
-## Events handled
-_(none yet — define in events.ts)_
+## Key Files
 
-## Views
-- `AtlasView` — main route view
+- `src/module.ts`
+- `src/service.ts`
+- `src/repository.ts`
+- `src/schema.ts`
+- `src/types.ts`
+- `src/views/AtlasView.tsx`
 
 ## Rules
+
 - Do not import from other modules
-- Use `@alaruel/core-events` for all cross-module coordination
-- Use `@alaruel/core-database` for all persistence
+- Use `@alaruel/core-events` for cross-module communication
+- Use `@alaruel/core-database` for persistence

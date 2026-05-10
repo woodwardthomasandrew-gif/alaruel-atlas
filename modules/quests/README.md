@@ -1,20 +1,24 @@
 # modules/quests
 
-Quests module — Quest and plot tracking
+Quest and plot tracking.
 
-## DB tables
-_(none yet — define in schema.ts)_
+## Responsibility
 
-## Events emitted
-_(none yet — define in events.ts)_
+- Owns the `plot_threads`, `quests`, `quest_objectives`, `quest_notes`, and `quest_npcs` tables
+- Emits `quest:created`, `quest:updated`, and `quest:completed`
+- Exposes `QuestsModule` and `QuestsService`
 
-## Events handled
-_(none yet — define in events.ts)_
+## Key Files
 
-## Views
-- `QuestsView` — main route view
+- `src/module.ts`
+- `src/service.ts`
+- `src/repository.ts`
+- `src/schema.ts`
+- `src/types.ts`
+- `src/views/QuestsView.tsx`
 
 ## Rules
+
 - Do not import from other modules
-- Use `@alaruel/core-events` for all cross-module coordination
-- Use `@alaruel/core-database` for all persistence
+- Use `@alaruel/core-events` for cross-module communication
+- Use `@alaruel/core-database` for persistence

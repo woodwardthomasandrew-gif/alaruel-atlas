@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { EntityBase, WithDescription, WithTags } from './common';
+import type { MovementSpeeds } from '../utils/movement';
 
 // ── Supporting value types ────────────────────────────────────────────────────
 
@@ -67,6 +68,35 @@ export interface AbilityScores {
   cha: number;
 }
 
+// ── Skill / spellcasting support ─────────────────────────────────────────────
+
+export interface SkillConfig {
+  proficient?: boolean;
+  expertise?: boolean;
+  override?: number;
+}
+
+export type SkillConfigs = Partial<Record<string, number | SkillConfig>>;
+
+export type SpellcastingModuleKind =
+  | 'spellcasting'
+  | 'innate_spellcasting'
+  | 'psionics'
+  | 'ritual_casting';
+
+export interface SpellcastingModule {
+  kind: SpellcastingModuleKind;
+  spellcastingAbility: 'int' | 'wis' | 'cha';
+  spellSaveDcOverride?: number;
+  spellAttackBonusOverride?: number;
+  spellSlots?: string;
+  preparedSpells?: string;
+  atWillSpells?: string;
+  dailySpells?: string;
+  ritualTags?: string;
+  notes?: string;
+}
+
 // ── Statblock sub-records ─────────────────────────────────────────────────────
 
 export interface MonsterAction {
@@ -78,6 +108,8 @@ export interface MonsterAction {
   damage?:     string;
   /** Recharge expression, e.g. "Recharge 5–6" */
   recharge?:   string;
+  /** Optional spellcasting module payload stored alongside traits. */
+  spellcasting?: SpellcastingModule;
 }
 
 export interface MonsterLegendaryAction extends MonsterAction {
@@ -128,8 +160,8 @@ export interface Monster extends EntityBase, WithDescription, WithTags {
   /** Speed in feet (walking). */
   speed:         number;
 
-  /** Additional movement types, e.g. { fly: 60, swim: 30 } */
-  speedOther?:   Record<string, number>;
+  /** Additional movement types, e.g. { fly: { speed: 60, hover: true }, swim: { speed: 30 } } */
+  speedOther?:   MovementSpeeds;
 
   // ── Ability scores ─────────────────────────────────────────────────────────
 
@@ -154,7 +186,7 @@ export interface Monster extends EntityBase, WithDescription, WithTags {
   // ── Skills ─────────────────────────────────────────────────────────────────
 
   /** Skill bonuses, e.g. { perception: 5, stealth: 3 } */
-  skills?:          Record<string, number>;
+  skills?:          SkillConfigs;
 
   // ── Resistances / immunities ───────────────────────────────────────────────
 

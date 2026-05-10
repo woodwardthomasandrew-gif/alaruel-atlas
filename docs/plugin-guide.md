@@ -1,14 +1,16 @@
 # Plugin Development Guide
 
-## Plugin structure
-```
+## Plugin Structure
+
+```text
 my-plugin/
-  plugin.json    — manifest
-  index.js       — compiled entry point
+  plugin.json
+  index.js
   README.md
 ```
 
-## Manifest (plugin.json)
+## Manifest (`plugin.json`)
+
 ```json
 {
   "id": "my-plugin",
@@ -19,18 +21,23 @@ my-plugin/
 }
 ```
 
-## Available permissions
-- `events:subscribe` — listen to app events
-- `events:emit`      — emit custom events
-- `db:read`          — read from campaign database
-- `db:write`         — write to campaign database (restricted tables only)
-- `ui:extend`        — register UI extension points
+## Available Permissions
+
+- `events:subscribe`
+- `events:emit`
+- `db:read`
+- `db:write`
+- `ui:extend`
+- `config:read`
+- `config:write`
 
 ## Plugin API
+
 Plugins receive a `PluginAPI` object in their `init(api)` function.
-See `shared/src/types/plugin.ts` for the full API surface.
+See `core/plugins/src/types.ts` for the full API surface.
 
 ## Rules
+
 - Plugins run in a sandboxed context
 - No direct filesystem access outside `data/plugins/<id>/`
 - No direct imports of core packages

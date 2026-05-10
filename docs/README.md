@@ -1,6 +1,6 @@
 # Generated Developer Documentation
 
-This folder contains generated documentation for the Alaruel Atlas repository.
+These pages are derived from the current codebase. If they disagree with the source, the source wins.
 
 ## Sections
 
@@ -10,9 +10,11 @@ This folder contains generated documentation for the Alaruel Atlas repository.
 - [Database Schema](./database.md)
 - [Feature Reference](./features.md)
 - [Entity Relationships](./relationships.md)
+- [Event Reference](./event-reference.md)
 
 ## Scope Notes
 
-- Type references prioritize canonical contracts in `shared/`, `core/*/src/types.ts`, `modules/*/src/types.ts`, `ui/src/types/`, and desktop bridge interfaces.
-- `types-index.md` is the complete declaration scan (`type` + `interface`) across first-party TS/TSX files for cross-checking completeness.
-- DB mapping is sourced from `core/database/schema/full.sql` plus module schema registrations.
+- Module inventories follow `package.json` and each package `src/index.ts`.
+- Database references follow the runtime schema registrations in `modules/*/src/schema.ts` and `core/database/src/index.ts`.
+- Event references follow `core/events/src/registry.ts`, plus the direct event forwarding in `apps/desktop/src/ipc.ts`.
+- `types-index.md` is the raw declaration scan for the repository and is useful as a completeness check.

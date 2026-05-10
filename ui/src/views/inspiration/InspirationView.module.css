@@ -24,6 +24,7 @@
 .sliderLabel{font-size:.72rem;color:var(--gold-400);font-family:var(--font-mono);letter-spacing:.06em;text-align:center}
 
 .hint{font-size:.8rem;color:var(--ink-500);font-style:italic;margin:0}
+.imageHint{font-size:.75rem;color:var(--gold-500);font-style:italic;margin:0;line-height:1.45}
 .error{font-size:.8rem;color:var(--crimson-400);margin:0}
 
 /* ── Captured Visions Panel ──────────────────────────────────── */
@@ -32,6 +33,7 @@
 .capturedCount{font-size:.65rem;font-family:var(--font-mono);background:rgba(196,144,64,.15);border:1px solid var(--gold-700);border-radius:20px;color:var(--gold-400);padding:.05rem .45rem;margin-left:auto}
 .capturedEmpty{font-size:.78rem;color:var(--ink-600);font-style:italic;margin:0;line-height:1.5}
 .capturedItem{display:flex;align-items:flex-start;gap:.4rem;padding:.35rem .45rem;background:var(--bg-raised);border:1px solid var(--border-subtle);border-left:2px solid var(--gold-700);border-radius:var(--radius-sm);transition:border-color .15s;flex-shrink:0}
+.capturedThumb{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid var(--gold-700);opacity:.85}
 .capturedItem:hover{border-color:var(--border);border-left-color:var(--gold-500)}
 .capturedText{flex:1;font-size:.78rem;color:var(--text-secondary);line-height:1.5;word-break:break-word}
 .capturedRemove{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:18px;height:18px;background:transparent;border:none;border-radius:var(--radius-sm);color:var(--ink-600);cursor:pointer;transition:all .12s;margin-top:.1rem}

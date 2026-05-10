@@ -61,7 +61,7 @@ export function registerIpcHandlers(win: BrowserWindow, paths: AppPaths): void {
   registerAssetHandlers(paths);
   registerAppHandlers(paths);
   registerExportHandlers();
-  registerInspirationHandlers({ log });
+  registerInspirationHandlers({ db: databaseManager as any, log });
   log.info('IPC handlers registered');
 }
 

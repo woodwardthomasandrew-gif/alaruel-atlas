@@ -42,6 +42,7 @@ export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
   const [challengeRating, setChallengeRating] = useState('1');
   const [armorClass,      setArmorClass]      = useState('10');
   const [hitPoints,       setHitPoints]       = useState('10');
+  const [walkSpeed,       setWalkSpeed]       = useState('30');
   const [isHomebrew,      setIsHomebrew]      = useState(true);
 
   const [saving, setSaving] = useState(false);
@@ -102,7 +103,7 @@ export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
         [
           id, campaignId, trimmedName, '',
           creatureType, size, 'true neutral',
-          ac, hp, 30,
+          ac, hp, Math.max(0, parseInt(walkSpeed, 10) || 0),
           10, 10, 10, 10, 10, 10,
           pb, challengeRating, xp,
           '{}', '{}',
@@ -190,6 +191,17 @@ export function MonsterCreateModal({ campaignId, onCreated, onClose }: Props) {
               >
                 {CR_OPTIONS.map(cr => <option key={cr} value={cr}>{cr}</option>)}
               </select>
+            </div>
+            <div className={styles.group}>
+              <label className={styles.label} htmlFor="mc-speed">Walk Speed</label>
+              <input
+                id="mc-speed"
+                className={styles.input}
+                type="number"
+                min={0}
+                value={walkSpeed}
+                onChange={e => setWalkSpeed(e.target.value)}
+              />
             </div>
             <div className={styles.group}>
               <label className={styles.label} htmlFor="mc-ac">Armour Class</label>

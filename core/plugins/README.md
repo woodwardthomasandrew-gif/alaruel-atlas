@@ -3,13 +3,15 @@
 Plugin loader and lifecycle manager.
 
 ## Responsibilities
+
 - Discover plugins in `data/plugins/`
 - Validate `plugin.json` manifests
-- Sandbox each plugin (restricted API surface)
-- Manage load / unload lifecycle
-- Emit `plugin:loaded` / `plugin:unloaded` events
+- Build a permission-gated plugin API surface
+- Manage load and unload lifecycle
+- Emit `plugin:loaded` and `plugin:unloaded`
 
-## Plugin manifest shape (plugin.json)
+## Plugin Manifest Shape
+
 ```json
 {
   "id": "my-plugin",
@@ -19,3 +21,13 @@ Plugin loader and lifecycle manager.
   "permissions": ["events:subscribe", "db:read"]
 }
 ```
+
+## Permissions
+
+- `events:subscribe`
+- `events:emit`
+- `db:read`
+- `db:write`
+- `ui:extend`
+- `config:read`
+- `config:write`

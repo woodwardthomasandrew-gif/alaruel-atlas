@@ -5,6 +5,7 @@ import { BaseRepository }        from '../../_framework/src/index';
 import type { IDatabaseManager } from '../../../core/database/src/types';
 import type { Logger }           from '../../../core/logger/src/types';
 import type { Monster }          from '../../../shared/src/types/monster';
+import { normalizeMovementSpeeds, serializeMovementSpeeds } from '../../../shared/src/utils/movement';
 import type {
   MonsterRow,
   CreateMonsterInput,
@@ -28,7 +29,7 @@ function rowToMonster(row: MonsterRow): Monster {
     hitPoints:     row.hit_points,
     hitDice:       row.hit_dice ?? undefined,
     speed:         row.speed,
-    speedOther:    JSON.parse(row.speed_other) as Record<string, number>,
+    speedOther:    normalizeMovementSpeeds(JSON.parse(row.speed_other)),
     abilityScores: {
       str: row.str, dex: row.dex, con: row.con,
       int: row.int, wis: row.wis, cha: row.cha,
@@ -175,7 +176,7 @@ export class BestiaryRepository extends BaseRepository {
         input.hitPoints            ?? 1,
         input.hitDice              ?? null,
         input.speed                ?? 30,
-        JSON.stringify(input.speedOther ?? {}),
+        serializeMovementSpeeds(input.speedOther ?? {}),
         ab.str, ab.dex, ab.con, ab.int, ab.wis, ab.cha,
         input.proficiencyBonus     ?? 2,
         input.challengeRating      ?? '0',
@@ -227,7 +228,7 @@ export class BestiaryRepository extends BaseRepository {
     if (input.hitPoints         !== undefined) push('hit_points',            input.hitPoints);
     if (input.hitDice           !== undefined) push('hit_dice',              input.hitDice ?? null);
     if (input.speed             !== undefined) push('speed',                 input.speed);
-    if (input.speedOther        !== undefined) pushJson('speed_other',       input.speedOther);
+    if (input.speedOther        !== undefined) pushJson('speed_other',       normalizeMovementSpeeds(input.speedOther));
     if (input.abilityScores     !== undefined) {
       const ab = input.abilityScores;
       push('str', ab.str); push('dex', ab.dex); push('con', ab.con);

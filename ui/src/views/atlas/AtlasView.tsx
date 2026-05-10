@@ -39,7 +39,12 @@ export default function AtlasView() {
   const [mapForm,       setMapForm]       = useState({ name: '', imageAssetId: '', widthPx: '1200', heightPx: '900', scale: '' });
   const [mapSaving,     setMapSaving]     = useState(false);
 
-  // Resolved image URLs for the SVG canvas (virtualPath → file:// URL)
+  // Edit-map form state (for changing the image attached to an existing map)
+  const [showEditMap,   setShowEditMap]   = useState(false);
+  const [editForm,      setEditForm]      = useState({ imageAssetId: '', widthPx: '1200', heightPx: '900', scale: '' });
+  const [editSaving,    setEditSaving]    = useState(false);
+
+  // Resolved image URLs for the SVG canvas and thumbnails (assetId → resolved URL)
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -68,7 +73,7 @@ export default function AtlasView() {
         tags: JSON.parse(r['tags'] as string ?? '[]') as string[],
         createdAt:r['created_at'] as string, updatedAt:r['updated_at'] as string,
       })));
-      setMaps(mrows.map(r => ({
+      const newMaps = mrows.map(r => ({
         id:r['id'] as string, name:r['name'] as string,
         description:r['description'] as string ?? '',
         imageAssetId:r['image_asset_id'] as string|null,
@@ -78,9 +83,16 @@ export default function AtlasView() {
         scale: r['scale'] as string|null,
         tags: JSON.parse(r['tags'] as string ?? '[]') as string[],
         createdAt:r['created_at'] as string, updatedAt:r['updated_at'] as string,
-      })));
+      }));
+      setMaps(newMaps);
+      // Pre-resolve thumbnail URLs for all maps that have an image asset
+      for (const m of newMaps) {
+        if (m.imageAssetId) {
+          resolveAssetUrl(m.imageAssetId);
+        }
+      }
     } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
-  }, [campaign]);
+  }, [campaign]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -115,6 +127,21 @@ export default function AtlasView() {
     }
   }
 
+  // Resolve by asset ID (looks up virtual_path, then resolves to URL). Caches result.
+  async function resolveAssetUrl(assetId: string): Promise<string|null> {
+    if (imageUrls[assetId]) return imageUrls[assetId];
+    try {
+      const asset = await atlas.db.query<RawAsset>(
+        'SELECT virtual_path FROM assets WHERE id=?', [assetId],
+      );
+      if (!asset[0]) return null;
+      const vp = asset[0]['virtual_path'] as string;
+      const url = await resolveImageUrl(vp);
+      if (url) setImageUrls(prev => ({ ...prev, [assetId]: url }));
+      return url;
+    } catch { return null; }
+  }
+
   async function loadPins(mapId: string) {
     const rows = await atlas.db.query<RawPin>(
       'SELECT * FROM location_pins WHERE map_id=?', [mapId],
@@ -131,17 +158,7 @@ export default function AtlasView() {
     setActiveMap(m);
     await loadPins(m.id);
     setViewport({zoom:1, px:0, py:0});
-    // Resolve image URL if map has an image asset
-    if (m.imageAssetId && !imageUrls[m.imageAssetId]) {
-      const asset = await atlas.db.query<RawAsset>(
-        'SELECT virtual_path FROM assets WHERE id=?', [m.imageAssetId],
-      );
-      if (asset[0]) {
-        const vp = asset[0]['virtual_path'] as string;
-        const url = await resolveImageUrl(vp);
-        if (url) setImageUrls(prev => ({ ...prev, [m.imageAssetId!]: url }));
-      }
-    }
+    if (m.imageAssetId) await resolveAssetUrl(m.imageAssetId);
   }
 
   async function createLocation() {
@@ -168,7 +185,6 @@ export default function AtlasView() {
     setError(null);
     try {
       const id = crypto.randomUUID(), now = new Date().toISOString();
-      // Auto-fill dimensions from selected image asset if available
       let w = parseInt(mapForm.widthPx)  || 1200;
       let h = parseInt(mapForm.heightPx) || 900;
       if (mapForm.imageAssetId) {
@@ -191,8 +207,58 @@ export default function AtlasView() {
     finally    { setMapSaving(false); }
   }
 
+  // ── Edit map (change image / scale) ────────────────────────────────────────
+  async function openEditMap() {
+    if (!activeMap) return;
+    await loadMapAssets();
+    setEditForm({
+      imageAssetId: activeMap.imageAssetId ?? '',
+      widthPx:      String(activeMap.widthPx),
+      heightPx:     String(activeMap.heightPx),
+      scale:        activeMap.scale ?? '',
+    });
+    setShowEditMap(true);
+  }
+
+  async function handleEditMap() {
+    if (!activeMap) return;
+    setEditSaving(true);
+    setError(null);
+    try {
+      let w = parseInt(editForm.widthPx)  || activeMap.widthPx;
+      let h = parseInt(editForm.heightPx) || activeMap.heightPx;
+      if (editForm.imageAssetId) {
+        const chosen = mapAssets.find(a => a.id === editForm.imageAssetId);
+        if (chosen?.widthPx)  w = chosen.widthPx;
+        if (chosen?.heightPx) h = chosen.heightPx;
+      }
+      await atlas.db.run(
+        `UPDATE maps SET image_asset_id=?, width_px=?, height_px=?, scale=? WHERE id=?`,
+        [editForm.imageAssetId || null, w, h, editForm.scale.trim() || null, activeMap.id],
+      );
+      setShowEditMap(false);
+      // Flush cached URL for the old asset so the canvas re-fetches
+      if (activeMap.imageAssetId && editForm.imageAssetId !== activeMap.imageAssetId) {
+        setImageUrls(prev => {
+          const next = { ...prev };
+          if (activeMap.imageAssetId) delete next[activeMap.imageAssetId];
+          return next;
+        });
+      }
+      await loadAll();
+      // Re-select the updated map so canvas refreshes
+      const updated: CampaignMap = {
+        ...activeMap,
+        imageAssetId: editForm.imageAssetId || null,
+        widthPx: w, heightPx: h,
+        scale: editForm.scale.trim() || null,
+      };
+      await selectMap(updated);
+    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally    { setEditSaving(false); }
+  }
+
   async function handleMapClick(e: React.MouseEvent<SVGSVGElement>) {
-    // If the mouse moved more than 4px since mousedown, treat it as a pan, not a click
     if (dragMoved.current) return;
     if (!activeMap || tool !== 'pin' || !selected) return;
     const svg = svgRef.current!;
@@ -231,8 +297,6 @@ export default function AtlasView() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
-    // Single atomic update — zoom and pan change together so they
-    // are never out of sync between renders.
     setViewport(v => {
       const newZoom = Math.min(4, Math.max(0.25, v.zoom * factor));
       return {
@@ -264,6 +328,10 @@ export default function AtlasView() {
             </button>
             <span className={styles.zoomLabel}>{Math.round(zoom*100)}%</span>
             <button className={styles.toolBtn} onClick={() => setViewport({zoom:1, px:0, py:0})}>Reset</button>
+            {/* Edit map image button */}
+            <button className={styles.toolBtn} onClick={openEditMap} title="Change map image / settings">
+              <Icon name="settings" size={14}/> Edit Map
+            </button>
           </div>
         )}
         <button className={styles.sidebarToggle} onClick={() => setShowSidebar(v=>!v)}>
@@ -281,13 +349,26 @@ export default function AtlasView() {
               <Icon name="map" size={48} className={styles.emptyIcon}/>
               <h3>Select a map to explore</h3>
               <div className={styles.mapGrid}>
-                {maps.map(m => (
-                  <button key={m.id} className={styles.mapCard} onClick={() => selectMap(m)}>
-                    <Icon name="map" size={24} className={styles.mapCardIcon}/>
-                    <span>{m.name}</span>
-                    <span className={styles.mapDims}>{m.widthPx}×{m.heightPx}px</span>
-                  </button>
-                ))}
+                {maps.map(m => {
+                  const thumbUrl = m.imageAssetId ? imageUrls[m.imageAssetId] : null;
+                  return (
+                    <button key={m.id} className={styles.mapCard} onClick={() => selectMap(m)}>
+                      {/* Thumbnail background */}
+                      <div className={styles.mapCardThumb}>
+                        {thumbUrl ? (
+                          <img src={thumbUrl} className={styles.mapCardThumbImg} alt={m.name}/>
+                        ) : (
+                          <Icon name="map" size={28} className={styles.mapCardIcon}/>
+                        )}
+                      </div>
+                      {/* Label overlay */}
+                      <div className={styles.mapCardLabel}>
+                        <span className={styles.mapCardName}>{m.name}</span>
+                        <span className={styles.mapDims}>{m.widthPx}×{m.heightPx}px</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
               <button className={styles.createMapBtn} onClick={openCreateMap}>
                 <Icon name="plus" size={15}/> Create Map
@@ -330,7 +411,7 @@ export default function AtlasView() {
                     {!activeMap.imageAssetId && (
                       <text x={activeMap.widthPx/2} y={activeMap.heightPx/2}
                         fontSize="13" fill="var(--ink-600)" textAnchor="middle" dominantBaseline="middle">
-                        No image assigned — add one via Assets, then edit this map
+                        No image assigned — click &quot;Edit Map&quot; in the toolbar to add one
                       </text>
                     )}
                   </>
@@ -345,21 +426,39 @@ export default function AtlasView() {
                 {pins.map(pin => {
                   const loc = locations.find(l => l.id === pin.locationId);
                   const col = TYPE_COLOUR[loc?.locationType ?? 'default'] ?? TYPE_COLOUR['default'];
+                  const label = pin.label ?? loc?.name ?? '';
                   return (
                     <g key={pin.id} style={{cursor:'pointer'}}
                       onClick={e => { e.stopPropagation(); if(loc) setSelected(loc); }}>
+                      {/* Label backdrop pill */}
+                      {zoom > 0.5 && label && (
+                        <g style={{pointerEvents:'none'}}>
+                          {/* Measure via approximate char width — SVG has no measureText easily,
+                              so we use a fixed char-width estimate and clip generously */}
+                          <rect
+                            x={pin.posX - (label.length * 3.3 + 6) / zoom}
+                            y={pin.posY - 26 / zoom}
+                            width={(label.length * 6.6 + 12) / zoom}
+                            height={14 / zoom}
+                            rx={3 / zoom}
+                            fill="var(--bg-base)"
+                            fillOpacity={0.72}
+                          />
+                          <text
+                            x={pin.posX}
+                            y={pin.posY - 14 / zoom}
+                            fontSize={11 / zoom}
+                            fill="var(--text-primary)"
+                            textAnchor="middle"
+                            dominantBaseline="auto">
+                            {label}
+                          </text>
+                        </g>
+                      )}
                       <circle cx={pin.posX} cy={pin.posY} r={10/zoom+2}
                         fill={col} fillOpacity={0.9} stroke="var(--bg-base)" strokeWidth={1.5/zoom}/>
                       <circle cx={pin.posX} cy={pin.posY} r={4/zoom}
                         fill="var(--bg-base)" fillOpacity={0.8}/>
-                      {zoom > 0.5 && (
-                        <text x={pin.posX} y={pin.posY-14/zoom}
-                          fontSize={11/zoom} fill="var(--text-primary)"
-                          textAnchor="middle" dominantBaseline="auto"
-                          style={{pointerEvents:'none', textShadow:'0 1px 3px var(--bg-base)'}}>
-                          {pin.label ?? loc?.name ?? ''}
-                        </text>
-                      )}
                     </g>
                   );
                 })}
@@ -471,7 +570,7 @@ export default function AtlasView() {
         )}
       </div>
 
-      {/* Create Map Modal */}
+      {/* ── Create Map Modal ───────────────────────────────────────────────── */}
       {showCreateMap && (
         <div className={styles.modalBackdrop} onClick={e => e.target===e.currentTarget && setShowCreateMap(false)}>
           <div className={styles.modal}>
@@ -490,7 +589,7 @@ export default function AtlasView() {
               </label>
 
               <label className={styles.formLabel}>
-                Map Image <span className={styles.formHint}>(optional — can be added later)</span>
+                Map Image <span className={styles.formHint}>(optional — can be changed later)</span>
                 <select className={styles.formInput}
                   value={mapForm.imageAssetId}
                   onChange={e => setMapForm(f => ({...f, imageAssetId: e.target.value}))}>
@@ -536,6 +635,78 @@ export default function AtlasView() {
                 {mapSaving
                   ? <><Icon name="loader" size={14} className={styles.spin}/> Creating…</>
                   : <><Icon name="plus" size={14}/> Create Map</>}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Map Modal (change image / scale on an existing map) ───────── */}
+      {showEditMap && activeMap && (
+        <div className={styles.modalBackdrop} onClick={e => e.target===e.currentTarget && setShowEditMap(false)}>
+          <div className={styles.modal}>
+            <header className={styles.modalHeader}>
+              <h3>Edit Map — {activeMap.name}</h3>
+              <button className={styles.modalClose} onClick={() => setShowEditMap(false)}>
+                <Icon name="x" size={16}/>
+              </button>
+            </header>
+
+            <div className={styles.modalBody}>
+              <label className={styles.formLabel}>
+                Map Image
+                <select className={styles.formInput}
+                  value={editForm.imageAssetId}
+                  onChange={e => setEditForm(f => ({...f, imageAssetId: e.target.value}))}>
+                  <option value="">— No image —</option>
+                  {mapAssets.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}
+                      {a.widthPx && a.heightPx ? ` (${a.widthPx}×${a.heightPx})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {mapAssets.length === 0 && (
+                  <span className={styles.formHint}>No map images imported yet. Go to Assets → Import to add one.</span>
+                )}
+              </label>
+
+              {/* Preview of currently selected image */}
+              {editForm.imageAssetId && imageUrls[editForm.imageAssetId] && (
+                <div className={styles.editThumbPreview}>
+                  <img src={imageUrls[editForm.imageAssetId]} className={styles.editThumbImg} alt="Preview"/>
+                </div>
+              )}
+
+              {!editForm.imageAssetId && (
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>
+                    Width (px)
+                    <input className={styles.formInput} type="number" min={100} max={8000}
+                      value={editForm.widthPx} onChange={e => setEditForm(f => ({...f, widthPx: e.target.value}))}/>
+                  </label>
+                  <label className={styles.formLabel}>
+                    Height (px)
+                    <input className={styles.formInput} type="number" min={100} max={8000}
+                      value={editForm.heightPx} onChange={e => setEditForm(f => ({...f, heightPx: e.target.value}))}/>
+                  </label>
+                </div>
+              )}
+
+              <label className={styles.formLabel}>
+                Scale <span className={styles.formHint}>(e.g. "1 hex = 6 miles")</span>
+                <input className={styles.formInput} placeholder="1 hex = 6 miles"
+                  value={editForm.scale} onChange={e => setEditForm(f => ({...f, scale: e.target.value}))}/>
+              </label>
+            </div>
+
+            <footer className={styles.modalFooter}>
+              <button className={styles.cancelBtn} onClick={() => setShowEditMap(false)}>Cancel</button>
+              <button className={styles.submitBtn}
+                onClick={handleEditMap}
+                disabled={editSaving}>
+                {editSaving
+                  ? <><Icon name="loader" size={14} className={styles.spin}/> Saving…</>
+                  : <><Icon name="check" size={14}/> Save Changes</>}
               </button>
             </footer>
           </div>

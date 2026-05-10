@@ -99,7 +99,9 @@ export interface AtlasBridge {
   // ── Inspiration ───────────────────────────────────────────────────────────
   inspiration: {
     /** Generate inspiration results from random tables. */
-    generate:     (params: InspirationGenerateParams) => Promise<InspirationResult[]>;
+    generate:     (params: InspirationGenerateParams)  => Promise<InspirationResult[]>;
+    /** List all image assets for the campaign (maps, portraits) with random filters. */
+    listImages:   (params: InspirationListImagesParams) => Promise<InspirationImageAsset[]>;
   };
 
   // ── App ───────────────────────────────────────────────────────────────────
@@ -194,9 +196,25 @@ interface InspirationGenerateParams {
 }
 
 interface InspirationResult {
-  text:      string;
-  category:  string;
-  tags:      string[];
+  text:         string;
+  category:     string;
+  tags:         string[];
+  imageUrl?:    string;
+  imageFilter?: string;
+}
+
+interface InspirationListImagesParams {
+  campaignId: string;
+}
+
+interface InspirationImageAsset {
+  id:          string;
+  name:        string;
+  virtualPath: string;
+  category:    string;
+  imageUrl:    string;
+  imageFilter: string;
+  filterName:  string;
 }
 
 // ── contextBridge exposure ────────────────────────────────────────────────────
@@ -231,7 +249,8 @@ const bridge: AtlasBridge = {
   },
 
   inspiration: {
-    generate: (params) => invoke('inspiration:generate', params),
+    generate:   (params) => invoke('inspiration:generate',   params),
+    listImages: (params) => invoke('inspiration:listImages', params),
   },
 
   app: {

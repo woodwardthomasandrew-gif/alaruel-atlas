@@ -13,18 +13,48 @@ export type InspirationCategory =
   | 'location'
   | 'encounter'
   | 'item'
-  | 'name';
+  | 'name'
+  | 'image';
 
 export interface InspirationResult {
-  text:     string;
-  category: InspirationCategory;
-  tags:     string[];
+  text:        string;
+  category:    InspirationCategory;
+  tags:        string[];
+  /** Present only when category === 'image'. The atlas:// URL for the asset. */
+  imageUrl?:   string;
+  /** CSS filter string to apply to the image (random, pre-computed). */
+  imageFilter?: string;
 }
 
 export interface GenerateParams {
   campaignId: string;
   category?:  InspirationCategory;
   count?:     number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image filters — applied randomly to asset images
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const IMAGE_FILTERS: ReadonlyArray<{ name: string; css: string }> = [
+  { name: 'arcane',    css: 'hue-rotate(240deg) saturate(1.8) brightness(0.85)' },
+  { name: 'crimson',   css: 'hue-rotate(300deg) saturate(2.0) brightness(0.9)' },
+  { name: 'verdant',   css: 'hue-rotate(90deg)  saturate(1.6) brightness(0.88)' },
+  { name: 'golden',    css: 'sepia(0.6) saturate(1.8) brightness(1.05)' },
+  { name: 'spectral',  css: 'grayscale(0.6) brightness(1.1) contrast(1.15)' },
+  { name: 'shadow',    css: 'brightness(0.55) contrast(1.3) saturate(0.7)' },
+  { name: 'frost',     css: 'hue-rotate(180deg) saturate(1.4) brightness(1.1)' },
+  { name: 'infernal',  css: 'hue-rotate(15deg) saturate(2.2) brightness(0.8) contrast(1.2)' },
+  { name: 'ethereal',  css: 'brightness(1.15) saturate(0.5) contrast(0.9)' },
+  { name: 'cursed',    css: 'invert(0.15) hue-rotate(200deg) saturate(1.5) brightness(0.8)' },
+  { name: 'divine',    css: 'sepia(0.3) brightness(1.2) saturate(1.3) contrast(0.95)' },
+  { name: 'voidborn',  css: 'grayscale(0.9) brightness(0.6) contrast(1.4)' },
+  { name: 'none',      css: '' },
+];
+
+export function pickRandomFilter(): { name: string; css: string } {
+  const arr = IMAGE_FILTERS as Array<{ name: string; css: string }>;
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -482,10 +512,22 @@ function generateName(): InspirationResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Image — placeholder (real images come via IPC from the asset list)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generateImagePlaceholder(): InspirationResult {
+  return {
+    text:     'No image assets found. Import maps or portraits to see them here.',
+    category: 'image',
+    tags:     ['image'],
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Generator class
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GENERATORS: Record<InspirationCategory, () => InspirationResult> = {
+const TEXT_GENERATORS: Record<Exclude<InspirationCategory, 'image'>, () => InspirationResult> = {
   plot:      generatePlot,
   npc:       generateNpc,
   location:  generateLocation,
@@ -494,7 +536,8 @@ const GENERATORS: Record<InspirationCategory, () => InspirationResult> = {
   name:      generateName,
 };
 
-const ALL_CATEGORIES: InspirationCategory[] = ['plot', 'npc', 'location', 'encounter', 'item', 'name'];
+const ALL_TEXT_CATEGORIES: Exclude<InspirationCategory, 'image'>[] =
+  ['plot', 'npc', 'location', 'encounter', 'item', 'name'];
 
 export class InspirationGenerator {
   constructor(_opts: { db?: unknown; log?: unknown } = {}) {}
@@ -503,19 +546,28 @@ export class InspirationGenerator {
     const count    = Math.min(Math.max(params.count ?? 3, 1), 10);
     const category = params.category as InspirationCategory | undefined;
 
-    if (category && GENERATORS[category]) {
-      return Array.from({ length: count }, () => GENERATORS[category]());
+    // Image category is handled externally (IPC resolves the asset URL),
+    // but we keep the placeholder path in case someone calls it directly.
+    if (category === 'image') {
+      return Array.from({ length: count }, () => generateImagePlaceholder());
     }
 
-    const pool: InspirationCategory[] = [];
+    if (category && TEXT_GENERATORS[category as Exclude<InspirationCategory, 'image'>]) {
+      return Array.from(
+        { length: count },
+        () => TEXT_GENERATORS[category as Exclude<InspirationCategory, 'image'>](),
+      );
+    }
+
+    const pool: Exclude<InspirationCategory, 'image'>[] = [];
     for (let i = 0; pool.length < count; i++) {
-      pool.push(ALL_CATEGORIES[i % ALL_CATEGORIES.length]);
+      pool.push(ALL_TEXT_CATEGORIES[i % ALL_TEXT_CATEGORIES.length]);
     }
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
-    return pool.map(cat => GENERATORS[cat]());
+    return pool.map(cat => TEXT_GENERATORS[cat]());
   }
 }

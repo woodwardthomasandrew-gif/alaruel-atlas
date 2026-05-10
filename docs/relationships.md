@@ -12,12 +12,12 @@ Campaign (1)
   |                       |      +--< Scene Minis (many-to-many via session_scene_minis) >-- Minis
   |                       |
   |                       +--< Session Notes / Prep Items (1-to-many)
+  |                       +--< Session Quests / NPCs (many-to-many)
   |
   +--< Quests (many) >--< QuestObjectives (1-to-many)
   |         |
   |         +--< QuestNotes (1-to-many)
   |         +--< Quest NPCs (many-to-many) >-- NPCs
-  |         +--< Quest Locations (many-to-many) >-- Locations
   |         +--(many-to-one optional)--> PlotThreads
   |
   +--< PlotThreads (many)
@@ -25,7 +25,7 @@ Campaign (1)
   |
   +--< NPCs (many)
   |       +--< NPC Notes (1-to-many)
-  |       +--< NPC Factions (many-to-many) >-- Factions
+  |       +--< Factions (many-to-many via faction_members / session_factions)
   |
   +--< Locations (many)
   |       +--(self hierarchy) parent_location_id
@@ -33,12 +33,14 @@ Campaign (1)
   |
   +--< CampaignEvents (many)
   |       +--< Event causality (many-to-many self-link)
-  |       +--< Event NPC/Faction links (many-to-many)
+  |       +--< Event NPC links (many-to-many)
   |       +--(optional) -> Session / Quest / Location / PlotThread
   |
   +--< EntityRelationships (many generic graph edges)
   |
   +--< Assets (many) >--< AssetLinks (many-to-many polymorphic) >-- Any entity
+  |
+  +--< PartyMembers / Airships / Pets (many)
   |
   +--< Monsters (many)
   +--< Minis (many) >--< MiniMonsters (many-to-many) >-- Monsters
@@ -53,18 +55,17 @@ Campaign (1)
 - `SessionScene many <-> many NPC` via `session_scene_npcs`.
 - `SessionScene many <-> many Monster` via `session_scene_monsters`.
 - `SessionScene many <-> many Mini` via `session_scene_minis`.
-- `Session many <-> many Quest` via `session_quests` (advanced/completed outcome).
-- `Session many <-> many NPC` via `session_npcs` (featured participants).
-- `Session many <-> many Location` via `session_locations`.
-- `Session many <-> many PlotThread` via `session_plot_threads`.
+- `Session many <-> many Quest` via `session_quests` (`advanced` or `completed`).
+- `Session many <-> many NPC` via `session_npcs`.
+- `Session many <-> many Faction` via `session_factions`.
 - `Quest many <-> many NPC` via `quest_npcs`.
-- `Quest many <-> many Location` via `quest_locations`.
 - `Quest many -> one PlotThread` via `plot_thread_id` (nullable).
-- `PlotThread many <-> many NPC/Location/Faction` via join tables.
+- `PlotThread many <-> many NPC/Faction/Location` via join tables.
 
 ## Graph Layer Representation
 
 `entity_relationships` encodes generic edges with:
+
 - `source_id`, `source_type`
 - `target_id`, `target_type`
 - `relationship_type`, `label`, optional `strength`, `directed`

@@ -1,56 +1,55 @@
 # Database Schema
 
 Schema sources:
-- `core/database/schema/full.sql`
-- module schema registrations in `modules/*/src/schema.ts`
+- `core/database/src/index.ts`
+- `modules/*/src/schema.ts`
+- `core/assets/src/index.ts` for the `core_assets` tables
+- `core/database/schema/*.sql` as historical references
 
-## TypeScript to Table Mapping
+## Current Table Inventory
 
-| TS Interface / Type | Table(s) |
+| Area | Tables |
 |---|---|
-| `Campaign` | `campaigns` |
-| `AssetRecord` / `Asset` | `assets` |
-| `AssetLink` | `asset_links` |
-| `NpcRow` / `NPC` | `npcs` |
-| `NpcNoteRow` / `NpcNote` | `npc_notes` |
-| `Faction` | `factions`, `npc_factions`, `faction_locations` |
-| `LocationRow` / `Location` | `locations` |
-| `MapRow` / `CampaignMap` | `maps` |
-| `PinRow` / `LocationPin` | `location_pins` |
-| `QuestRow` / `Quest` | `quests` |
-| `QuestObjectiveRow` / `QuestObjective` | `quest_objectives` |
-| `QuestNoteRow` / `QuestNote` | `quest_notes` |
-| `PlotThread` | `plot_threads`, `plot_thread_*` link tables |
-| `SessionRow` / `Session` | `sessions` |
-| `SessionNoteRow` / `SessionNote` | `session_notes` |
-| `SessionPrepItemRow` / `SessionPrepItem` | `session_prep_items` |
-| `SessionSceneRow` / `SessionScene` | `session_scenes` |
-| `SessionSceneMonsterRow` / `SceneMonsterEntry` | `session_scene_monsters` |
-| `SessionSceneMiniRow` / `SceneMiniEntry` | `session_scene_minis` |
-| `SessionSceneNpcRow` | `session_scene_npcs` |
-| `EventRow` / `CampaignEvent` | `campaign_events`, `event_causality`, `campaign_event_npcs`, `campaign_event_factions` |
-| `RelationshipRow` / `GraphEdge` | `entity_relationships` |
-| `MonsterRow` / `Monster` | `monsters` |
-| `MiniRow` / `Mini` | `minis` |
-| `MiniMonsterRow` / `MiniMonsterRef` | `mini_monsters` |
-| `DungeonRow` / `Dungeon` | `dungeons` |
-| `DungeonRoomRow` / `DungeonRoom` | `dungeon_rooms` |
-| `DungeonContentRow` / `DungeonContent` | `dungeon_contents` |
+| Core bootstrap | `campaigns`, `entity_registry` |
+| Core asset manager | `core_assets`, `core_asset_links` |
+| Atlas | `locations`, `maps`, `location_pins` |
+| Party | `party_members`, `party_member_gear`, `party_airships`, `party_airship_cargo`, `party_pets` |
+| NPCs and factions | `npcs`, `npc_notes`, `factions`, `faction_org_nodes`, `faction_members`, `faction_relations`, `faction_territory`, `faction_reputation`, `faction_resources`, `session_factions` |
+| Quests and plot threads | `plot_threads`, `quests`, `quest_objectives`, `quest_notes`, `quest_npcs` |
+| Sessions and scenes | `sessions`, `session_notes`, `session_prep_items`, `session_scenes`, `session_quests`, `session_npcs`, `session_scene_npcs`, `session_scene_monsters`, `session_scene_minis` |
+| Timeline | `campaign_events`, `campaign_event_npcs`, `event_causality` |
+| Graph | `entity_relationships`, `graph_layout_state`, `graph_node_overlays`, `graph_relationship_overlays` |
+| Assets UI | `assets`, `asset_links` |
+| Bestiary | `monsters` |
+| Mini catalogue | `minis`, `mini_monsters` |
+| Dungeon | `dungeons`, `dungeon_rooms`, `dungeon_contents` |
+
+## Type to Table Notes
+
+- The repository currently contains both `assets`/`asset_links` and `core_assets`/`core_asset_links`.
+- The renderer and asset-browser UI use `assets` and `asset_links`.
+- The core asset manager registers `core_assets` and `core_asset_links`.
+- The raw type declarations live in `shared/src/types`, `modules/*/src/types.ts`, `ui/src/types`, and `core/*/src/types.ts`.
 
 ## Core Keys and Relationships
 
 ### Primary Keys
 
-- Most entity tables use `id TEXT PRIMARY KEY` (`campaigns`, `npcs`, `quests`, `sessions`, `campaign_events`, etc.).
-- Junction tables use composite keys:
+- Most entity tables use `id TEXT PRIMARY KEY`.
+- Junction tables use composite keys such as:
   - `asset_links(asset_id, entity_module, entity_id, role)`
-  - `npc_factions(npc_id, faction_id)`
+  - `core_asset_links(asset_id, entity_module, entity_id, role)`
   - `quest_npcs(quest_id, npc_id)`
+  - `session_quests(session_id, quest_id)`
+  - `session_npcs(session_id, npc_id)`
   - `session_scene_npcs(scene_id, npc_id)`
   - `session_scene_monsters(scene_id, monster_id)`
   - `session_scene_minis(scene_id, mini_id)`
   - `mini_monsters(mini_id, monster_id)`
-  - plus similar `*_locations`, `*_plot_threads`, `event_causality` composites.
+  - `faction_members(faction_id, npc_id)`
+  - `faction_relations(faction_id, target_faction_id)`
+  - `campaign_event_npcs(event_id, npc_id)`
+  - `event_causality(cause_event_id, effect_event_id)`
 
 ### Foreign Keys (Representative)
 
@@ -59,9 +58,9 @@ Schema sources:
 - `session_scenes.session_id -> sessions.id` (`CASCADE`).
 - `session_scenes.location_id -> locations.id` (`SET NULL`).
 - `session_scene_npcs.npc_id -> npcs.id` (`CASCADE`).
-- `session_scene_monsters.monster_id` links to monster IDs (module schema + full schema align with bestiary usage).
+- `session_scene_monsters.monster_id` references monster IDs from the bestiary.
 - `mini_monsters.monster_id -> monsters.id` (`CASCADE`).
-- `campaign_events.quest_id -> quests.id`, `campaign_events.session_id -> sessions.id`, etc. (`SET NULL`).
+- `campaign_events.quest_id -> quests.id`, `campaign_events.session_id -> sessions.id`, and similar optional links (`SET NULL`).
 - `entity_relationships.campaign_id -> campaigns.id` (`CASCADE`).
 
 ## Table/Column Notes (Feature-Critical)
@@ -95,6 +94,10 @@ Schema sources:
 ### `assets` / `asset_links`
 - Content-addressed metadata (`hash` uniqueness per campaign).
 - Generic polymorphic linking via `entity_module` + `entity_id` + `role`.
+
+### `core_assets` / `core_asset_links`
+- Content-addressed store used by `core/assets`.
+- File categories are `maps`, `portraits`, `audio`, `documents`, and `misc`.
 
 ## Relationship Cardinality Summary
 

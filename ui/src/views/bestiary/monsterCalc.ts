@@ -13,6 +13,8 @@
 
 // ── Ability score keys ────────────────────────────────────────────────────────
 
+import type { SpellcastingModule, SpellcastingModuleKind } from '../../../../shared/src/types/monster';
+
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export const ABILITY_KEYS: AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
@@ -285,6 +287,171 @@ export function calcPassivePerception(
 ): number {
   if (perceptionBonus !== undefined) return 10 + perceptionBonus;
   return 10 + abilityModifier(wisScore);
+}
+
+// ── Skill helpers ────────────────────────────────────────────────────────────
+
+export interface SkillDefinition {
+  key: SkillKey;
+  label: string;
+  abilityKey: AbilityKey;
+}
+
+export type SkillKey =
+  | 'acrobatics'
+  | 'animal_handling'
+  | 'arcana'
+  | 'athletics'
+  | 'deception'
+  | 'history'
+  | 'insight'
+  | 'intimidation'
+  | 'investigation'
+  | 'medicine'
+  | 'nature'
+  | 'perception'
+  | 'performance'
+  | 'persuasion'
+  | 'religion'
+  | 'sleight_of_hand'
+  | 'stealth'
+  | 'survival';
+
+export const SKILL_DEFS: SkillDefinition[] = [
+  { key: 'acrobatics',      label: 'Acrobatics',      abilityKey: 'dex' },
+  { key: 'animal_handling',  label: 'Animal Handling', abilityKey: 'wis' },
+  { key: 'arcana',          label: 'Arcana',          abilityKey: 'int' },
+  { key: 'athletics',       label: 'Athletics',       abilityKey: 'str' },
+  { key: 'deception',       label: 'Deception',       abilityKey: 'cha' },
+  { key: 'history',         label: 'History',         abilityKey: 'int' },
+  { key: 'insight',         label: 'Insight',         abilityKey: 'wis' },
+  { key: 'intimidation',    label: 'Intimidation',    abilityKey: 'cha' },
+  { key: 'investigation',   label: 'Investigation',   abilityKey: 'int' },
+  { key: 'medicine',        label: 'Medicine',        abilityKey: 'wis' },
+  { key: 'nature',          label: 'Nature',          abilityKey: 'int' },
+  { key: 'perception',      label: 'Perception',      abilityKey: 'wis' },
+  { key: 'performance',     label: 'Performance',     abilityKey: 'cha' },
+  { key: 'persuasion',      label: 'Persuasion',      abilityKey: 'cha' },
+  { key: 'religion',        label: 'Religion',        abilityKey: 'int' },
+  { key: 'sleight_of_hand',  label: 'Sleight of Hand', abilityKey: 'dex' },
+  { key: 'stealth',         label: 'Stealth',         abilityKey: 'dex' },
+  { key: 'survival',        label: 'Survival',        abilityKey: 'wis' },
+];
+
+export const SKILL_KEYS: SkillKey[] = SKILL_DEFS.map(def => def.key);
+
+export const SKILL_LABELS: Record<SkillKey, string> = Object.fromEntries(
+  SKILL_DEFS.map(def => [def.key, def.label]),
+) as Record<SkillKey, string>;
+
+export const SKILL_ABILITIES: Record<SkillKey, AbilityKey> = Object.fromEntries(
+  SKILL_DEFS.map(def => [def.key, def.abilityKey]),
+) as Record<SkillKey, AbilityKey>;
+
+export const SKILL_OPTIONS = SKILL_DEFS.map(def => ({
+  key: def.key,
+  label: def.label,
+  abilityKey: def.abilityKey,
+}));
+
+export interface SkillConfig {
+  proficient?: boolean;
+  expertise?: boolean;
+  override?: number;
+}
+
+export type SkillConfigs = Partial<Record<SkillKey, number | SkillConfig>>;
+
+export function inferSkillConfigs(
+  storedSkills: Partial<Record<string, number | SkillConfig>>,
+  abilityScores: Record<AbilityKey, number>,
+  profBonus: number,
+): SkillConfigs {
+  const configs: SkillConfigs = {};
+  for (const key of SKILL_KEYS) {
+    const stored = storedSkills[key];
+    if (stored === undefined) continue;
+
+    if (typeof stored === 'number') {
+      const ability = abilityModifier(abilityScores[SKILL_ABILITIES[key]]);
+      const proficientTotal = ability + profBonus;
+      const expertiseTotal = ability + profBonus * 2;
+      if (stored === expertiseTotal) configs[key] = { proficient: true, expertise: true };
+      else if (stored === proficientTotal) configs[key] = { proficient: true };
+      else configs[key] = { proficient: false, override: stored };
+      continue;
+    }
+
+    configs[key] = {
+      proficient: Boolean(stored.proficient),
+      expertise: Boolean(stored.expertise),
+      override: stored.override,
+    };
+  }
+  return configs;
+}
+
+export function skillBonus(
+  _skillKey: SkillKey,
+  abilityScore: number,
+  profBonus: number,
+  config?: number | SkillConfig,
+): number {
+  if (typeof config === 'number') return config;
+  if (config?.override !== undefined) return config.override;
+  const base = abilityModifier(abilityScore);
+  if (!config?.proficient) return base;
+  return base + profBonus * (config.expertise ? 2 : 1);
+}
+
+export function formatSkillBonus(value: number): string {
+  return formatMod(value);
+}
+
+// ── Spellcasting module helpers ───────────────────────────────────────────────
+
+export const SPELLCASTING_MODULE_KINDS: SpellcastingModuleKind[] = [
+  'spellcasting',
+  'innate_spellcasting',
+  'psionics',
+  'ritual_casting',
+];
+
+export const SPELLCASTING_MODULE_LABELS: Record<SpellcastingModuleKind, string> = {
+  spellcasting: 'Spellcasting',
+  innate_spellcasting: 'Innate Spellcasting',
+  psionics: 'Psionics',
+  ritual_casting: 'Ritual Casting',
+};
+
+export function createSpellcastingModule(kind: SpellcastingModuleKind): SpellcastingModule {
+  return {
+    kind,
+    spellcastingAbility: 'int',
+    spellSlots: '',
+    preparedSpells: '',
+    atWillSpells: '',
+    dailySpells: '',
+    ritualTags: '',
+    notes: '',
+  };
+}
+
+export function splitListInput(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\n,;]+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+export function formatListSummary(raw: string | null | undefined): string {
+  const values = splitListInput(raw);
+  return values.length ? values.join(', ') : '';
+}
+
+export function getSpellcastingAbilityLabel(ability: AbilityKey): string {
+  return ABILITY_FULL_NAMES[ability];
 }
 
 // ── Spellcasting ability options ──────────────────────────────────────────────

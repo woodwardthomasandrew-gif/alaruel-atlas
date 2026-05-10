@@ -115,6 +115,9 @@ export type {
   GraphNode,
   GraphEdge,
   EdgeType,
+  GraphRelationshipStyle,
+  GraphVisibilityState,
+  GraphTemporalState,
   EntityNeighbourhood,
   GraphQuery,
 } from './relationships';
@@ -129,7 +132,25 @@ export type {
   MonsterAction,
   MonsterLegendaryAction,
   MonsterReaction,
+  SkillConfig,
+  SkillConfigs,
+  SpellcastingModule,
+  SpellcastingModuleKind,
 } from './monster';
+
+// â”€â”€ Shared movement helpers â”€â”€
+export type {
+  MovementType,
+  MovementSpeedSpec,
+  MovementSpeeds,
+} from '../utils/movement';
+export {
+  MOVEMENT_TYPES,
+  movementTypeLabel,
+  normalizeMovementSpeeds,
+  serializeMovementSpeeds,
+  formatMovementSpeedLine,
+} from '../utils/movement';
 
 // ── Mini Catalogue ────────────────────────────────────────────────────────────
 export type {

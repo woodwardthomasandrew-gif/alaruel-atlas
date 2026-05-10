@@ -12,7 +12,22 @@
 // inside a detached DOM node without importing any Electron/bridge code.
 
 import type { MonsterFull } from './MonsterDetail';
-import { formatAbilityMod, ABILITY_KEYS } from './monsterCalc';
+import {
+  formatAbilityMod,
+  formatMod,
+  ABILITY_KEYS,
+  ABILITY_FULL_NAMES,
+  SKILL_DEFS,
+  SPELLCASTING_MODULE_LABELS,
+  calcSpellSaveDC,
+  calcSpellAttackBonus,
+  formatListSummary,
+  skillBonus,
+  type SkillConfig,
+  type SkillKey,
+} from './monsterCalc';
+import type { SpellcastingModule } from '../../../../shared/src/types/monster';
+import { formatMovementSpeedLine } from '../../../../shared/src/utils/movement';
 import styles from './StatblockRenderer.module.css';
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -23,6 +38,7 @@ interface ActionRow {
   attackBonus?: number;
   damage?:      string;
   recharge?:    string;
+  spellcasting?: SpellcastingModule;
 }
 
 interface LegendaryRow extends ActionRow {
@@ -34,13 +50,27 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
 
-function fmtSpeed(m: MonsterFull): string {
-  const parts: string[] = [`${m.speed} ft.`];
-  const other = parseJson<Record<string, number>>(m.speed_other, {});
-  for (const [k, v] of Object.entries(other)) {
-    parts.push(`${k} ${v} ft.`);
-  }
-  return parts.join(', ');
+function titleCase(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : part)
+    .join(' ');
+}
+
+function normalizeInlineText(value: string | null | undefined): string {
+  if (!value) return '';
+  return value
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s*;\s*/g, '; ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function joinFormattedList(values: string[], separator = '; '): string {
+  return values.map(v => normalizeInlineText(v)).filter(Boolean).join(separator);
 }
 
 function fmtSavingThrows(raw: string): string {
@@ -50,15 +80,65 @@ function fmtSavingThrows(raw: string): string {
     .join(', ');
 }
 
-function fmtSkills(raw: string): string {
-  const sk = parseJson<Record<string, number>>(raw, {});
-  return Object.entries(sk)
-    .map(([k, v]) => `${k.charAt(0).toUpperCase()}${k.slice(1)} ${v >= 0 ? '+' : ''}${v}`)
+function splitSpellcastingTraits(actions: ActionRow[]): { traits: ActionRow[]; modules: SpellcastingModule[] } {
+  const traits: ActionRow[] = [];
+  const modules: SpellcastingModule[] = [];
+  for (const action of actions) {
+    if (action.spellcasting) modules.push(action.spellcasting);
+    else traits.push(action);
+  }
+  return { traits, modules };
+}
+
+function fmtSkills(raw: string, abilityScores: Record<string, number>, profBonus: number): string {
+  const sk = parseJson<Record<string, number | SkillConfig>>(raw, {});
+  const keys = SKILL_DEFS.map(def => def.key).filter(key => sk[key] !== undefined);
+  return keys
+    .map(key => {
+      const def = SKILL_DEFS.find(item => item.key === key)!;
+      const value = skillBonus(key as SkillKey, abilityScores[def.abilityKey], profBonus, sk[key]);
+      return `${def.label} ${value >= 0 ? '+' : ''}${value}`;
+    })
     .join(', ');
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function renderSpellcastingModule(module: SpellcastingModule, profBonus: number, abilityScores: Record<string, number>) {
+  const score = abilityScores[module.spellcastingAbility] ?? 10;
+  const dc = module.spellSaveDcOverride ?? calcSpellSaveDC(score, profBonus);
+  const atk = module.spellAttackBonusOverride ?? calcSpellAttackBonus(score, profBonus);
+  const lines: string[] = [];
+
+  if (module.notes) lines.push(module.notes.trim());
+
+  switch (module.kind) {
+    case 'spellcasting':
+      lines.push(`The creature's spellcasting ability is ${ABILITY_FULL_NAMES[module.spellcastingAbility]} (spell save DC ${dc}, ${formatMod(atk)} to hit with spell attacks).`);
+      break;
+    case 'innate_spellcasting':
+      lines.push(`The creature's innate spellcasting ability is ${ABILITY_FULL_NAMES[module.spellcastingAbility]} (spell save DC ${dc}, ${formatMod(atk)} to hit with spell attacks).`);
+      break;
+    case 'psionics':
+      lines.push(`The creature's psionic ability is ${ABILITY_FULL_NAMES[module.spellcastingAbility]} (spell save DC ${dc}, ${formatMod(atk)} to hit with spell attacks).`);
+      break;
+    case 'ritual_casting':
+      lines.push(`The creature can cast rituals using ${ABILITY_FULL_NAMES[module.spellcastingAbility]} (spell save DC ${dc}, ${formatMod(atk)} to hit with spell attacks).`);
+      break;
+  }
+
+  if (module.spellSlots) lines.push(`Spell Slots: ${module.spellSlots}.`);
+  if (module.preparedSpells) lines.push(`Prepared Spells: ${formatListSummary(module.preparedSpells)}.`);
+  if (module.atWillSpells) lines.push(`At Will: ${formatListSummary(module.atWillSpells)}.`);
+  if (module.dailySpells) lines.push(`Daily: ${formatListSummary(module.dailySpells)}.`);
+  if (module.ritualTags) lines.push(`Ritual Tags: ${formatListSummary(module.ritualTags)}.`);
+
+  return (
+    <div className={styles.blockItem}>
+      <p className={styles.blockBody}>
+        <span className={styles.blockName}>{SPELLCASTING_MODULE_LABELS[module.kind]}. </span>
+        {lines.join(' ')}
+      </p>
+    </div>
+  );
 }
 
 
@@ -108,6 +188,15 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function StatLine({ label, value, className = '' }: { label: string; value: React.ReactNode; className?: string }) {
+  return (
+    <div className={`${styles.statLine} ${className}`.trim()}>
+      <span className={styles.statLabel}>{label}:</span>
+      <span className={styles.statValue}>{value}</span>
+    </div>
+  );
+}
+
 // ── StatblockRenderer ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -118,7 +207,9 @@ interface Props {
 
 export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
   // Parse all JSON columns once at the top
-  const traits           = parseJson<ActionRow[]>(monster.traits,          []);
+  const traitParse       = splitSpellcastingTraits(parseJson<ActionRow[]>(monster.traits, []));
+  const traits           = traitParse.traits;
+  const spellcastingMods  = traitParse.modules;
   const actions          = parseJson<ActionRow[]>(monster.actions,         []);
   const bonusActions     = parseJson<ActionRow[]>(monster.bonus_actions,   []);
   const reactions        = parseJson<ActionRow[]>(monster.reactions,       []);
@@ -130,11 +221,18 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
   const condImm          = parseJson<string[]>(monster.condition_immunities,     []);
 
   const saves     = fmtSavingThrows(monster.saving_throws);
-  const skillsFmt = fmtSkills(monster.skills);
-  const speedStr  = fmtSpeed(monster);
+  const skillsFmt = fmtSkills(monster.skills, {
+    str: monster.str,
+    dex: monster.dex,
+    con: monster.con,
+    int: monster.int,
+    wis: monster.wis,
+    cha: monster.cha,
+  }, monster.proficiency_bonus);
+  const speedStr  = formatMovementSpeedLine(monster.speed, parseJson<Record<string, unknown>>(monster.speed_other, {}));
 
   const typeLine = [
-    capitalize(monster.size),
+    titleCase(monster.size),
     monster.creature_type,
     monster.subtype ? `(${monster.subtype})` : null,
     monster.alignment,
@@ -154,24 +252,25 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
       {/* ── Core stats: AC / HP / Speed ───────────────────────── */}
       <div className={styles.sbSection}>
         <div className={styles.coreRow}>
-          <div className={styles.coreStat}>
-            <span className={styles.coreLabel}>Armour Class</span>
-            <span className={styles.coreValue}>
-              {monster.armor_class}
-              {monster.armor_type ? ` (${monster.armor_type})` : ''}
-            </span>
-          </div>
-          <div className={styles.coreStat}>
-            <span className={styles.coreLabel}>Hit Points</span>
-            <span className={styles.coreValue}>
-              {monster.hit_points}
-              {monster.hit_dice ? ` (${monster.hit_dice})` : ''}
-            </span>
-          </div>
-          <div className={styles.coreStat}>
-            <span className={styles.coreLabel}>Speed</span>
-            <span className={styles.coreValue}>{speedStr}</span>
-          </div>
+          <StatLine
+            label="Armour Class"
+            value={(
+              <>
+                {monster.armor_class}
+                {monster.armor_type ? ` (${monster.armor_type})` : ''}
+              </>
+            )}
+          />
+          <StatLine
+            label="Hit Points"
+            value={(
+              <>
+                {monster.hit_points}
+                {monster.hit_dice ? ` (${monster.hit_dice})` : ''}
+              </>
+            )}
+          />
+          <StatLine label="Speed" value={speedStr} />
         </div>
       </div>
 
@@ -198,14 +297,14 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
       {/* ── Properties: saves, skills, resistances, senses ────── */}
       <div className={styles.sbSection}>
         <div className={styles.propList}>
-          {saves         && <PropRow label="Saving Throws"           value={saves} />}
-          {skillsFmt     && <PropRow label="Skills"                  value={skillsFmt} />}
-          {vulnerabilities.length > 0 && <PropRow label="Damage Vulnerabilities" value={vulnerabilities.join('; ')} />}
-          {resistances.length   > 0   && <PropRow label="Damage Resistances"     value={resistances.join('; ')} />}
-          {immunities.length    > 0   && <PropRow label="Damage Immunities"      value={immunities.join('; ')} />}
-          {condImm.length       > 0   && <PropRow label="Condition Immunities"   value={condImm.join('; ')} />}
-          {monster.senses       && <PropRow label="Senses"    value={monster.senses} />}
-          {monster.languages    && <PropRow label="Languages" value={monster.languages} />}
+          {saves && <PropRow label="Saving Throws" value={saves} />}
+          {skillsFmt && <PropRow label="Skills" value={skillsFmt} />}
+          {vulnerabilities.length > 0 && <PropRow label="Damage Vulnerabilities" value={joinFormattedList(vulnerabilities)} />}
+          {resistances.length > 0 && <PropRow label="Damage Resistances" value={joinFormattedList(resistances)} />}
+          {immunities.length > 0 && <PropRow label="Damage Immunities" value={joinFormattedList(immunities)} />}
+          {condImm.length > 0 && <PropRow label="Condition Immunities" value={joinFormattedList(condImm)} />}
+          {monster.senses && <PropRow label="Senses" value={normalizeInlineText(monster.senses)} />}
+          {monster.languages && <PropRow label="Languages" value={normalizeInlineText(monster.languages)} />}
         </div>
       </div>
 
@@ -214,13 +313,13 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
       {/* ── CR / Proficiency ─────────────────────────────────── */}
       <div className={styles.sbSection}>
         <div className={styles.crRow}>
-          <span className={styles.crLabel}>Challenge</span>
+          <span className={styles.crLabel}>Challenge:</span>
           <span className={styles.crValue}>{monster.challenge_rating}</span>
           {monster.xp_value > 0 && (
             <span className={styles.crXp}>({monster.xp_value.toLocaleString()} XP)</span>
           )}
           <span className={styles.crSep}>·</span>
-          <span className={styles.crLabel}>Proficiency Bonus</span>
+          <span className={styles.crLabel}>Proficiency Bonus:</span>
           <span className={styles.crValue}>+{monster.proficiency_bonus}</span>
         </div>
       </div>
@@ -232,6 +331,24 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
           <div className={styles.sbSection}>
             <div className={styles.blockList}>
               {traits.map((t, i) => <ActionBlock key={i} action={t} />)}
+            </div>
+          </div>
+        </>
+      )}
+
+      {spellcastingMods.length > 0 && (
+        <>
+          <SectionHeading>Spellcasting Modules</SectionHeading>
+          <div className={styles.sbSection}>
+            <div className={styles.blockList}>
+              {spellcastingMods.map(module => renderSpellcastingModule(module, monster.proficiency_bonus, {
+                str: monster.str,
+                dex: monster.dex,
+                con: monster.con,
+                int: monster.int,
+                wis: monster.wis,
+                cha: monster.cha,
+              }))}
             </div>
           </div>
         </>
@@ -327,7 +444,7 @@ export function StatblockRenderer({ monster, hideGmNotes = false }: Props) {
 function PropRow({ label, value }: { label: string; value: string }) {
   return (
     <div className={styles.prop}>
-      <span className={styles.propLabel}>{label}</span>
+      <span className={styles.propLabel}>{label}:</span>
       <span className={styles.propValue}>{value}</span>
     </div>
   );

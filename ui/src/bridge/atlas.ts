@@ -53,7 +53,10 @@ export interface AtlasBridge {
       campaignId: string;
       category?: string;
       count?: number;
-    }): Promise<Array<{ text: string; category: string; tags: string[] }>>;
+    }): Promise<Array<{ text: string; category: string; tags: string[]; imageUrl?: string; imageFilter?: string }>>;
+    listImages(params: {
+      campaignId: string;
+    }): Promise<Array<{ id: string; name: string; virtualPath: string; category: string; imageUrl: string; imageFilter: string; filterName: string }>>;
   };
   app: {
     getVersion(): Promise<string>;
@@ -90,6 +93,7 @@ const devMock: AtlasBridge = {
   },
   inspiration: {
     generate: async () => [],
+    listImages: async () => [],
   },
   app: {
     getVersion:   async () => '0.1.0-dev',

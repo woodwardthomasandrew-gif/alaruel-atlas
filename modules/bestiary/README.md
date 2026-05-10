@@ -1,12 +1,12 @@
-# modules/npcs
+# modules/bestiary
 
-NPC lifecycle and notes.
+Monster statblock creator and bestiary manager.
 
 ## Responsibility
 
-- Owns the `npcs` and `npc_notes` tables
-- Emits `npc:created` and `npc:updated`
-- Exposes `NpcsModule` and `NpcsService`
+- Owns the `monsters` table
+- Emits `bestiary:created` and `bestiary:updated`
+- Exposes `BestiaryModule` and `BestiaryService`
 
 ## Key Files
 
@@ -15,7 +15,7 @@ NPC lifecycle and notes.
 - `src/repository.ts`
 - `src/schema.ts`
 - `src/types.ts`
-- `src/views/NpcsView.tsx`
+- `src/views/BestiaryView.tsx`
 
 ## Rules
 

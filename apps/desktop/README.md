@@ -1,30 +1,47 @@
 # apps/desktop/
 
-Electron main process — the native desktop wrapper.
+Electron main process and native desktop wrapper.
 
 ## Responsibilities
+
 - Window creation and management
-- Boot sequence: initialises all core systems before the renderer loads
-- IPC bridge: typed channels between renderer (React) and main (Node.js)
-- OS integration: file open/save dialogs, menu bar, system tray
+- Boot sequence for logger, config, assets, modules, IPC, window, and plugins
+- IPC bridge between renderer and main process
+- OS integration for dialogs, menu actions, protocol handling, and file reveal
 
-## Boot sequence
-```
+## Boot Sequence
+
+```text
 main.ts
-  └─ 1. createLogger()
-  └─ 2. loadConfig()
-  └─ 3. openDatabase(campaignPath)
-  └─ 4. initAssetManager()
-  └─ 5. initEventBus()
-  └─ 6. loadPlugins()
-  └─ 7. createMainWindow()  →  loads renderer
+  -> configureLogger()
+  -> configManager.load()
+  -> assetManager.init()
+  -> moduleLoader.register()/initAll()
+  -> createMainWindow()
+  -> registerIpcHandlers()/registerEventForwards()
+  -> pluginLoader.loadAll()
 ```
 
-## IPC channels (planned)
-| Channel                  | Direction       | Purpose                  |
-|--------------------------|-----------------|--------------------------|
-| `campaign:open`          | renderer → main | Open a campaign file     |
-| `campaign:create`        | renderer → main | Create a new campaign    |
-| `db:query`               | renderer → main | Read data                |
-| `db:run`                 | renderer → main | Write data               |
-| `assets:resolve`         | renderer → main | Resolve asset:// URL     |
+## IPC Channels
+
+- `campaign:open`
+- `campaign:create`
+- `campaign:close`
+- `campaign:listRecent`
+- `campaign:pickFile`
+- `campaign:saveFile`
+- `db:query`
+- `db:run`
+- `assets:resolve`
+- `assets:import`
+- `assets:pickFile`
+- `app:getVersion`
+- `app:getPaths`
+- `app:showInFolder`
+- `export:saveSessionHtml`
+- `inspiration:generate`
+- `inspiration:listImages`
+
+## Protocols
+
+- `atlas://asset/<id>` resolves campaign asset files for the renderer.

@@ -7,10 +7,22 @@ import { atlas }                 from '../../bridge/atlas';
 import { StatblockRenderer }     from './StatblockRenderer';
 import { StatblockPrintModal }   from './StatblockPrintModal';
 import {
+  MOVEMENT_TYPES,
+  type MovementType,
+  normalizeMovementSpeeds,
+  serializeMovementSpeeds,
+} from '../../../../shared/src/utils/movement';
+import {
   ABILITY_KEYS,
   ABILITY_LABELS,
   ABILITY_FULL_NAMES,
+  SKILL_DEFS,
+  SKILL_KEYS,
+  SKILL_LABELS,
   SPELLCASTING_ABILITIES,
+  SPELLCASTING_MODULE_KINDS,
+  SPELLCASTING_MODULE_LABELS,
+  createSpellcastingModule,
   formatAbilityMod,
   formatMod,
   abilityModifier,
@@ -21,16 +33,20 @@ import {
   calcSpellAttackBonus,
   computeSavingThrows,
   inferSaveConfigs,
+  inferSkillConfigs,
   hitDieForSize,
   calcAverageHp,
   buildHitDiceString,
   groupPresets,
   fillPresetDescription,
+  skillBonus,
   type AbilityKey,
   type SaveThrowConfigs,
   type ActionPreset,
   type ActionPresetCategory,
+  type SkillConfigs,
 } from './monsterCalc';
+import type { SpellcastingModule, SpellcastingModuleKind } from '../../../../shared/src/types/monster';
 import styles from './MonsterDetail.module.css';
 
 // ── Local types (raw DB row shape) ────────────────────────────────────────────
@@ -46,6 +62,7 @@ interface ActionRow {
   abilityKey?:          AbilityKey;
   proficient?:          boolean;
   damageBonusOverride?: number;
+  spellcasting?: SpellcastingModule;
 }
 interface LegendaryRow extends ActionRow { cost: number; }
 
@@ -337,6 +354,153 @@ function ActionEditor({ label, actions, onChange, legendary, profBonus, abilityS
   );
 }
 
+// ── Movement editor ───────────────────────────────────────────────────────────
+
+interface MovementEditorProps {
+  walkSpeed: number;
+  movementOther: string;
+  onWalkSpeedChange: (value: number) => void;
+  onMovementOtherChange: (value: string) => void;
+}
+
+function MovementEditor({
+  walkSpeed,
+  movementOther,
+  onWalkSpeedChange,
+  onMovementOtherChange,
+}: MovementEditorProps) {
+  const movements = normalizeMovementSpeeds(parseJson<Record<string, unknown>>(movementOther, {}));
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  function write(next: Record<string, { speed: number; hover?: boolean }>) {
+    onMovementOtherChange(serializeMovementSpeeds(next));
+  }
+
+  function updateMovement(type: string, next: { speed: number; hover?: boolean } | null) {
+    const updated = { ...movements };
+    if (next) updated[type] = next;
+    else delete updated[type];
+    write(updated);
+  }
+
+  const optionalTypes = MOVEMENT_TYPES.filter(type => !movements[type]);
+  const rowTypes = [
+    ...MOVEMENT_TYPES.filter(type => movements[type]),
+    ...Object.keys(movements).filter(type => !MOVEMENT_TYPES.includes(type as MovementType)),
+  ];
+
+  return (
+    <div className={styles.movementEditor}>
+      <p className={styles.calcHint}>
+        Walk stays visible by default. Add Fly, Swim, Climb, or Burrow only when a creature needs them.
+      </p>
+
+      <div className={styles.movementList}>
+        <div className={styles.movementRow}>
+          <div className={styles.movementLabelWrap}>
+            <span className={styles.movementLabel}>Walk Speed</span>
+          </div>
+          <div className={styles.movementSpeedWrap}>
+            <input
+              className={styles.movementSpeedInput}
+              type="number"
+              min={0}
+              value={walkSpeed}
+              onChange={e => onWalkSpeedChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
+            />
+            <span className={styles.movementUnit}>ft.</span>
+          </div>
+        </div>
+
+        {rowTypes.map(type => {
+          const entry = movements[type];
+          if (!entry) return null;
+          const label = `${type.charAt(0).toUpperCase() + type.slice(1)} Speed`;
+          return (
+            <div key={type} className={styles.movementRow}>
+              <div className={styles.movementLabelWrap}>
+                <span className={styles.movementLabel}>{label}</span>
+              </div>
+              <div className={styles.movementSpeedWrap}>
+                <input
+                  className={styles.movementSpeedInput}
+                  type="number"
+                  min={0}
+                  value={entry.speed}
+                  onChange={e => updateMovement(type, { ...entry, speed: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                />
+                <span className={styles.movementUnit}>ft.</span>
+              </div>
+              {type === 'fly' && (
+                <label className={styles.movementHoverToggle}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(entry.hover)}
+                    onChange={e => updateMovement(type, { ...entry, hover: e.target.checked })}
+                  />
+                  Hover
+                </label>
+              )}
+              <button
+                type="button"
+                className={styles.movementRemoveBtn}
+                onClick={() => updateMovement(type, null)}
+                title={`Remove ${label}`}
+              >
+                <Icon name="x" size={12} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {optionalTypes.length > 0 && (
+        <div className={styles.movementAddWrap} ref={wrapRef}>
+          <button
+            type="button"
+            className={styles.movementAddBtn}
+            onClick={() => setOpen(v => !v)}
+          >
+            <Icon name="plus" size={13} /> Add Movement Type
+          </button>
+          {open && (
+            <div className={styles.movementMenu}>
+              {optionalTypes.map(type => {
+                const label = `${type.charAt(0).toUpperCase() + type.slice(1)} Speed`;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    className={styles.movementMenuItem}
+                    onClick={() => {
+                      updateMovement(type, { speed: walkSpeed });
+                      setOpen(false);
+                    }}
+                  >
+                    Add {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Preset picker ──────────────────────────────────────────────────────────────
 
 interface PresetPickerProps {
@@ -455,6 +619,395 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (t: string[])
   );
 }
 
+function splitSpellcastingTraits(actions: ActionRow[]): { traits: ActionRow[]; modules: SpellcastingModule[] } {
+  const traits: ActionRow[] = [];
+  const modules: SpellcastingModule[] = [];
+  for (const action of actions) {
+    if (action.spellcasting) modules.push(action.spellcasting);
+    else traits.push(action);
+  }
+  return { traits, modules };
+}
+
+function makeSpellcastingAction(module: SpellcastingModule): ActionRow {
+  return {
+    name: SPELLCASTING_MODULE_LABELS[module.kind],
+    description: '',
+    spellcasting: module,
+  };
+}
+
+function skillConfigValue(value: number | { proficient?: boolean; expertise?: boolean; override?: number } | undefined) {
+  if (typeof value === 'number') return { proficient: false, expertise: false, override: value };
+  return {
+    proficient: Boolean(value?.proficient),
+    expertise: Boolean(value?.expertise),
+    override: value?.override,
+  };
+}
+
+interface SkillEditorProps {
+  skills: SkillConfigs;
+  onChange: (next: SkillConfigs) => void;
+  profBonus: number;
+  abilityScores: Record<AbilityKey, number>;
+}
+
+function SkillEditor({ skills, onChange, profBonus, abilityScores }: SkillEditorProps) {
+  const [skillKey, setSkillKey] = useState(SKILL_KEYS[0]);
+  const available = SKILL_KEYS.filter(key => skills[key] === undefined);
+  const configured = SKILL_DEFS.filter(def => skills[def.key] !== undefined);
+
+  function updateSkill(key: string, next: { proficient?: boolean; expertise?: boolean; override?: number } | undefined) {
+    const current = skillConfigValue((skills as Record<string, number | { proficient?: boolean; expertise?: boolean; override?: number } | undefined>)[key]);
+    if (!next) {
+      const clone: SkillConfigs = { ...skills };
+      delete (clone as Record<string, unknown>)[key];
+      onChange(clone);
+      return;
+    }
+    onChange({
+      ...skills,
+      [key]: {
+        ...current,
+        ...next,
+      },
+    });
+  }
+
+  function addSkill() {
+    if (!skillKey || skills[skillKey] !== undefined) return;
+    onChange({
+      ...skills,
+      [skillKey]: { proficient: true },
+    });
+    const next = available.find(key => key !== skillKey) ?? available[0];
+    if (next) setSkillKey(next);
+  }
+
+  return (
+    <div className={styles.skillEditor}>
+      <p className={styles.calcHint}>
+        Skill Modifier = Ability Modifier + Proficiency Bonus. Expertise doubles proficiency. Add only the skills this monster actually uses.
+      </p>
+
+      <div className={styles.skillList}>
+        {configured.length === 0 && (
+          <div className={styles.skillEmpty}>No skills added yet.</div>
+        )}
+
+        {configured.map(def => {
+          const cfg = skillConfigValue(skills[def.key]);
+          const abilityScore = abilityScores[def.abilityKey] ?? 10;
+          const computed = skillBonus(def.key, abilityScore, profBonus, cfg);
+          const hasOverride = cfg.override !== undefined;
+
+          return (
+            <div key={def.key} className={styles.skillRow}>
+              <div className={styles.skillLabelWrap}>
+                <span className={styles.skillLabel}>{def.label}</span>
+                <span className={styles.skillAbility}>{ABILITY_LABELS[def.abilityKey]}</span>
+              </div>
+
+              <label className={`${styles.skillToggle} ${cfg.proficient ? styles.skillToggleOn : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={cfg.proficient}
+                  onChange={e => updateSkill(def.key, { proficient: e.target.checked, expertise: e.target.checked ? cfg.expertise : false, override: undefined })}
+                />
+                Proficient
+              </label>
+
+              <label className={`${styles.skillToggle} ${cfg.expertise ? styles.skillToggleOn : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={cfg.expertise}
+                  disabled={!cfg.proficient}
+                  onChange={e => updateSkill(def.key, { proficient: e.target.checked || cfg.proficient, expertise: e.target.checked, override: undefined })}
+                />
+                Expertise
+              </label>
+
+              <div className={styles.calcInputWrap}>
+                <input
+                  className={`${styles.input} ${styles.skillInput} ${!hasOverride ? styles.calcInputAuto : ''}`}
+                  type="number"
+                  value={hasOverride ? String(cfg.override) : String(computed)}
+                  readOnly={!hasOverride}
+                  onChange={e => updateSkill(def.key, { override: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  placeholder={String(computed)}
+                />
+                {hasOverride && (
+                  <button
+                    type="button"
+                    className={styles.calcResetBtn}
+                    title="Reset to calculated value"
+                    onClick={() => updateSkill(def.key, { proficient: cfg.proficient, expertise: cfg.expertise, override: undefined })}
+                  >
+                    ↺
+                  </button>
+                )}
+              </div>
+
+              <span className={styles.skillMeta}>
+                {formatAbilityMod(abilityScore)}
+                {cfg.proficient ? ` +${profBonus}${cfg.expertise ? ' (expertise)' : ''}` : ''}
+                {hasOverride ? ' · override' : ''}
+              </span>
+
+              <button
+                type="button"
+                className={styles.skillRemoveBtn}
+                onClick={() => updateSkill(def.key, undefined)}
+                title={`Remove ${def.label}`}
+              >
+                <Icon name="x" size={12} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {available.length > 0 && (
+        <div className={styles.skillAddRow}>
+          <select
+            className={styles.select}
+            value={skillKey}
+            onChange={e => setSkillKey(e.target.value as typeof skillKey)}
+          >
+            {available.map(key => (
+              <option key={key} value={key}>{SKILL_LABELS[key]}</option>
+            ))}
+          </select>
+          <button type="button" className={styles.addBtn} onClick={addSkill}>
+            <Icon name="plus" size={12} /> Add Skill
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SpellcastingModulesEditorProps {
+  modules: SpellcastingModule[];
+  onChange: (next: SpellcastingModule[]) => void;
+  profBonus: number;
+  abilityScores: Record<AbilityKey, number>;
+}
+
+function SpellcastingModulesEditor({ modules, onChange, profBonus, abilityScores }: SpellcastingModulesEditorProps) {
+  function update(i: number, field: keyof SpellcastingModule, value: unknown) {
+    onChange(modules.map((module, idx) => idx === i ? { ...module, [field]: value } : module));
+  }
+
+  function remove(i: number) {
+    onChange(modules.filter((_, idx) => idx !== i));
+  }
+
+  function add(kind: SpellcastingModuleKind) {
+    onChange([...modules, createSpellcastingModule(kind)]);
+  }
+
+  return (
+    <div className={styles.spellcastingEditor}>
+      <p className={styles.calcHint}>
+        Add spellcasting only when a creature needs it. Each module stays separate, so simple monsters stay clean and advanced ones stay readable.
+      </p>
+
+      <div className={styles.spellcastingAddRow}>
+        {SPELLCASTING_MODULE_KINDS.map(kind => (
+          <button
+            key={kind}
+            type="button"
+            className={styles.spellcastingAddBtn}
+            onClick={() => add(kind)}
+          >
+            <Icon name="plus" size={12} /> Add {SPELLCASTING_MODULE_LABELS[kind]}
+          </button>
+        ))}
+      </div>
+
+      {modules.length === 0 && (
+        <div className={styles.skillEmpty}>No spellcasting modules added yet.</div>
+      )}
+
+      <div className={styles.spellcastingList}>
+        {modules.map((module, i) => {
+          const abilityScore = abilityScores[module.spellcastingAbility] ?? 10;
+          const computedDc = calcSpellSaveDC(abilityScore, profBonus);
+          const computedAtk = calcSpellAttackBonus(abilityScore, profBonus);
+          const dc = module.spellSaveDcOverride ?? computedDc;
+          const atk = module.spellAttackBonusOverride ?? computedAtk;
+          const title = SPELLCASTING_MODULE_LABELS[module.kind];
+
+          return (
+            <details key={i} className={styles.spellcastingCard} open>
+              <summary className={styles.spellcastingSummary}>
+                <span>{title}</span>
+                <span className={styles.spellcastingSummaryMeta}>
+                  {ABILITY_FULL_NAMES[module.spellcastingAbility]} · DC {dc} · {formatMod(atk)} to hit
+                </span>
+              </summary>
+
+              <div className={styles.spellcastingCardBody}>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Module Type</label>
+                    <select
+                      className={styles.select}
+                      value={module.kind}
+                      onChange={e => update(i, 'kind', e.target.value as SpellcastingModuleKind)}
+                    >
+                      {SPELLCASTING_MODULE_KINDS.map(kind => (
+                        <option key={kind} value={kind}>{SPELLCASTING_MODULE_LABELS[kind]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Spellcasting Ability</label>
+                    <select
+                      className={styles.select}
+                      value={module.spellcastingAbility}
+                      onChange={e => update(i, 'spellcastingAbility', e.target.value as SpellcastingModule['spellcastingAbility'])}
+                    >
+                      {SPELLCASTING_ABILITIES.map(key => (
+                        <option key={key} value={key}>{ABILITY_FULL_NAMES[key]}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Spell Save DC</label>
+                    <div className={styles.calcInputWrap}>
+                      <input
+                        className={`${styles.input} ${module.spellSaveDcOverride === undefined ? styles.inputAuto : ''}`}
+                        type="number"
+                        value={module.spellSaveDcOverride !== undefined ? module.spellSaveDcOverride : computedDc}
+                        readOnly={module.spellSaveDcOverride === undefined}
+                        onChange={e => update(i, 'spellSaveDcOverride', e.target.value === '' ? undefined : Number(e.target.value))}
+                      />
+                      {module.spellSaveDcOverride !== undefined && (
+                        <button
+                          type="button"
+                          className={styles.calcResetBtn}
+                          onClick={() => update(i, 'spellSaveDcOverride', undefined)}
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Spell Attack Bonus</label>
+                    <div className={styles.calcInputWrap}>
+                      <input
+                        className={`${styles.input} ${module.spellAttackBonusOverride === undefined ? styles.inputAuto : ''}`}
+                        type="number"
+                        value={module.spellAttackBonusOverride !== undefined ? module.spellAttackBonusOverride : computedAtk}
+                        readOnly={module.spellAttackBonusOverride === undefined}
+                        onChange={e => update(i, 'spellAttackBonusOverride', e.target.value === '' ? undefined : Number(e.target.value))}
+                      />
+                      {module.spellAttackBonusOverride !== undefined && (
+                        <button
+                          type="button"
+                          className={styles.calcResetBtn}
+                          onClick={() => update(i, 'spellAttackBonusOverride', undefined)}
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Spell Slots</label>
+                    <input
+                      className={styles.input}
+                      placeholder="1st: 4, 2nd: 3"
+                      value={module.spellSlots ?? ''}
+                      onChange={e => update(i, 'spellSlots', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formGroupFull}>
+                  <label className={styles.label}>Prepared Spells</label>
+                  <textarea
+                    className={styles.textarea}
+                    rows={2}
+                    placeholder="mage armor, shield, misty step"
+                    value={module.preparedSpells ?? ''}
+                    onChange={e => update(i, 'preparedSpells', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>At-Will Spells</label>
+                    <textarea
+                      className={styles.textarea}
+                      rows={2}
+                      placeholder="detect magic, prestidigitation"
+                      value={module.atWillSpells ?? ''}
+                      onChange={e => update(i, 'atWillSpells', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Daily Spells</label>
+                    <textarea
+                      className={styles.textarea}
+                      rows={2}
+                      placeholder="1/day each: dominate monster, plane shift"
+                      value={module.dailySpells ?? ''}
+                      onChange={e => update(i, 'dailySpells', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Ritual Tags</label>
+                    <input
+                      className={styles.input}
+                      placeholder="identify, detect magic"
+                      value={module.ritualTags ?? ''}
+                      onChange={e => update(i, 'ritualTags', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Notes</label>
+                    <input
+                      className={styles.input}
+                      placeholder="Optional module text"
+                      value={module.notes ?? ''}
+                      onChange={e => update(i, 'notes', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <p className={styles.calcBreakdown}>
+                  DC: 8 + {profBonus} (prof) + {formatAbilityMod(abilityScore)} ({ABILITY_FULL_NAMES[module.spellcastingAbility]}) = {computedDc}
+                  {' · '}
+                  Atk: {formatMod(computedAtk)} ({formatAbilityMod(abilityScore)} + {profBonus} prof)
+                </p>
+
+                <div className={styles.skillAddRow}>
+                  <button type="button" className={styles.btnDelete} onClick={() => remove(i)}>
+                    <Icon name="trash" size={12} /> Remove Module
+                  </button>
+                </div>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -481,9 +1034,12 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     legendaryActions_arr: LegendaryRow[];
     bonusActions_arr:     ActionRow[];
     tags_arr:             string[];
+    skills_arr:           SkillConfigs;
+    spellcastingModules:  SpellcastingModule[];
   }>({
     actions_arr: [], traits_arr: [], reactions_arr: [],
     legendaryActions_arr: [], bonusActions_arr: [], tags_arr: [],
+    skills_arr: {}, spellcastingModules: [],
   });
 
   // ── Automation state ────────────────────────────────────────────────────────
@@ -532,18 +1088,23 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
   }, [monsterId]);
 
   function populateForm(m: MonsterFull) {
+    const parsedTraits = parseJson<ActionRow[]>(m.traits, []);
+    const splitTraits = splitSpellcastingTraits(parsedTraits);
+    const abilityScores = { str: m.str, dex: m.dex, con: m.con, int: m.int, wis: m.wis, cha: m.cha };
+    const skillConfigs = inferSkillConfigs(parseJson<Record<string, number | { proficient?: boolean; expertise?: boolean; override?: number }>>(m.skills, {}), abilityScores, m.proficiency_bonus);
     setForm({
       ...m,
       actions_arr:          parseJson<ActionRow[]>(m.actions, []),
-      traits_arr:           parseJson<ActionRow[]>(m.traits, []),
+      traits_arr:           splitTraits.traits,
       reactions_arr:        parseJson<ActionRow[]>(m.reactions, []),
       legendaryActions_arr: parseJson<LegendaryRow[]>(m.legendary_actions, []),
       bonusActions_arr:     parseJson<ActionRow[]>(m.bonus_actions, []),
       tags_arr:             parseJson<string[]>(m.tags, []),
+      skills_arr:           skillConfigs,
+      spellcastingModules:  splitTraits.modules,
     });
     // Reconstruct saving throw configs from stored values
     const storedThrows = parseJson<Partial<Record<AbilityKey, number>>>(m.saving_throws, {});
-    const abilityScores = { str: m.str, dex: m.dex, con: m.con, int: m.int, wis: m.wis, cha: m.cha };
     setSaveConfigs(inferSaveConfigs(storedThrows, abilityScores, m.proficiency_bonus));
     // Reset automation and spellcasting state
     setAutoPb(true);
@@ -555,9 +1116,6 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
       if (match) setHpDiceCount(parseInt(match[1], 10));
     }
     setHpDieSidesOverride(null);
-    setSpellcastingAbility('int');
-    setSpellSaveDcOverride(undefined);
-    setSpellAtkBonusOverride(undefined);
     setEditing(false);
     setError(null);
   }
@@ -605,13 +1163,18 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     setSaving(true);
     setError(null);
     try {
+      const movementOther = serializeMovementSpeeds(
+        parseJson<Record<string, unknown>>(String(form.speed_other ?? monster.speed_other ?? '{}'), {}),
+      );
       // Compute final saving throws from proficiency configs
       const computedSaves = computeSavingThrows(abilityScores, saveConfigs, profBonus);
+      const spellcastingModules = form.spellcastingModules ?? [];
+      const allTraits = [...(form.traits_arr ?? []), ...spellcastingModules.map(makeSpellcastingAction)];
       const now = new Date().toISOString();
       await atlas.db.run(
         `UPDATE monsters SET
            name=?, description=?, creature_type=?, subtype=?, size=?, alignment=?,
-           armor_class=?, armor_type=?, hit_points=?, hit_dice=?, speed=?,
+           armor_class=?, armor_type=?, hit_points=?, hit_dice=?, speed=?, speed_other=?,
            str=?, dex=?, con=?, int=?, wis=?, cha=?,
            proficiency_bonus=?, challenge_rating=?, xp_value=?,
            saving_throws=?, skills=?,
@@ -633,6 +1196,7 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           Number(form.hit_points   ?? monster.hit_points),
           form.hit_dice        ?? null,
           Number(form.speed        ?? monster.speed),
+          movementOther,
           Number(form.str ?? monster.str), Number(form.dex ?? monster.dex),
           Number(form.con ?? monster.con), Number(form.int ?? monster.int),
           Number(form.wis ?? monster.wis), Number(form.cha ?? monster.cha),
@@ -640,12 +1204,12 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           form.challenge_rating ?? monster.challenge_rating,
           Number(form.xp_value ?? monster.xp_value),
           JSON.stringify(computedSaves),
-          monster.skills,
+          JSON.stringify(form.skills_arr ?? {}),
           monster.damage_vulnerabilities, monster.damage_resistances,
           monster.damage_immunities, monster.condition_immunities,
           form.senses    ?? null,
           form.languages ?? null,
-          JSON.stringify(form.traits_arr           ?? []),
+          JSON.stringify(allTraits),
           JSON.stringify(form.actions_arr          ?? []),
           JSON.stringify(form.reactions_arr        ?? []),
           JSON.stringify(form.legendaryActions_arr ?? []),
@@ -948,9 +1512,14 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           })()}
 
           <div className={styles.formRow} style={{ marginTop: '.75rem' }}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Speed (ft.)</label>
-              <input className={styles.input} type="number" min={0} value={form.speed ?? 30} onChange={e => setField('speed', parseInt(e.target.value, 10))} />
+            <div className={styles.formGroupFull}>
+              <label className={styles.label}>Movement</label>
+              <MovementEditor
+                walkSpeed={Number(form.speed ?? monster?.speed ?? 30)}
+                movementOther={String(form.speed_other ?? monster?.speed_other ?? '{}')}
+                onWalkSpeedChange={value => setField('speed', value)}
+                onMovementOtherChange={value => setField('speed_other', value)}
+              />
             </div>
 
             {/* CR — drives auto-PB and auto-XP */}
@@ -1083,7 +1652,24 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
         </div>
 
         {/* ── Spellcasting ─────────────────────────────────────────────── */}
+        {/* ── Skills ────────────────────────────────────────────────────── */}
         <div className={styles.formSection}>
+          <div className={styles.formSectionTitle}>Skill Proficiencies</div>
+          <SkillEditor skills={form.skills_arr ?? {}} onChange={v => setField('skills_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />
+        </div>
+
+        {/* ── Spellcasting Modules ─────────────────────────────────────── */}
+        <div className={styles.formSection}>
+          <div className={styles.formSectionTitle}>Spellcasting Modules</div>
+          <SpellcastingModulesEditor
+            modules={form.spellcastingModules ?? []}
+            onChange={v => setField('spellcastingModules', v)}
+            profBonus={profBonus}
+            abilityScores={abilityScores}
+          />
+        </div>
+
+        <div className={styles.formSection} style={{ display: 'none' }}>
           <div className={styles.formSectionTitle}>Spellcasting (optional)</div>
           <p className={styles.calcHint}>Calculated from spellcasting ability + proficiency. Override to set a manual value.</p>
           <div className={styles.formRow}>

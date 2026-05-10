@@ -1,12 +1,12 @@
-# modules/npcs
+# modules/mini-catalogue
 
-NPC lifecycle and notes.
+Physical miniature collection tracking linked to monsters.
 
 ## Responsibility
 
-- Owns the `npcs` and `npc_notes` tables
-- Emits `npc:created` and `npc:updated`
-- Exposes `NpcsModule` and `NpcsService`
+- Owns the `minis` and `mini_monsters` tables
+- Emits `mini-catalogue:created` and `mini-catalogue:updated`
+- Depends on the bestiary module for monster linkage
 
 ## Key Files
 
@@ -15,7 +15,7 @@ NPC lifecycle and notes.
 - `src/repository.ts`
 - `src/schema.ts`
 - `src/types.ts`
-- `src/views/NpcsView.tsx`
+- `src/views/MiniCatalogueView.tsx`
 
 ## Rules
 

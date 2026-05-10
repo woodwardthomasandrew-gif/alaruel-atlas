@@ -1,20 +1,23 @@
 # modules/graph
 
-Graph module — Narrative relationship and faction graph
+Narrative relationship graph.
 
-## DB tables
-_(none yet — define in schema.ts)_
+## Responsibility
 
-## Events emitted
-_(none yet — define in events.ts)_
+- Owns the `entity_relationships`, `graph_layout_state`, `graph_node_overlays`, and `graph_relationship_overlays` tables
+- Exposes `GraphModule` and `GraphService`
 
-## Events handled
-_(none yet — define in events.ts)_
+## Key Files
 
-## Views
-- `GraphView` — main route view
+- `src/module.ts`
+- `src/service.ts`
+- `src/repository.ts`
+- `src/schema.ts`
+- `src/types.ts`
+- `src/views/GraphView.tsx`
 
 ## Rules
+
 - Do not import from other modules
-- Use `@alaruel/core-events` for all cross-module coordination
-- Use `@alaruel/core-database` for all persistence
+- Use `@alaruel/core-events` for cross-module communication
+- Use `@alaruel/core-database` for persistence

@@ -1,7 +1,7 @@
 // ui/src/views/inspiration/VisionItem.tsx
+// Renders a single vision inside the crystal ball — either text or an image asset.
 // Position supplied by CrystalBallView grid logic (left/top props).
-// Fade uses a CSS keyframe animation so the browser handles easing smoothly
-// — fixes the abrupt appearance from the previous transition approach.
+// Fade uses a CSS keyframe animation so the browser handles easing smoothly.
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import styles from './VisionItem.module.css';
@@ -19,12 +19,19 @@ export interface VisionItemProps {
   onDone?: () => void;
   /** called when the user clicks to capture this vision */
   onCapture?: (text: string) => void;
+  // ── Image support ──────────────────────────────────────────────────────────
+  /** If provided, render an image rather than text */
+  imageUrl?: string;
+  /** CSS filter string to apply to the image */
+  imageFilter?: string;
+  /** Human-readable filter name (shown as tooltip) */
+  filterName?: string;
 }
 
 type Phase = 'waiting' | 'in' | 'hold' | 'out' | 'done';
 
-const FADE_IN_MS  = 1400;   // slower fade-in for a smoother materialise effect
-const FADE_OUT_MS = 1600;   // slow dissolve
+const FADE_IN_MS      = 1400;
+const FADE_OUT_MS     = 1600;
 const DEFAULT_HOLD_MS = 3400;
 
 function seededRand(seed: number, offset: number): number {
@@ -40,6 +47,9 @@ export function VisionItem({
   top,
   onDone,
   onCapture,
+  imageUrl,
+  imageFilter,
+  filterName,
 }: VisionItemProps) {
   const [phase,    setPhase]    = useState<Phase>('waiting');
   const [hovered,  setHovered]  = useState(false);
@@ -62,7 +72,6 @@ export function VisionItem({
   const floatDx     = (rng(6) - 0.5) * 14;    // ±7px horizontal
   const floatDy     = 7   + rng(7) * 9;        // 7px–16px vertical
 
-  // Use supplied position or fall back to centre
   const posLeft = left ?? 50;
   const posTop  = top  ?? 50;
 
@@ -131,14 +140,41 @@ export function VisionItem({
 
   if (phase === 'waiting' || phase === 'done') return null;
 
+  const classNames = [
+    styles.vision,
+    imageUrl ? styles.visionImage : styles.visionText,
+    styles[phase],
+    hovered  ? styles.hovered  : '',
+    captured ? styles.captured : '',
+  ].filter(Boolean).join(' ');
+
+  // ── Image vision ────────────────────────────────────────────────────────────
+  if (imageUrl) {
+    return (
+      <div
+        className={classNames}
+        style={cssVars}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={handleCapture}
+        title={filterName ? `${text} · ${filterName} filter — click to capture` : `${text} — click to capture`}
+      >
+        <img
+          src={imageUrl}
+          alt={text}
+          className={styles.visionImg}
+          style={{ filter: imageFilter || undefined }}
+          draggable={false}
+        />
+        <span className={styles.visionImgLabel}>{text}</span>
+      </div>
+    );
+  }
+
+  // ── Text vision ─────────────────────────────────────────────────────────────
   return (
     <span
-      className={[
-        styles.vision,
-        styles[phase],
-        hovered  ? styles.hovered  : '',
-        captured ? styles.captured : '',
-      ].filter(Boolean).join(' ')}
+      className={classNames}
       style={cssVars}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

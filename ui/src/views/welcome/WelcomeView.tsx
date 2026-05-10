@@ -3,7 +3,7 @@
 // The first screen the user sees. No campaign is open yet.
 // Shows: app logo/title, New Campaign, Open Campaign, recent campaigns list.
 
-import { useState }            from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate }          from 'react-router-dom';
 import { Icon }                 from '../../components/ui/Icon';
 import { useOpenCampaign,
@@ -30,11 +30,15 @@ export function WelcomeView() {
 
   const campaign = useCampaignStore(s => s.campaign);
 
-  // Redirect when a campaign opens successfully
-  if (campaign) { navigate(ROUTES.dashboard); return null; }
+  // Redirect after the campaign state settles to avoid render-phase navigation.
+  useEffect(() => {
+    if (campaign) navigate(ROUTES.dashboard, { replace: true });
+  }, [campaign, navigate]);
 
   const busy = opening || creating;
   const error = openError ?? createError;
+
+  if (campaign) return null;
 
   async function handleOpen() {
     const path = await atlas.campaign.pickFile();

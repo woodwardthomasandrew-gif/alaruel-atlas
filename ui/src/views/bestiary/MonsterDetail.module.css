@@ -282,6 +282,72 @@
 }
 .addBtn:hover { border-color:var(--gold-600); color:var(--text-accent); }
 
+/* Movement editor */
+.movementEditor { display:flex; flex-direction:column; gap:.55rem; }
+.movementList { display:flex; flex-direction:column; gap:.45rem; }
+.movementRow {
+  display:flex; flex-wrap:wrap; align-items:flex-end; gap:.5rem;
+  padding:.55rem .65rem; background:var(--bg-raised);
+  border:1px solid var(--border-subtle); border-radius:var(--radius-sm);
+}
+.movementLabelWrap { min-width: 96px; flex: 1 1 96px; }
+.movementLabel {
+  display:block; font-family:var(--font-display); font-size:.83rem;
+  color:var(--text-primary); line-height:1.2;
+}
+.movementSpeedWrap {
+  display:flex; align-items:center; gap:0; flex:0 1 128px;
+  min-width: 110px;
+}
+.movementSpeedInput {
+  background:var(--bg-base); border:1px solid var(--border-subtle);
+  border-radius:var(--radius-sm) 0 0 var(--radius-sm); color:var(--text-primary);
+  font-family:var(--font-mono); font-size:.82rem; padding:.28rem .4rem;
+  outline:none; width:84px; text-align:center; box-sizing:border-box;
+}
+.movementSpeedInput:focus { border-color:var(--gold-600); }
+.movementUnit {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:38px; padding:.28rem .35rem; font-size:.78rem;
+  color:var(--text-muted); border:1px solid var(--border-subtle);
+  border-left:none; border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  background:var(--bg-base); box-sizing:border-box;
+}
+.movementHoverToggle {
+  display:inline-flex; align-items:center; gap:.35rem;
+  font-size:.75rem; color:var(--text-muted); cursor:pointer;
+  white-space:nowrap;
+}
+.movementHoverToggle input[type="checkbox"] {
+  accent-color:var(--gold-500); width:14px; height:14px; cursor:pointer;
+}
+.movementRemoveBtn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; background:transparent; border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--ink-500); cursor:pointer;
+  transition:all .12s; flex-shrink:0;
+}
+.movementRemoveBtn:hover { color:var(--crimson-400); border-color:var(--crimson-600); background:rgba(196,64,64,.08); }
+.movementAddWrap { position:relative; align-self:flex-start; }
+.movementAddBtn {
+  display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .75rem;
+  background:var(--bg-raised); border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--text-secondary);
+  font-size:.8rem; cursor:pointer; transition:all .12s;
+}
+.movementAddBtn:hover { border-color:var(--gold-600); color:var(--text-accent); }
+.movementMenu {
+  position:absolute; left:0; top:calc(100% + 4px); z-index:40;
+  min-width:180px; background:var(--bg-surface); border:1px solid var(--border);
+  border-radius:var(--radius-md); box-shadow:var(--shadow-lg); padding:.35rem 0;
+}
+.movementMenuItem {
+  display:block; width:100%; text-align:left; padding:.4rem .85rem;
+  background:transparent; border:none; color:var(--text-secondary);
+  font-size:.82rem; cursor:pointer;
+}
+.movementMenuItem:hover { background:var(--bg-raised); color:var(--text-accent); }
+
 /* Tags editor */
 .tagEditor { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
 .tagInput {
@@ -303,6 +369,114 @@
   transition:color .12s;
 }
 .tagChipRemove:hover { color:var(--crimson-400); }
+
+/* Skill editor */
+.skillEditor { display:flex; flex-direction:column; gap:.7rem; }
+.skillList { display:flex; flex-direction:column; gap:.45rem; }
+.skillEmpty {
+  padding:.65rem .75rem;
+  border:1px dashed var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text-muted);
+  font-size:.82rem;
+  background:rgba(255,255,255,.015);
+}
+.skillRow {
+  display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  padding:.55rem .65rem;
+  background:var(--bg-raised);
+  border:1px solid var(--border-subtle);
+  border-radius:var(--radius-sm);
+}
+.skillLabelWrap { min-width: 140px; flex: 1 1 140px; display:flex; flex-direction:column; gap:.1rem; }
+.skillLabel { font-family:var(--font-display); font-size:.84rem; color:var(--text-primary); }
+.skillAbility { font-size:.68rem; color:var(--text-muted); letter-spacing:.06em; text-transform:uppercase; }
+.skillToggle {
+  display:inline-flex; align-items:center; gap:.35rem;
+  font-size:.74rem; color:var(--text-muted);
+  padding:.22rem .45rem;
+  border:1px solid var(--border-subtle);
+  border-radius:999px;
+  background:var(--bg-base);
+  cursor:pointer;
+}
+.skillToggleOn {
+  color:var(--gold-400);
+  border-color:rgba(196,144,64,.35);
+  background:rgba(196,144,64,.12);
+}
+.skillToggle input[type="checkbox"] {
+  accent-color:var(--gold-500);
+  width:14px;
+  height:14px;
+}
+.skillInput {
+  min-width:78px;
+  width:78px;
+  text-align:center;
+  font-family:var(--font-mono);
+}
+.skillMeta {
+  font-size:.72rem;
+  color:var(--ink-500);
+  white-space:nowrap;
+}
+.skillRemoveBtn {
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--ink-500);
+  border-radius:var(--radius-sm);
+  width:28px;
+  height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.skillRemoveBtn:hover { color:var(--crimson-400); border-color:var(--crimson-600); background:rgba(196,64,64,.08); }
+.skillAddRow {
+  display:flex;
+  gap:.5rem;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+/* Spellcasting modules */
+.spellcastingEditor { display:flex; flex-direction:column; gap:.7rem; }
+.spellcastingAddRow { display:flex; flex-wrap:wrap; gap:.45rem; }
+.spellcastingAddBtn {
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.35rem .7rem;
+  background:var(--bg-raised);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  color:var(--text-secondary);
+  font-size:.8rem;
+  cursor:pointer;
+  transition:all .12s;
+}
+.spellcastingAddBtn:hover { border-color:var(--gold-600); color:var(--text-accent); }
+.spellcastingList { display:flex; flex-direction:column; gap:.55rem; }
+.spellcastingCard {
+  background:var(--bg-raised);
+  border:1px solid var(--border-subtle);
+  border-radius:var(--radius-md);
+  overflow:hidden;
+}
+.spellcastingSummary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  padding:.7rem .85rem;
+  cursor:pointer;
+  list-style:none;
+  font-family:var(--font-display);
+  color:var(--text-primary);
+}
+.spellcastingSummary::-webkit-details-marker { display:none; }
+.spellcastingSummaryMeta { font-family:var(--font-body); font-size:.75rem; color:var(--text-muted); }
+.spellcastingCardBody { padding:.85rem; border-top:1px solid var(--border-subtle); display:flex; flex-direction:column; gap:.8rem; }
 
 /* Inline save spinner */
 .saving { opacity:.6; pointer-events:none; }

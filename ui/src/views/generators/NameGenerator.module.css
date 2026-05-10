@@ -1,0 +1,46 @@
+/* ui/src/views/generators/NameGenerator.module.css */
+/* Local styles for the NameGenerator mode toggle */
+
+.modeToggle {
+  display: flex;
+  gap: .3rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .2rem;
+  margin-bottom: .5rem;
+}
+
+.modeBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  padding: .38rem .5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: .75rem;
+  letter-spacing: .05em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.modeBtn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+}
+
+.modeBtnActive {
+  background: var(--gold-600);
+  border-color: var(--gold-500);
+  color: var(--ink-950);
+}
+
+.modeBtnActive:hover {
+  background: var(--gold-500);
+}

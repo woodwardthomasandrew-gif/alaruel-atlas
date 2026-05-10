@@ -1177,3 +1177,246 @@ export function generateSettlement(options: {
     rumour:          pick(SETTLEMENT_RUMOURS),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// LOCATION NAMES
+// ─────────────────────────────────────────────────────────────────
+
+export type LocationCategory =
+  | 'Settlement'
+  | 'Tavern / Inn'
+  | 'Dungeon / Ruin'
+  | 'Wilderness'
+  | 'Landmark'
+  | 'Faction HQ'
+  | 'Street / District';
+
+interface LocationNameTable {
+  prefixes: string[];
+  middles?: string[];  // optional middle element for tri-part names
+  suffixes: string[];
+  style: string;
+}
+
+const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
+  'Settlement': {
+    style: 'Composite place-names common across Alaruel\'s settled regions — blended from geographic features, old family names, and faction-era conventions.',
+    prefixes: [
+      'Ash','Black','Crow','Dark','Ember','Frost','Grey','Hollow','Iron',
+      'Mire','Old','Raven','Salt','Shadow','Silver','Stone','Storm','Thorn',
+      'White','Amber','Bone','Dusk','Gilded','Coal','Fleet','Pale','Rust','Slate','Tar',
+      'Bright','Elder','Fair','Golden','Hammer','Marsh','North','Oak','Pine','Red',
+      'Sage','Upper','Vale','Barrow','Cinder','Drift','Flint','Hazel','Mud','Nether',
+      'Crystal','Leviton','Cahill','Formene','Larimar','Varkeshi','Varklamon','Chogrove',
+    ],
+    suffixes: [
+      'haven','bridge','ford','gate','hold','keep','mere','moor','port',
+      'reach','rest','stead','vale','wall','watch','well','wick','wood',
+      'crossing','falls','hollow','ridge','tor','bay','fields',
+      'ham','bury','minster','croft','ton','shaw','thorpe','heath',
+      'fen','dale','glen','knoll','marsh','cliff','point','landing',
+      'end','side','lea','brook','combe','mill','bank',
+    ],
+  },
+  'Tavern / Inn': {
+    style: 'Tavern signs in Alaruel lean on old war imagery, trade-house irony, and whatever the last occupant nailed above the door.',
+    prefixes: [
+      'The Broken','The Gilded','The Blind','The Drowned','The Rusted','The Forgotten',
+      'The Salted','The Amber','The Cracked','The Hollow','The Wandering','The Grim',
+      'The Faded','The Lost','The Burned','The Crooked','The Empty','The Silent',
+      'The Leaking','The Tarnished','The Lopsided','The Smoked','The Lucky',
+      'The Twice-','The Three-','The Old','The Last',
+    ],
+    middles: [
+      'Anchor','Bell','Boot','Candle','Compass','Crown','Cup','Drum',
+      'Flag','Flagon','Flask','Gate','Hammer','Helm','Horn','Kettle',
+      'Key','Knife','Lantern','Mast','Mug','Oar','Plank','Rope',
+      'Seal','Shield','Sign','Skull','Spar','Stein','Sword','Wheel',
+      'ATC Charter','Conglomerate Mark','Warclan Trophy','Siege Ball',
+      'Leviton Crystal','Cahill Pick','Ambersoul Shard','DoW Stamp',
+    ],
+    suffixes: [
+      '','','','', // often no suffix — just "The Broken Compass"
+      '& Sons','& Daughters','Alehouse','Tavern','Inn','Lodge',
+      'House','Rest','Landing','Waystation',
+    ],
+    style: 'Two- or three-part names with a definite article; heavy on the kind of battered optimism that characterises Alaruel\'s drinking establishments.',
+  },
+  'Dungeon / Ruin': {
+    style: 'Ruins in Alaruel tend to be named for what they were, what they did, or what ate the last expedition.',
+    prefixes: [
+      'The','','','','', // sometimes just a noun phrase
+      'Ruins of','The Depths of','The Vault of','The Tomb of','The Sanctum of',
+      'The Catacombs of','The Hold of','The Warrens of','The Pit of','The Spire of',
+      'The Hollow of','The Lair of','The Halls of','The Crypt of','The Archive of',
+    ],
+    middles: [
+      'Ancient','Forgotten','Shattered','Sunken','Buried','Sealed','Cursed','Drowned',
+      'Broken','Silent','Hollow','Burning','Frozen','Fallen','Lost','Screaming',
+      'Unity','Ambersoul','Far Realm','Warclan','Conglomerate','ATC','Cahill',
+      'Undying','Soulbound','Blighted','Ashen','Crumbling',
+    ],
+    suffixes: [
+      'Throne','Crown','Seal','Gate','Maw','Eye','Flame','Shard',
+      'Spire','Tower','Vault','Pit','Well','Hall','Sanctum','Keep',
+      'Archive','Laboratory','Forge','Temple','Shrine','Barrow','Warren',
+      'Depths','End','Heart','Core','Apex','Breach','Rift',
+    ],
+    style: 'Evocative three-part names combining a framing phrase, a quality adjective, and a structural noun.',
+  },
+  'Wilderness': {
+    style: 'Wild locations in Alaruel are named for what survives there, what doesn\'t, and what the ATC charted before giving up.',
+    prefixes: [
+      'The','','',
+      'Black','Blighted','Bloodied','Bone','Broken','Burnt','Cold',
+      'Crow','Dark','Dead','Deep','Dread','Endless','Fallen','Frosted',
+      'Grim','Hollow','Hungry','Iron','Lost','Pale','Scorched','Shadow',
+      'Silent','Sunken','Tangled','Twisted','Wandering','Wild',
+      'Amber','Crystal','Mist','Storm','Thorn','Vine','Wretched',
+    ],
+    middles: [
+      'Ash','Bark','Bone','Briar','Brook','Brush','Cliff','Copse',
+      'Creek','Dell','Dune','Fen','Glade','Glen','Grove','Heath',
+      'Hill','Lake','Mire','Moor','Pass','Peak','Plain','Ridge',
+      'River','Rock','Root','Sand','Shore','Stone','Swamp','Tarn',
+      'Tree','Vale','Fen','Wood','Marsh',
+    ],
+    suffixes: [
+      's','','',
+      'Run','Way','Path','Trail','Pass','Reach','Fields','Expanse',
+      'Crossing','Basin','Hollow','Depths','Fringe','Edge','Wastes',
+    ],
+    style: 'Geographic descriptors referencing terrain, danger level, or the ATC\'s exhausted attempt to put a name on something that didn\'t want one.',
+  },
+  'Landmark': {
+    style: 'Singular structures and natural features with names that stuck from the Unity era, the Shattering, or both.',
+    prefixes: [
+      'The','The','The','The', // landmarks almost always use "The"
+    ],
+    middles: [
+      'Amber','Ancient','Black','Blind','Broken','Burning','Carved','Cracked',
+      'Drowned','Eternal','Fallen','First','Forgotten','Gilded','Glass','Grey',
+      'High','Hollow','Hungering','Iron','Last','Lone','Lost','Old',
+      'Pale','Pillared','Red','Ruined','Salt','Scorched','Screaming','Second',
+      'Shattered','Silent','Silver','Standing','Stone','Three','Twin','Twisted',
+      'Unity','Undying','Warding','Watching','White','Wrecked',
+    ],
+    suffixes: [
+      'Arch','Blade','Bridge','Column','Crater','Crown','Eye','Face',
+      'Gate','Idol','Marker','Menhir','Monolith','Needle','Obelisk','Pillar',
+      'Post','Pylon','Relic','Rock','Shard','Spire','Stair','Stone',
+      'Throne','Tooth','Tower','Wall','Waystone','Well','Witness',
+    ],
+    style: 'Article + adjective + noun; almost all Alaruel landmarks use the definite article because they are singular and everyone knows which one you mean.',
+  },
+  'Faction HQ': {
+    style: 'Faction headquarters in Alaruel tend toward functional anonymity or deliberate grandiosity, depending on whether they want to be found.',
+    prefixes: [
+      'The','The','',
+      'House','Office of the','Bureau of','Division','Station','Annex',
+      'Chambers of','Hall of','Court of','Seat of','Lodge of','Circle of',
+      'Chapter of','Order of','Conclave of','Company',
+    ],
+    middles: [
+      'Amber','Arcane','Black','Celestial','Central','Civil','Crystal',
+      'Deep','Delta','Eastern','Eternal','Factor\'s','Far','Field',
+      'Grey','High','Iron','Joint','Northern','Open','Primary',
+      'Regional','Royal','Secondary','Shadow','Silent','Southern',
+      'Special','Third','Unity','Upper','Western',
+    ],
+    suffixes: [
+      'Administration','Affairs','Annex','Archive','Assembly','Authority',
+      'Bureau','Command','Commission','Council','Division','Exchange',
+      'Foundation','Guild','Hall','House','Institute','Lodge',
+      'Office','Operations','Post','Registry','Sanctum','Secretariat',
+      'Section','Senate','Society','Station','Treasury','Vault',
+    ],
+    style: 'Faction HQ names alternate between bureaucratic opacity (ATC, Conglomerate) and theatrical weight (Society, Unity-era survivors).',
+  },
+  'Street / District': {
+    style: 'Alaruel\'s streets are named for what happened there, who lived there, or what the residents would prefer you not remember.',
+    prefixes: [
+      '','','','', // streets rarely have a prefix
+      'Lower','Upper','Old','New','North','South','East','West',
+      'Inner','Outer','Near','Far','High','Low','Broad','Narrow',
+      'Long','Short','Crooked','Straight','Black','Grey',
+    ],
+    middles: [
+      'Aldgate','Amber','Anchor','Ash','Baker','Bell','Black','Bone',
+      'Brass','Bridge','Candle','Cart','Coal','Cobble','Copper','Cord',
+      'Crown','Dark','Dockside','Dusk','Dust','Factor','Fell','Fish',
+      'Flag','Flax','Forge','Gold','Gull','Gun','Hammer','Harbour',
+      'Hay','Hemp','Hole','Hook','Iron','Kiln','Lamp','Loom',
+      'Mast','Mill','Nail','Net','Oil','Ox','Pilgrim','Pipe',
+      'Plank','Quill','Rope','Salt','Seam','Silk','Silver','Skin',
+      'Smoke','Soot','Tar','Tallow','Tide','Timber','Tow','Wax',
+    ],
+    suffixes: [
+      'Alley','Avenue','Close','Court','Cross','Cut','Gate','Hill',
+      'Lane','Market','Passage','Path','Place','Rise','Row','Square',
+      'Steps','Street','Terrace','Turn','Walk','Wharf','Yard',
+    ],
+    style: 'Trade-referencing street names mixed with old house names and post-Unity geography.',
+  },
+};
+
+export const LOCATION_CATEGORY_OPTIONS = Object.keys(LOCATION_TABLES) as LocationCategory[];
+
+export interface GeneratedLocationName {
+  name: string;
+  category: LocationCategory;
+  style: string;
+}
+
+export function generateLocationName(options: {
+  category?: LocationCategory;
+}): GeneratedLocationName {
+  const category: LocationCategory = options.category ?? pick(LOCATION_CATEGORY_OPTIONS);
+  const table = LOCATION_TABLES[category];
+
+  let name: string;
+
+  if (category === 'Tavern / Inn') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    const raw = [prefix, middle, suffix].filter(Boolean).join(' ');
+    name = raw.replace(/\s{2,}/g, ' ').trim();
+  } else if (category === 'Dungeon / Ruin') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    const raw = [prefix, middle, suffix].filter(Boolean).join(' ');
+    name = raw.replace(/\s{2,}/g, ' ').trim();
+  } else if (category === 'Faction HQ') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    const raw = [prefix, middle, suffix].filter(Boolean).join(' ');
+    name = raw.replace(/\s{2,}/g, ' ').trim();
+  } else if (category === 'Landmark') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    name = [prefix, middle, suffix].filter(Boolean).join(' ');
+  } else if (category === 'Street / District') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    const raw = [prefix, middle, suffix].filter(Boolean).join(' ');
+    name = raw.replace(/\s{2,}/g, ' ').trim();
+  } else if (category === 'Wilderness') {
+    const prefix = pick(table.prefixes);
+    const middle = pick(table.middles ?? []);
+    const suffix = pick(table.suffixes);
+    const raw = [prefix, middle, suffix].filter(Boolean).join(' ');
+    name = raw.replace(/\s{2,}/g, ' ').trim();
+  } else {
+    // Settlement — classic prefix+suffix compound
+    const prefix = pick(table.prefixes);
+    const suffix = pick(table.suffixes);
+    name = `${prefix}${suffix}`;
+  }
+
+  return { name, category, style: table.style };
+}

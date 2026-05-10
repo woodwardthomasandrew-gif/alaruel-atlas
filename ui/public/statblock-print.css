@@ -166,10 +166,18 @@
     gap: 14pt !important;
   }
 
-  .sb-core-stat {
+  .sb-core-stat,
+  .sb-stat-line {
     display: flex !important;
-    flex-direction: column !important;
-    gap: 0 !important;
+    flex-wrap: wrap !important;
+    align-items: baseline !important;
+    gap: 0 3pt !important;
+    min-width: 0 !important;
+  }
+
+  .sb-core-stat,
+  .sb-stat-line {
+    flex: 1 1 160pt !important;
   }
 
   .sb-core-label {
@@ -184,6 +192,27 @@
     font-size: 10pt !important;
     color: #1a1008 !important;
     font-weight: 700 !important;
+    line-height: 1.35 !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  .sb-stat-label {
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .07em !important;
+    color: #52452f !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  .sb-stat-value {
+    font-size: 10pt !important;
+    color: #1a1008 !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+    font-variant-numeric: tabular-nums !important;
   }
 
   /* ── Ability scores ──────────────────────────────────────────────────────── */
@@ -232,24 +261,30 @@
   .sb-prop-list {
     display: flex !important;
     flex-direction: column !important;
-    gap: 2pt !important;
+    gap: 3pt !important;
   }
 
   .sb-prop {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: baseline !important;
+    gap: 0 3pt !important;
     font-size: 9pt !important;
-    line-height: 1.4 !important;
+    line-height: 1.45 !important;
   }
 
   .sb-prop-label {
     font-weight: 700 !important;
     color: #7a1f1f !important;
-    margin-right: 2pt !important;
+    white-space: nowrap !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .sb-prop-value {
     color: #1a1008 !important;
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
   }
 
   /* ── CR row ──────────────────────────────────────────────────────────────── */

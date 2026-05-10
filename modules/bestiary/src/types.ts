@@ -9,7 +9,9 @@ import type {
   MonsterAction,
   MonsterLegendaryAction,
   MonsterReaction,
+  SkillConfigs,
 } from '../../../shared/src/types/monster';
+import type { MovementSpeeds } from '../../../shared/src/utils/movement';
 
 // ── Raw DB row shape ──────────────────────────────────────────────────────────
 
@@ -27,7 +29,7 @@ export interface MonsterRow {
   hit_points:               number;
   hit_dice:                 string | null;
   speed:                    number;
-  speed_other:              string;   // JSON: Record<string,number>
+  speed_other:              string;   // JSON: MovementSpeeds
   str:                      number;
   dex:                      number;
   con:                      number;
@@ -38,7 +40,7 @@ export interface MonsterRow {
   challenge_rating:         string;
   xp_value:                 number;
   saving_throws:            string;   // JSON: Partial<AbilityScores>
-  skills:                   string;   // JSON: Record<string,number>
+  skills:                   string;   // JSON: SkillConfigs
   damage_vulnerabilities:   string;   // JSON: string[]
   damage_resistances:       string;   // JSON: string[]
   damage_immunities:        string;   // JSON: string[]
@@ -74,13 +76,13 @@ export interface CreateMonsterInput {
   hitPoints?:               number;
   hitDice?:                 string;
   speed?:                   number;
-  speedOther?:              Record<string, number>;
+  speedOther?:              MovementSpeeds;
   abilityScores?:           AbilityScores;
   proficiencyBonus?:        number;
   challengeRating?:         string;
   xpValue?:                 number;
   savingThrows?:            Partial<AbilityScores>;
-  skills?:                  Record<string, number>;
+  skills?:                  SkillConfigs;
   damageVulnerabilities?:   string[];
   damageResistances?:       string[];
   damageImmunities?:        string[];

@@ -94,7 +94,28 @@ export interface GraphEdge {
   strength?:   number;
   /** Whether the relationship is bidirectional or one-directional. */
   directed:    boolean;
+  /** Optional UI overlay values used by the graph intelligence board. */
+  styleType?:       GraphRelationshipStyle;
+  visibilityState?: GraphVisibilityState;
+  temporalState?:   GraphTemporalState;
+  colorOverride?:   string;
+  note?:            string;
 }
+
+export type GraphRelationshipStyle =
+  | 'alliance'
+  | 'rivalry'
+  | 'blackmail'
+  | 'espionage'
+  | 'debt'
+  | 'romance'
+  | 'manipulation'
+  | 'loyalty'
+  | 'suspicion'
+  | 'custom';
+
+export type GraphVisibilityState = 'public' | 'player-known' | 'secret';
+export type GraphTemporalState = 'active' | 'deteriorating' | 'former-ally' | 'historical';
 
 /**
  * Semantic categories for graph edges.

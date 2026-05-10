@@ -1,12 +1,22 @@
 /* ui/src/views/inspiration/VisionItem.module.css */
 
-/* ── Base ───────────────────────────────────────────────────────────────── */
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 .vision {
   position: absolute;
   left:      var(--v-left, 50%);
   top:       var(--v-top,  50%);
   transform: translate(-50%, -50%);
 
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+
+  animation: visionFloat var(--v-float-dur, 7s) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* ── Text variant ─────────────────────────────────────────────────────────── */
+.visionText {
   max-width: 52%;
   text-align: center;
   line-height: 1.45;
@@ -18,55 +28,100 @@
   color: var(--gold-300, #e8c97a);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
 
   text-shadow:
     0 0 8px  rgba(232, 201, 122, 0.55),
     0 0 20px rgba(196, 144,  64, 0.30),
     0 0 38px rgba(160, 100,  30, 0.18);
-
-  /* Start invisible — animation drives opacity */
-  opacity: 0;
-
-  /* Float runs always; opacity is layered on top via animation phases */
-  animation: visionFloat var(--v-float-dur, 7s) ease-in-out infinite;
-  will-change: transform, opacity;
 }
 
-/* ── Fade IN — keyframe so easing is smooth from the very first frame ─── */
+/* ── Image variant ────────────────────────────────────────────────────────── */
+.visionImage {
+  /* Images are larger and centred — no text metrics needed */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  /* Keep image comfortably inside the orb circle */
+  max-width: 46%;
+  max-height: 46%;
+}
+
+.visionImg {
+  display: block;
+  width:  100%;
+  height: auto;
+  /* Circular crop to fit the orb aesthetic */
+  border-radius: 50%;
+  /* Soft glowing border */
+  box-shadow:
+    0 0 0 2px rgba(196, 144, 64, 0.40),
+    0 0 14px rgba(196, 144, 64, 0.35),
+    0 0 32px rgba(140, 90,  20, 0.25);
+  object-fit: cover;
+  aspect-ratio: 1 / 1;
+  /* Filter is set inline — this provides a smooth transition */
+  transition: filter 0.4s ease;
+}
+
+.visionImgLabel {
+  font-size: 0.65rem;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.07em;
+  color: var(--gold-500, #c49040);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.75;
+}
+
+/* ── Fade IN ──────────────────────────────────────────────────────────────── */
 .in {
   animation:
     visionFadeIn  var(--v-fade-in, 1400ms) ease-out forwards,
     visionFloat   var(--v-float-dur, 7s)   ease-in-out infinite;
 }
 
-/* ── Hold — fully visible, float continues ──────────────────────────────── */
+/* ── Hold ─────────────────────────────────────────────────────────────────── */
 .hold {
   opacity: var(--v-opacity, 0.9);
   animation: visionFloat var(--v-float-dur, 7s) ease-in-out infinite;
 }
 
-/* ── Fade OUT — keyframe dissolve ───────────────────────────────────────── */
+/* ── Fade OUT ─────────────────────────────────────────────────────────────── */
 .out {
   animation:
     visionFadeOut var(--v-fade-out, 1600ms) ease-in forwards,
     visionFloat   var(--v-float-dur, 7s)    ease-in-out infinite;
 }
 
-/* ── Hover — brighter glow, slight scale, pauses disappearance ──────────── */
-.hovered {
+/* ── Hover — text ─────────────────────────────────────────────────────────── */
+.hovered.visionText {
   text-shadow:
     0 0 10px rgba(255, 225, 130, 0.95),
     0 0 24px rgba(220, 165,  55, 0.75),
     0 0 48px rgba(196, 144,  64, 0.55);
-  /* Override float so transform: scale works cleanly */
   animation: visionHover var(--v-float-dur, 7s) ease-in-out infinite;
   z-index: 10;
 }
 
-/* ── Captured — white flash then dissolves ──────────────────────────────── */
-.captured {
+/* ── Hover — image ────────────────────────────────────────────────────────── */
+.hovered.visionImage {
+  animation: visionHover var(--v-float-dur, 7s) ease-in-out infinite;
+  z-index: 10;
+}
+
+.hovered .visionImg {
+  box-shadow:
+    0 0 0 3px rgba(232, 201, 122, 0.70),
+    0 0 20px rgba(220, 165,  55, 0.65),
+    0 0 44px rgba(196, 144,  64, 0.45);
+}
+
+/* ── Captured ─────────────────────────────────────────────────────────────── */
+.captured.visionText {
   color: #fff;
   text-shadow:
     0 0 14px rgba(255, 245, 200, 1.00),
@@ -74,22 +129,26 @@
     0 0 62px rgba(196, 144,  64, 0.70);
 }
 
-/* ── Keyframes ──────────────────────────────────────────────────────────── */
+.captured .visionImg {
+  box-shadow:
+    0 0 0 3px rgba(255, 245, 200, 0.90),
+    0 0 22px rgba(255, 220, 120, 0.80),
+    0 0 50px rgba(220, 165,  55, 0.60);
+}
 
-/* Smooth materialise from 0 → full opacity with a very slight upward drift */
+/* ── Keyframes ────────────────────────────────────────────────────────────── */
+
 @keyframes visionFadeIn {
   0%   { opacity: 0;                        transform: translate(-50%, calc(-50% + 8px)); }
   30%  { opacity: calc(var(--v-opacity, 0.9) * 0.5); }
   100% { opacity: var(--v-opacity, 0.9);    transform: translate(-50%, -50%); }
 }
 
-/* Smooth dissolve downward */
 @keyframes visionFadeOut {
   0%   { opacity: var(--v-opacity, 0.9);    transform: translate(-50%, -50%); }
   100% { opacity: 0;                        transform: translate(-50%, calc(-50% + 6px)); }
 }
 
-/* Continuous floating drift */
 @keyframes visionFloat {
   0%   { transform: translate(calc(-50% + 0px),                      calc(-50% + 0px)); }
   25%  { transform: translate(calc(-50% + var(--v-float-dx, 6px)),   calc(-50% - var(--v-float-dy, 10px))); }
@@ -98,7 +157,6 @@
   100% { transform: translate(calc(-50% + 0px),                      calc(-50% + 0px)); }
 }
 
-/* Hover variant — adds scale on top of float */
 @keyframes visionHover {
   0%   { transform: translate(calc(-50% + 0px),                      calc(-50% + 0px))                      scale(1.07); }
   25%  { transform: translate(calc(-50% + var(--v-float-dx, 6px)),   calc(-50% - var(--v-float-dy, 10px)))  scale(1.07); }

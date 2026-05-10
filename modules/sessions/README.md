@@ -1,20 +1,24 @@
 # modules/sessions
 
-Sessions module — Session planning, notes, and recaps
+Session planning, notes, recaps, and encounter management.
 
-## DB tables
-_(none yet — define in schema.ts)_
+## Responsibility
 
-## Events emitted
-_(none yet — define in events.ts)_
+- Owns the `sessions`, `session_notes`, `session_prep_items`, `session_scenes`, `session_quests`, `session_npcs`, `session_scene_npcs`, `session_scene_monsters`, and `session_scene_minis` tables
+- Emits `session:started`, `session:ended`, and `session:encounter-updated`
+- Exposes `SessionsModule` and `SessionsService`
 
-## Events handled
-_(none yet — define in events.ts)_
+## Key Files
 
-## Views
-- `SessionsView` — main route view
+- `src/module.ts`
+- `src/service.ts`
+- `src/repository.ts`
+- `src/schema.ts`
+- `src/types.ts`
+- `src/views/SessionsView.tsx`
 
 ## Rules
+
 - Do not import from other modules
-- Use `@alaruel/core-events` for all cross-module coordination
-- Use `@alaruel/core-database` for all persistence
+- Use `@alaruel/core-events` for cross-module communication
+- Use `@alaruel/core-database` for persistence

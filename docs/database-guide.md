@@ -1,36 +1,47 @@
 # Database Guide
 
-## One file per campaign
-Each campaign is stored as a single `.db` file in `data/campaigns/`.
-Filename: `<campaign-slug>.db`
+## One File per Campaign
 
-## Schema registration
-Modules register their tables at boot:
+Each campaign is stored as a single `.db` file in `data/campaigns/`.
+
+## Schema Registration
+
+Modules register their migrations at boot:
+
 ```ts
 databaseManager.registerSchema({
   module: 'quests',
-  version: 1,
-  tables: [ /* CreateTableStatement[] */ ]
+  migrations: [
+    {
+      version: 4,
+      module: 'quests',
+      description: 'Create quest tables',
+      up: 'CREATE TABLE ...'
+    }
+  ]
 })
 ```
 
-## Table naming convention
-All tables are prefixed with their module name: `quests_entries`, `npcs_characters`, etc.
+## Table Naming
+
+The runtime currently uses the actual table names created by each module schema. It does not force a single prefix convention.
 
 ## Migrations
-Migrations are versioned integers. The database manager runs pending migrations
-on open, in ascending version order.
 
-## Query patterns
+Migrations are versioned integers. The database manager runs pending migrations on open, in ascending version order.
+
+## Query Patterns
+
 ```ts
 // Read
-const entries = db.query<QuestEntry>('SELECT * FROM quests_entries WHERE campaign_id = ?', [id])
+const entries = db.query<Quest>('SELECT * FROM quests WHERE campaign_id = ?', [id]);
 
-// Write (always transactional)
-db.run('INSERT INTO quests_entries ...')
+// Write
+db.run('INSERT INTO quests (...) VALUES (...)');
 ```
 
 ## Rules
+
 - No raw SQL outside `core/database`
 - All writes go through the database manager
-- Never run DDL after boot (schema changes go through migrations)
+- Schema changes go through migrations
