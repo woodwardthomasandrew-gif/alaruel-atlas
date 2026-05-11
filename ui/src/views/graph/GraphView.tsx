@@ -541,6 +541,8 @@ export default function GraphView() {
   const [selectedEdgeLabelDraft, setSelectedEdgeLabelDraft] = useState('');
   const [showLabels, setShowLabels] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveStatusTimerRef = useRef<number | null>(null);
   const [semanticMode, setSemanticMode] = useState<SemanticMode>('adaptive');
   const [detailMode, setDetailMode] = useState<ZoomDetailMode>('standard');
   const [lensMode, setLensMode] = useState<LensMode>('all');
@@ -605,15 +607,19 @@ export default function GraphView() {
     }
   }, [campaign]);
 
-  const persistGraphLayout = useCallback(async (force = false) => {
+  const persistGraphLayout = useCallback(async (force = false, showFeedback = false) => {
     if (!campaign) return;
+    // Snapshot current positions, zeroing velocity so the cache is always
+    // at-rest — this prevents nodes lurching on remount after a tab switch.
     const positions: Record<string, LayoutPosition> = {};
     simNodes.current.forEach((node) => {
-      positions[node.id] = { x: node.x, y: node.y, vx: node.vx, vy: node.vy, pinned: node.pinned };
+      positions[node.id] = { x: node.x, y: node.y, vx: 0, vy: 0, pinned: node.pinned };
+      setCachedPosition(campaign.id, node.id, { x: node.x, y: node.y, vx: 0, vy: 0, pinned: node.pinned });
     });
     const layoutJson = JSON.stringify(positions);
     if (!force && layoutJson === lastSavedLayoutRef.current) return;
     const now = new Date().toISOString();
+    if (showFeedback) setSaveStatus('saving');
     try {
       await ensureOverlayTables();
       await atlas.db.run(
@@ -625,7 +631,17 @@ export default function GraphView() {
         [campaign.id, layoutJson, now],
       );
       lastSavedLayoutRef.current = layoutJson;
+      if (showFeedback) {
+        setSaveStatus('saved');
+        if (saveStatusTimerRef.current !== null) window.clearTimeout(saveStatusTimerRef.current);
+        saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus('idle'), 2000);
+      }
     } catch {
+      if (showFeedback) {
+        setSaveStatus('error');
+        if (saveStatusTimerRef.current !== null) window.clearTimeout(saveStatusTimerRef.current);
+        saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus('idle'), 3000);
+      }
       // Keep the graph usable even if the overlay table has not been created yet.
     }
   }, [campaign, ensureOverlayTables]);
@@ -1571,8 +1587,12 @@ export default function GraphView() {
           <button className={styles.toolBtn} onClick={() => void loadGraph()}>
             <Icon name="loader" size={14} /> Reload
           </button>
-          <button className={styles.toolBtn} onClick={() => void persistGraphLayout(true)}>
-            Save Layout
+          <button
+            className={styles.toolBtn}
+            onClick={() => void persistGraphLayout(true, true)}
+            disabled={saveStatus === 'saving'}
+          >
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? '✗ Failed' : 'Save Layout'}
           </button>
         </div>
       </header>
