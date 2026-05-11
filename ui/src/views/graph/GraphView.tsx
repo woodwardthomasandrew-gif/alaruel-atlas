@@ -488,6 +488,32 @@ function getGroupId(node: GraphNode): string {
 export default function GraphView() {
   const campaign = useCampaignStore((s) => s.campaign);
   const svgRef = useRef<SVGSVGElement>(null);
+  const svgCallbackRef = useCallback((el: SVGSVGElement | null) => {
+    const prev = (svgRef as React.MutableRefObject<SVGSVGElement | null>).current;
+    if (prev) {
+      const h = (prev as SVGSVGElement & { _wh?: (e: WheelEvent) => void })._wh;
+      if (h) prev.removeEventListener('wheel', h);
+    }
+    (svgRef as React.MutableRefObject<SVGSVGElement | null>).current = el;
+    if (!el) return;
+    function handleWheel(event: WheelEvent) {
+      event.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+      const factor = event.deltaY < 0 ? 1.08 : 0.92;
+      setZoom((current) => {
+        const next = clamp(current * factor, 0.18, 4.5);
+        setPan((currentPan) => ({
+          x: mouseX - (mouseX - currentPan.x) * (next / current),
+          y: mouseY - (mouseY - currentPan.y) * (next / current),
+        }));
+        return next;
+      });
+    }
+    (el as SVGSVGElement & { _wh?: (e: WheelEvent) => void })._wh = handleWheel;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+  }, []);
   const animRef = useRef<number>(0);
   const simNodes = useRef<GraphNode[]>([]);
   const simEdges = useRef<GraphEdge[]>([]);
@@ -1484,30 +1510,6 @@ export default function GraphView() {
     void persistGraphLayout(true);
   }
 
-  // Wheel zoom — attached imperatively so we can pass { passive: false } and
-  // call preventDefault() without the browser ignoring it.
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    function handleWheel(event: WheelEvent) {
-      event.preventDefault();
-      const rect = svg!.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
-      const factor = event.deltaY < 0 ? 1.08 : 0.92;
-      setZoom((current) => {
-        const next = clamp(current * factor, 0.18, 4.5);
-        setPan((currentPan) => ({
-          x: mouseX - (mouseX - currentPan.x) * (next / current),
-          y: mouseY - (mouseY - currentPan.y) * (next / current),
-        }));
-        return next;
-      });
-    }
-    svg.addEventListener('wheel', handleWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', handleWheel);
-  }, []);
-
   function resetView(): void {
     setPan({ x: 0, y: 0 });
     setZoom(1);
@@ -1641,7 +1643,7 @@ export default function GraphView() {
           </div>
         ) : (
           <svg
-            ref={svgRef}
+            ref={svgCallbackRef}
             className={styles.graph}
             onPointerDown={onSvgPointerDown}
             onPointerMove={onSvgPointerMove}
