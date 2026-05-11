@@ -1571,6 +1571,9 @@ export default function GraphView() {
           <button className={styles.toolBtn} onClick={() => void loadGraph()}>
             <Icon name="loader" size={14} /> Reload
           </button>
+          <button className={styles.toolBtn} onClick={() => void persistGraphLayout(true)}>
+            Save Layout
+          </button>
         </div>
       </header>
 
