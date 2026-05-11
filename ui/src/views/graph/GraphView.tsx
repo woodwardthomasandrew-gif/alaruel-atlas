@@ -453,7 +453,16 @@ const GRAPH_RELATIONSHIP_OVERLAY_INDEX_SQL = `
     ON graph_relationship_overlays (campaign_id, style_type);
 `;
 
+const GRAPH_LAYOUT_STATE_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS graph_layout_state (
+    campaign_id    TEXT    PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
+    positions_json TEXT    NOT NULL DEFAULT '{}',
+    updated_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+`;
+
 const GRAPH_OVERLAY_SCHEMA_STMTS = [
+  GRAPH_LAYOUT_STATE_SCHEMA_SQL,
   GRAPH_NODE_OVERLAY_SCHEMA_SQL,
   GRAPH_RELATIONSHIP_OVERLAY_SCHEMA_SQL,
   GRAPH_NODE_OVERLAY_INDEX_SQL,
@@ -580,6 +589,7 @@ export default function GraphView() {
     if (!force && layoutJson === lastSavedLayoutRef.current) return;
     const now = new Date().toISOString();
     try {
+      await ensureOverlayTables();
       await atlas.db.run(
         `INSERT INTO graph_layout_state (campaign_id, positions_json, updated_at)
          VALUES (?, ?, ?)
@@ -592,7 +602,7 @@ export default function GraphView() {
     } catch {
       // Keep the graph usable even if the overlay table has not been created yet.
     }
-  }, [campaign]);
+  }, [campaign, ensureOverlayTables]);
 
   const persistNodeProfiles = useCallback(async (force = false) => {
     if (!campaign) return;
@@ -959,8 +969,11 @@ export default function GraphView() {
           overlay,
           x: cached?.x ?? baseX,
           y: cached?.y ?? baseY,
-          vx: cached?.vx ?? 0,
-          vy: cached?.vy ?? 0,
+          // Always start with zero velocity on load. Restoring non-zero vx/vy
+          // from cache causes nodes to lurch when the simulation restarts after
+          // a tab switch, making positions appear to rewind.
+          vx: 0,
+          vy: 0,
           pinned: cached?.pinned ?? false,
           displayName,
           displaySubtitle,
@@ -1177,6 +1190,13 @@ export default function GraphView() {
       if (maxVelocity > VELOCITY_THRESHOLD) {
         animRef.current = requestAnimationFrame(tick);
       } else {
+        // Graph settled — zero cached velocities so remount after a tab switch
+        // starts at rest rather than inheriting stale momentum.
+        if (campaign) {
+          ns.forEach((node) => {
+            setCachedPosition(campaign.id, node.id, { x: node.x, y: node.y, vx: 0, vy: 0, pinned: node.pinned });
+          });
+        }
         // Final render to show the settled state accurately
         setNodes([...ns]);
         void persistGraphLayout(true);
@@ -1464,23 +1484,29 @@ export default function GraphView() {
     void persistGraphLayout(true);
   }
 
-  function onSvgWheel(event: React.WheelEvent<SVGSVGElement>): void {
-    event.preventDefault();
+  // Wheel zoom — attached imperatively so we can pass { passive: false } and
+  // call preventDefault() without the browser ignoring it.
+  useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    const factor = event.deltaY < 0 ? 1.08 : 0.92;
-    setZoom((current) => {
-      const next = clamp(current * factor, 0.18, 4.5);
-      setPan((currentPan) => ({
-        x: mouseX - (mouseX - currentPan.x) * (next / current),
-        y: mouseY - (mouseY - currentPan.y) * (next / current),
-      }));
-      return next;
-    });
-  }
+    function handleWheel(event: WheelEvent) {
+      event.preventDefault();
+      const rect = svg!.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+      const factor = event.deltaY < 0 ? 1.08 : 0.92;
+      setZoom((current) => {
+        const next = clamp(current * factor, 0.18, 4.5);
+        setPan((currentPan) => ({
+          x: mouseX - (mouseX - currentPan.x) * (next / current),
+          y: mouseY - (mouseY - currentPan.y) * (next / current),
+        }));
+        return next;
+      });
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', handleWheel);
+  }, []);
 
   function resetView(): void {
     setPan({ x: 0, y: 0 });
@@ -1621,7 +1647,7 @@ export default function GraphView() {
             onPointerMove={onSvgPointerMove}
             onPointerUp={onSvgPointerUp}
             onPointerLeave={onSvgPointerUp}
-            onWheel={onSvgWheel}
+            // wheel handled imperatively via useEffect to allow preventDefault
           >
             <defs>
               <marker id="edgeArrow" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto" markerUnits="strokeWidth">
