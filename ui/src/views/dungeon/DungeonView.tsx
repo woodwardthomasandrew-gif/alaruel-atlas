@@ -1024,6 +1024,19 @@ export default function DungeonView() {
   }, [campaign]);
   useEffect(() => { loadList().catch((e) => setError(e instanceof Error ? e.message : String(e))); }, [loadList]);
 
+  // PERFORMANCE FIX: Run the schema migration guard ONCE on mount (when a
+  // campaign opens), not on every "Generate Dungeon" click. The original code
+  // fired 7+ PRAGMA queries + up to 7 ALTER TABLE statements every time the
+  // user clicked Generate. This added 7+ synchronous IPC round-trips before
+  // every generation. Now it runs once when the campaign becomes available.
+  const schemaReadyRef = useRef(false);
+  useEffect(() => {
+    if (!campaign || schemaReadyRef.current) return;
+    void ensureDungeonSchemaColumns()
+      .then(() => { schemaReadyRef.current = true; })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [campaign]);
+
   const loadDungeon = useCallback(async (id: string): Promise<Dungeon | null> => {
     const [row] = await atlas.db.query<RawRow>('SELECT * FROM dungeons WHERE id = ?', [id]);
     if (!row) return null;
@@ -1055,7 +1068,8 @@ export default function DungeonView() {
     if (!campaign) return;
     setLoading(true); setError(null);
     try {
-      await ensureDungeonSchemaColumns();
+      // NOTE: Schema migration is now handled once on campaign open (see
+      // useEffect above), not here. This removes 7+ IPC round-trips per generate.
       const id = crypto.randomUUID();
       const d = generateDungeon(id, { name, seed: seed || undefined, theme, roomCount, width: gridW, height: gridH, roomSizeRange: [minRoom, maxRoom], corridorDensity: density, allowLoops, spacing });
       await atlas.db.run(

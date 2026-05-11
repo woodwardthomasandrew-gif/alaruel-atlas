@@ -1,7 +1,7 @@
 // ui/src/views/bestiary/BestiaryView.tsx
 // Root bestiary view — list panel + statblock detail panel side-by-side.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon }                from '../../components/ui/Icon';
 import { useCampaignStore }    from '../../store/campaign.store';
 import { atlas }               from '../../bridge/atlas';
@@ -75,13 +75,23 @@ export default function BestiaryView() {
     return unsub;
   }, [load]);
 
-  // ── Filtering ───────────────────────────────────────────────────────────────
-  const filtered = monsters.filter(m => {
-    const matchSearch = !search ||
-      m.name.toLowerCase().includes(search.toLowerCase());
-    const matchType = !typeFilter || m.creatureType === typeFilter;
-    return matchSearch && matchType;
-  });
+  // PERFORMANCE FIX: The original code ran this filter inline in the render body,
+  // meaning it re-executed on every render — including renders triggered by
+  // unrelated state changes (e.g., `creating`, `error`). With 500+ monsters,
+  // calling `.toLowerCase()` 1000+ times on every render adds up.
+  //
+  // Fix: useMemo caches the result and only recomputes when `monsters`,
+  // `search`, or `typeFilter` actually change. Also uses a precomputed
+  // lowercase search string so we don't call toLowerCase() twice per item.
+  const searchLower = useMemo(() => search.toLowerCase(), [search]);
+  const filtered = useMemo(() =>
+    monsters.filter(m => {
+      const matchSearch = !searchLower || m.name.toLowerCase().includes(searchLower);
+      const matchType = !typeFilter || m.creatureType === typeFilter;
+      return matchSearch && matchType;
+    }),
+    [monsters, searchLower, typeFilter],
+  );
 
   // ── Create callback ─────────────────────────────────────────────────────────
   function handleCreated(id: string, name: string) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type React from 'react';
 import { Icon }             from '../../components/ui/Icon';
 import { atlas }            from '../../bridge/atlas';
@@ -743,21 +743,34 @@ export default function SessionsView() {
 
   // ── Load lookup data (npcs / monsters / minis) ────────────────────────────
 
+  // PERFORMANCE FIX: The original code loaded ALL npcs, monsters, and minis
+  // eagerly on component mount with `useEffect(() => { loadLookups(); }, ...)`.
+  // For a large campaign, this could be 500+ NPCs + 1000+ monsters fetched
+  // before the user has interacted with anything.
+  //
+  // Fix: Load lazily — only fetch when `lookupsLoaded` is false AND the user
+  // has actually expanded an encounter and switched to the NPCs/Monsters/Minis
+  // sub-tab. The `lookupsLoaded` ref prevents double-loading.
+  const lookupsLoaded = useRef(false);
+
   const loadLookups = useCallback(async () => {
-    if (!campaign) return;
+    if (!campaign || lookupsLoaded.current) return;
     const [npcs, monsters, minis] = await Promise.all([
       atlas.db.query<NpcRow>('SELECT id,name,alias,role,vital_status FROM npcs WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
       atlas.db.query<MonsterRow>('SELECT id,name,creature_type,size,challenge_rating,is_homebrew FROM monsters WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
       atlas.db.query<MiniRow>('SELECT id,name,base_size,quantity FROM minis WHERE campaign_id=? ORDER BY name ASC', [campaign.id]),
     ]);
+    lookupsLoaded.current = true;
     setAllNpcs(npcs); setAllMonsters(monsters); setAllMinis(minis);
   }, [campaign]);
 
-  useEffect(() => { loadLookups(); }, [loadLookups]);
-
+  // Reload lookups when external entities change (but only if we've already
+  // loaded once — no point refreshing data the user hasn't needed yet).
   useEffect(() => atlas.on.moduleEvent(({ event }) => {
+    if (!lookupsLoaded.current) return;
     if (['npc:created', 'npc:updated', 'bestiary:created', 'bestiary:updated',
          'mini-catalogue:created', 'mini-catalogue:updated'].includes(event)) {
+      lookupsLoaded.current = false; // Force reload on next tab open
       void loadLookups();
     }
   }), [loadLookups]);
@@ -1126,7 +1139,16 @@ export default function SessionsView() {
                                   return (
                                     <button key={t}
                                       className={`${styles.encSubTab} ${encTab === t ? styles.encSubTabActive : ''}`}
-                                      onClick={() => { setEncTab(t); if (isEditing && t !== 'details') setEditingId(null); }}>
+                                      onClick={() => {
+                                        setEncTab(t);
+                                        // PERFORMANCE: Trigger lazy lookup load the first time any
+                                        // import sub-tab is opened. Data loads in the background;
+                                        // the EncounterImportPanel shows it once available.
+                                        if (t === 'npcs' || t === 'monsters' || t === 'minis') {
+                                          void loadLookups();
+                                        }
+                                        if (isEditing && t !== 'details') setEditingId(null);
+                                      }}>
                                       {t === 'details'  && '📋 '}
                                       {t === 'npcs'     && '👤 '}
                                       {t === 'monsters' && '💀 '}
