@@ -1,6 +1,7 @@
 // ui/src/views/inspiration/CrystalBallView.tsx
 // Enhanced: supports text visions and image asset visions side-by-side.
 // Image visions include a random CSS filter applied per-asset.
+// Added: swirling smoke tendrils that rise, curl, and fade inside the orb.
 
 import styles from './CrystalBallView.module.css';
 import { VisionItem } from './VisionItem';
@@ -69,6 +70,16 @@ export function CrystalBallView({ visions, isGenerating, onCapture, holdMs }: Cr
       <div className={`${styles.mist} ${styles.mistSlow}`} />
       <div className={`${styles.mist} ${styles.mistGold}`} />
       <div className={`${styles.mist} ${styles.mistDeep}`} />
+
+      {/* Swirling smoke tendrils */}
+      <div className={styles.smokeContainer}>
+        <div className={`${styles.smoke} ${styles.smoke1}`} />
+        <div className={`${styles.smoke} ${styles.smoke2}`} />
+        <div className={`${styles.smoke} ${styles.smoke3}`} />
+        <div className={`${styles.smoke} ${styles.smoke4}`} />
+        <div className={`${styles.smoke} ${styles.smoke5}`} />
+        <div className={`${styles.smoke} ${styles.smoke6}`} />
+      </div>
 
       {/* Vignette */}
       <div className={styles.vignette} />
