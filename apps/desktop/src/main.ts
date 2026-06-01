@@ -50,6 +50,7 @@ import { GraphModule }    from '../../../modules/graph/src/index';
 import { AssetsUiModule } from '../../../modules/assets-ui/src/index';
 import { DungeonModule }   from '../../../modules/dungeon/src/index';
 import { BestiaryModule }        from '../../../modules/bestiary/src/index';
+import { MagicItemsModule }      from '../../../modules/magic-items/src/index';
 import { MiniCatalogueModule }   from '../../../modules/mini-catalogue/src/index';
 import { FactionsModule }        from '../../../modules/factions/src/index';
 
@@ -145,6 +146,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new AssetsUiModule());
   moduleLoader.register(new DungeonModule());
   moduleLoader.register(new BestiaryModule());
+  moduleLoader.register(new MagicItemsModule());
   moduleLoader.register(new MiniCatalogueModule());
   moduleLoader.register(new FactionsModule());
 

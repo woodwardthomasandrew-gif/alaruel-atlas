@@ -74,6 +74,7 @@ export default defineConfig({
             ['views/sessions/',      'module-sessions'],
             ['views/timeline/',      'module-timeline'],
             ['views/bestiary/',      'module-bestiary'],
+            ['views/magic-items/',   'module-magic-items'],
             ['views/party/',         'module-party'],
             ['views/npcs/',          'module-npcs'],
             ['views/factions/',      'module-factions'],

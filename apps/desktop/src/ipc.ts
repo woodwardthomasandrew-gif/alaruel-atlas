@@ -346,6 +346,7 @@ export function registerEventForwards(win: BrowserWindow): void {
     'timeline:entry-added',
     'atlas:map-loaded',
     'bestiary:created', 'bestiary:updated',
+    'magic-items:created', 'magic-items:updated', 'magic-items:deleted',
     'mini-catalogue:created', 'mini-catalogue:updated',
   ] as const;
 

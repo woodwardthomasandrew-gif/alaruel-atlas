@@ -1,0 +1,236 @@
+/* =============================================================================
+   magic-item-print.css — Alaruel Atlas
+   Global print stylesheet for magic item sheets.
+
+   The MagicItemPrintModal mounts a #magic-item-print-root element directly on
+   document.body. When window.print() is called:
+
+     • @media screen  →  the print root stays hidden.
+     • @media print   →  only #magic-item-print-root is shown; everything else
+                         in the app shell is hidden.
+   ============================================================================= */
+
+@media screen {
+  #magic-item-print-root {
+    display: none !important;
+  }
+}
+
+@media print {
+  #magic-item-print-root {
+    display: none !important;
+  }
+
+  body.printing-magic-item > *:not(#magic-item-print-root) {
+    display: none !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.printing-magic-item #magic-item-print-root {
+    display: block !important;
+    position: static !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 14mm 16mm;
+  }
+
+  .mi-card {
+    background: #ffffff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    font-family: 'Crimson Pro', 'Georgia', 'Times New Roman', serif !important;
+    font-size: 9.5pt !important;
+    color: #1a1008 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .mi-banner {
+    background: #5e2016 !important;
+    padding: 6pt 10pt 5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .mi-banner-top {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 10pt !important;
+  }
+
+  .mi-name {
+    font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif !important;
+    font-size: 16pt !important;
+    font-weight: 700 !important;
+    color: #fcf7f1 !important;
+    margin: 0 0 1pt !important;
+    line-height: 1.15 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .mi-line {
+    font-style: italic !important;
+    font-size: 9pt !important;
+    color: rgba(255,255,255,.82) !important;
+    margin: 0 !important;
+  }
+
+  .mi-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: .14rem .48rem !important;
+    border-radius: 999px !important;
+    font-size: 7.2pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+    color: #f2e8d8 !important;
+    background: rgba(94, 32, 22, .94) !important;
+  }
+
+  .mi-pill-type {
+    background: rgba(37, 99, 235, .9) !important;
+  }
+
+  .mi-divider {
+    height: 4pt !important;
+    background: linear-gradient(90deg, #6b3a0a 0%, #c49040 35%, #e0b060 50%, #c49040 65%, #6b3a0a 100%) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .mi-divider-subtle {
+    height: 1pt !important;
+    background: #9b7e55 !important;
+    opacity: .45 !important;
+  }
+
+  .mi-section {
+    padding: 4pt 10pt !important;
+    border-bottom: 0.5pt solid #d9ccb8 !important;
+  }
+
+  .mi-section:last-child {
+    border-bottom: none !important;
+  }
+
+  .mi-heading {
+    font-family: 'Cinzel', 'Georgia', serif !important;
+    font-size: 8.5pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .12em !important;
+    color: #5e2016 !important;
+    border-bottom: 1pt solid #5e2016 !important;
+    padding-bottom: 1pt !important;
+    margin: 0 0 4pt !important;
+  }
+
+  .mi-card-grid {
+    display: grid !important;
+    grid-template-columns: 1.1fr 1fr !important;
+    gap: 12pt !important;
+  }
+
+  .mi-art {
+    aspect-ratio: 4 / 5 !important;
+    border: 1pt solid #d9ccb8 !important;
+    border-radius: 3pt !important;
+    overflow: hidden !important;
+    background: #fffaf2 !important;
+  }
+
+  .mi-image,
+  .mi-image-fallback {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .mi-image {
+    object-fit: cover !important;
+    display: block !important;
+  }
+
+  .mi-image-fallback {
+    display: grid !important;
+    place-items: center !important;
+    color: #92704a !important;
+  }
+
+  .mi-meta-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 4pt !important;
+  }
+
+  .mi-stat {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    padding: 4pt 5pt !important;
+    border: 0.5pt solid #d9ccb8 !important;
+    border-radius: 2pt !important;
+  }
+
+  .mi-stat-label {
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .07em !important;
+    color: #5b4a33 !important;
+    font-weight: 700 !important;
+  }
+
+  .mi-stat-value {
+    font-size: 9.5pt !important;
+    color: #1a1008 !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+  }
+
+  .mi-note {
+    margin-top: 6pt !important;
+    padding: 5pt 6pt !important;
+    border: 0.5pt solid #d9ccb8 !important;
+    border-radius: 2pt !important;
+    background: rgba(255,255,255,.35) !important;
+  }
+
+  .mi-note-title {
+    margin: 0 0 2pt !important;
+    font-size: 7.5pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: .08em !important;
+    color: #5e2016 !important;
+  }
+
+  .mi-note-text,
+  .mi-body {
+    margin: 0 !important;
+    font-size: 9pt !important;
+    line-height: 1.55 !important;
+    color: #2a2318 !important;
+    white-space: pre-wrap !important;
+  }
+
+  .mi-tags {
+    display: none !important;
+  }
+}

@@ -49,6 +49,11 @@ export type AppEventMap = {
   'bestiary:created': { monsterId: string };
   'bestiary:updated': { monsterId: string };
 
+  // -- Magic Items --
+  'magic-items:created': { magicItemId: string };
+  'magic-items:updated': { magicItemId: string };
+  'magic-items:deleted': { magicItemId: string };
+
   // -- Mini Catalogue --
   'mini-catalogue:created': { miniId: string };
   'mini-catalogue:updated': { miniId: string };

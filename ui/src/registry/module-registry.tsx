@@ -33,6 +33,7 @@ const AssetsView        = lazy(() => import('../views/assets/AssetsView'));
 const GeneratorsView    = lazy(() => import('../views/generators/GeneratorsView'));
 const DungeonView       = lazy(() => import('../views/dungeon/DungeonView'));
 const BestiaryView      = lazy(() => import('../views/bestiary/BestiaryView'));
+const MagicItemsView    = lazy(() => import('../views/magic-items/MagicItemsView'));
 const InspirationView   = lazy(() => import('../views/inspiration/InspirationView'));
 const MiniCatalogueView = lazy(() => import('../views/mini-catalogue/MiniCatalogueView'));
 
@@ -117,6 +118,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'skull',
     route:            '/bestiary',
     component:        BestiaryView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'magic-items',
+    displayName:      'Magic Items',
+    icon:             'sparkles',
+    route:            '/magic-items',
+    component:        MagicItemsView,
     requiresCampaign: true,
   },
   {

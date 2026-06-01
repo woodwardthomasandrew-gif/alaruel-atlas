@@ -16,6 +16,7 @@ import AssetsView        from '../views/assets/AssetsView';
 import GeneratorsView    from '../views/generators/GeneratorsView';
 import DungeonView       from '../views/dungeon/DungeonView';
 import BestiaryView      from '../views/bestiary/BestiaryView';
+import MagicItemsView    from '../views/magic-items/MagicItemsView';
 import InspirationView   from '../views/inspiration/InspirationView';
 import MiniCatalogueView from '../views/mini-catalogue/MiniCatalogueView';
 
@@ -99,6 +100,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'skull',
     route:            '/bestiary',
     component:        BestiaryView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'magic-items',
+    displayName:      'Magic Items',
+    icon:             'sparkles',
+    route:            '/magic-items',
+    component:        MagicItemsView,
     requiresCampaign: true,
   },
   {

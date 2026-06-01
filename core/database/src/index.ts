@@ -67,6 +67,7 @@ const REQUIRED_TABLES = [
   'party_pets',
   'factions',
   'quests',
+  'magic_items',
   'campaign_events',
 ];
 
