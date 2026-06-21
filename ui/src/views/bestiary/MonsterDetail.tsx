@@ -115,6 +115,17 @@ function parseJson<T>(raw: string, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
 
+function listTextToArray(value: string | null | undefined): string[] {
+  return String(value ?? '')
+    .split(/[\n,]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function arrayToListText(value: string[] | null | undefined): string {
+  return (value ?? []).join(', ');
+}
+
 const ALIGNMENTS = [
   'lawful good','neutral good','chaotic good',
   'lawful neutral','true neutral','chaotic neutral',
@@ -1036,10 +1047,18 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
     tags_arr:             string[];
     skills_arr:           SkillConfigs;
     spellcastingModules:  SpellcastingModule[];
+    damage_vulnerabilities_text?: string;
+    damage_resistances_text?: string;
+    damage_immunities_text?: string;
+    condition_immunities_text?: string;
   }>({
     actions_arr: [], traits_arr: [], reactions_arr: [],
     legendaryActions_arr: [], bonusActions_arr: [], tags_arr: [],
     skills_arr: {}, spellcastingModules: [],
+    damage_vulnerabilities_text: '',
+    damage_resistances_text: '',
+    damage_immunities_text: '',
+    condition_immunities_text: '',
   });
 
   // ── Automation state ────────────────────────────────────────────────────────
@@ -1102,6 +1121,10 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
       tags_arr:             parseJson<string[]>(m.tags, []),
       skills_arr:           skillConfigs,
       spellcastingModules:  splitTraits.modules,
+      damage_vulnerabilities_text: arrayToListText(parseJson<string[]>(m.damage_vulnerabilities, [])),
+      damage_resistances_text:     arrayToListText(parseJson<string[]>(m.damage_resistances, [])),
+      damage_immunities_text:      arrayToListText(parseJson<string[]>(m.damage_immunities, [])),
+      condition_immunities_text:   arrayToListText(parseJson<string[]>(m.condition_immunities, [])),
     });
     // Reconstruct saving throw configs from stored values
     const storedThrows = parseJson<Partial<Record<AbilityKey, number>>>(m.saving_throws, {});
@@ -1205,8 +1228,10 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
           Number(form.xp_value ?? monster.xp_value),
           JSON.stringify(computedSaves),
           JSON.stringify(form.skills_arr ?? {}),
-          monster.damage_vulnerabilities, monster.damage_resistances,
-          monster.damage_immunities, monster.condition_immunities,
+          JSON.stringify(listTextToArray(form.damage_vulnerabilities_text ?? monster.damage_vulnerabilities)),
+          JSON.stringify(listTextToArray(form.damage_resistances_text ?? monster.damage_resistances)),
+          JSON.stringify(listTextToArray(form.damage_immunities_text ?? monster.damage_immunities)),
+          JSON.stringify(listTextToArray(form.condition_immunities_text ?? monster.condition_immunities)),
           form.senses    ?? null,
           form.languages ?? null,
           JSON.stringify(allTraits),
@@ -1653,6 +1678,55 @@ export function MonsterDetail({ monsterId, onUpdated, onDeleted }: Props) {
 
         {/* ── Spellcasting ─────────────────────────────────────────────── */}
         {/* ── Skills ────────────────────────────────────────────────────── */}
+        <div className={styles.formSection}>
+          <div className={styles.formSectionTitle}>Damage Traits</div>
+          <p className={styles.calcHint}>Use commas or line breaks to separate multiple entries.</p>
+          <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Damage Vulnerabilities</label>
+              <textarea
+                className={styles.textarea}
+                rows={2}
+                placeholder="fire, radiant"
+                value={form.damage_vulnerabilities_text ?? ''}
+                onChange={e => setField('damage_vulnerabilities_text', e.target.value)}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Damage Resistances</label>
+              <textarea
+                className={styles.textarea}
+                rows={2}
+                placeholder="bludgeoning, piercing, and slashing from nonmagical attacks"
+                value={form.damage_resistances_text ?? ''}
+                onChange={e => setField('damage_resistances_text', e.target.value)}
+              />
+            </div>
+          </div>
+          <div className={styles.formRow} style={{ marginTop: '.75rem' }}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Damage Immunities</label>
+              <textarea
+                className={styles.textarea}
+                rows={2}
+                placeholder="poison, psychic"
+                value={form.damage_immunities_text ?? ''}
+                onChange={e => setField('damage_immunities_text', e.target.value)}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Condition Immunities</label>
+              <textarea
+                className={styles.textarea}
+                rows={2}
+                placeholder="charmed, frightened"
+                value={form.condition_immunities_text ?? ''}
+                onChange={e => setField('condition_immunities_text', e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
         <div className={styles.formSection}>
           <div className={styles.formSectionTitle}>Skill Proficiencies</div>
           <SkillEditor skills={form.skills_arr ?? {}} onChange={v => setField('skills_arr', v)} profBonus={profBonus} abilityScores={abilityScores} />

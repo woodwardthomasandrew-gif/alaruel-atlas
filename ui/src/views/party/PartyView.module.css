@@ -188,6 +188,259 @@
   padding: 1rem;
 }
 
+.airshipOverview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.1rem 0 0.3rem;
+}
+
+.airshipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.airshipSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.airshipGrid > .airshipSection:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.airshipPage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.airshipHero,
+.combatDashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.03)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.airshipHeroTop,
+.dashboardHeader,
+.cardHeaderRow,
+.recordHeader,
+.sectionActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.heroActions,
+.dashboardRangeControls,
+.badgeRow,
+.pillList,
+.rangeBandRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sectionKicker {
+  margin: 0 0 0.2rem;
+  color: var(--gold-300);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.airshipTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.55rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.badgeMuted {
+  color: var(--text-muted);
+}
+
+.badgeGood {
+  border-color: rgba(84, 180, 84, 0.32);
+  background: rgba(84, 180, 84, 0.12);
+  color: #b9f2bf;
+}
+
+.badgeWarn {
+  border-color: rgba(196, 144, 64, 0.34);
+  background: rgba(196, 144, 64, 0.12);
+  color: #f3d19b;
+}
+
+.badgeBad {
+  border-color: rgba(160, 48, 48, 0.34);
+  background: rgba(160, 48, 48, 0.14);
+  color: #f0b1b1;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.statCard,
+.statCardWide,
+.recordCard,
+.effectPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.statCardWide {
+  margin-top: 1rem;
+}
+
+.cardLabel,
+.effectTitle,
+.groupTitle {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.cardCopy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.segmentedTrack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14px, 1fr));
+  gap: 0.25rem;
+  min-height: 16px;
+}
+
+.segment,
+.dot {
+  display: block;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.segment {
+  min-height: 14px;
+}
+
+.segmentFilled {
+  background: linear-gradient(180deg, rgba(196, 144, 64, 0.95), rgba(196, 144, 64, 0.55));
+  border-color: rgba(196, 144, 64, 0.65);
+}
+
+.metricRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.metricRow strong {
+  color: var(--text-primary);
+  font-size: 1.2rem;
+}
+
+.compactInputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.dotTrack {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+}
+
+.dotFilled {
+  background: linear-gradient(180deg, rgba(196, 144, 64, 0.9), rgba(196, 144, 64, 0.45));
+  border-color: rgba(196, 144, 64, 0.65);
+}
+
+.rangeBandPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.36rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.78rem;
+}
+
+.rangeBandActive {
+  color: var(--gold-300);
+  border-color: var(--gold-600);
+  background: rgba(196, 144, 64, 0.12);
+}
+
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.textareaCompact {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0.25rem 0 0.5rem;
+}
+
+.emptyInline {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding: 0.35rem 0;
+}
+
 .detailHeader,
 .sectionHeader,
 .gearTopRow,
@@ -207,6 +460,19 @@
 .detailSubtitle,
 .sectionCopy {
   margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.airshipCargoHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cargoSummary {
   color: var(--text-muted);
   font-size: 0.82rem;
 }
@@ -234,6 +500,73 @@
 
 .textareaTall {
   min-height: 220px;
+}
+
+.spreadsheetWrapper {
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.spreadsheet {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.spreadsheet th,
+.spreadsheet td {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.65rem;
+  vertical-align: top;
+}
+
+.spreadsheet th {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.spreadsheetInput {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.5rem 0.55rem;
+  font: inherit;
+}
+
+.spreadsheetInput:focus {
+  outline: none;
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 1px rgba(196, 144, 64, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.numberInput {
+  text-align: right;
+}
+
+.numberHead {
+  text-align: right !important;
+}
+
+.totalCell {
+  text-align: right;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.actionCell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .gearList {
@@ -321,6 +654,23 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboardGrid,
+  .compactInputs {
+    grid-template-columns: 1fr;
+  }
+
+  .airshipCargoHeaderActions {
+    justify-content: flex-start;
+  }
+
+  .airshipGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .airshipGrid > .airshipSection:nth-child(5) {
+    grid-column: auto;
   }
 
   .cargoTopRow,

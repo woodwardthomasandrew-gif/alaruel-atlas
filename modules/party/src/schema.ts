@@ -4,6 +4,47 @@ export const PARTY_SCHEMA: SchemaRegistration = {
   module: 'party',
   migrations: [
     {
+      version: 31,
+      module: 'party',
+      description: 'Add airship combat dashboard columns and attachment slots',
+      up: `
+        ALTER TABLE party_airships ADD COLUMN ship_armor_class INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_speed_rating INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_hull_current INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_hull_maximum INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_strain_current INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_crew_required INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_crew_current INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_crew_quality TEXT NOT NULL DEFAULT 'trained';
+        ALTER TABLE party_airships ADD COLUMN ship_crew_losses INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_progress_current INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_current_range_band TEXT NOT NULL DEFAULT 'near';
+        ALTER TABLE party_airships ADD COLUMN ship_current_captain_order TEXT NOT NULL DEFAULT 'none';
+        ALTER TABLE party_airships ADD COLUMN ship_weapon_slot_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_hull_slot_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_engine_slot_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_utility_slot_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_special_slot_count INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE party_airships ADD COLUMN ship_attachment_slots_json TEXT NOT NULL DEFAULT '[]';
+        ALTER TABLE party_airships ADD COLUMN ship_weapons_json TEXT NOT NULL DEFAULT '[]';
+      `,
+      down: `
+        -- SQLite cannot drop columns without rebuilding the table.
+      `,
+    },
+    {
+      version: 29,
+      module: 'party',
+      description: 'Add crew and ship system records to airships',
+      up: `
+        ALTER TABLE party_airships ADD COLUMN ship_crew_json TEXT NOT NULL DEFAULT '[]';
+        ALTER TABLE party_airships ADD COLUMN ship_systems_json TEXT NOT NULL DEFAULT '[]';
+      `,
+      down: `
+        -- SQLite cannot drop columns without rebuilding the table.
+      `,
+    },
+    {
       version: 28,
       module: 'party',
       description: 'Create airship cargo table',
@@ -75,6 +116,8 @@ export const PARTY_SCHEMA: SchemaRegistration = {
           ship_class       TEXT    NOT NULL DEFAULT '',
           status           TEXT    NOT NULL DEFAULT '',
           current_location TEXT    NOT NULL DEFAULT '',
+          crew_json        TEXT    NOT NULL DEFAULT '[]',
+          systems_json     TEXT    NOT NULL DEFAULT '[]',
           notes            TEXT    NOT NULL DEFAULT '',
           created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
           updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

@@ -8,9 +8,31 @@ export function pick<T>(arr: T[]): T {
 export function roll(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+export function chance(probability: number): boolean {
+  return Math.random() < probability;
+}
 export function pickN<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+  const pool = [...arr];
+  const result: T[] = [];
+  const limit = Math.min(Math.max(0, n), pool.length);
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  for (let i = 0; i < limit; i += 1) {
+    result.push(pool[i]);
+  }
+  return result;
+}
+export function pickUnique<T>(arr: T[], n: number): T[] {
+  const pool = [...arr];
+  const result: T[] = [];
+  const limit = Math.min(Math.max(0, n), pool.length);
+  for (let i = 0; i < limit; i += 1) {
+    const index = Math.floor(Math.random() * pool.length);
+    result.push(pool.splice(index, 1)[0]);
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -203,6 +225,44 @@ const ITEM_CURSES = [
   'Meteoric iron from Moonshatter Bay carries a piece of Sarseth\'s unintended violence. The bearer dreams of falling iron and a world going dark for a century.',
 ];
 
+const ITEM_NAME_SPICE = [
+  'Moonshatter','Ambersoul','Cahill','Larimar','Varkeshi','Thule','Chogrove','Daeros','Meridian','Wastes',
+  'Saltfire','Cochumat','Selene','Leviton','Formene','Unity','Seraph','Aldale','Brom','Sarseth',
+];
+
+const ITEM_NAME_PLACES = [
+  'the Moonshatter Bay craters','the Ambersoul ruins','the House Cahill mines','the Larimar walls',
+  'the Varkeshi Isles','the Warclan Thule marches','the Chogrove coast','the Daeros shrines',
+  'the Meridian Order observatories','the Wastes of Eternity','the Saltfire Flats','the Cochumat jungle',
+  'the Leviton latticeworks','the Formene groves','the Unity catacombs','the Seraph\'s tomb',
+];
+
+const ITEM_NAME_MOTIFS = [
+  'Ashen','Brass','Cinder','Dusk','Frost','Gilded','Hollow','Iron','Moonlit','Obsidian',
+  'Pale','Rune-bound','Shadow','Sable','Starfall','Storm','Sunless','Thorn','Whispering','Waking',
+];
+
+function buildMagicItemName(type: string, rarity: string): string {
+  const base = chance(0.45) ? `${pick(ITEM_NAME_MOTIFS)} ${type}` : `${pick(ITEM_ADJECTIVES)} ${type}`;
+  const spicySuffix = chance(0.55)
+    ? ` ${pick(ITEM_SUFFIXES)}`
+    : chance(0.35)
+      ? ` of ${pick(ITEM_NAME_SPICE)}`
+      : chance(0.2)
+        ? ` of the ${pick(ITEM_NAME_PLACES)}`
+        : '';
+
+  if (rarity === 'Legendary' || rarity === 'Artifact') {
+    return chance(0.4) ? `The ${base}${spicySuffix}` : `${base}${spicySuffix}`;
+  }
+
+  if (rarity === 'Very Rare' && chance(0.3)) {
+    return `The ${base}${spicySuffix}`;
+  }
+
+  return `${base}${spicySuffix}`;
+}
+
 export interface MagicItem {
   name: string;
   type: string;
@@ -222,15 +282,13 @@ export function generateMagicItem(options: {
 }): MagicItem {
   const type     = options.type     || pick(ITEM_TYPES);
   const rarity   = options.rarity   || pick(ITEM_RARITIES);
-  const adj      = pick(ITEM_ADJECTIVES);
-  const suffix   = Math.random() > 0.4 ? ` ${pick(ITEM_SUFFIXES)}` : '';
   const material = pick(ITEM_MATERIALS);
   const isCursed = options.cursed === 'random'
     ? Math.random() < 0.25
     : options.cursed ?? Math.random() < 0.25;
 
   return {
-    name:     `${adj} ${type}${suffix}`,
+    name:     buildMagicItemName(type, rarity),
     type,
     rarity,
     material,
@@ -417,6 +475,38 @@ const MONSTER_LORE = [
   'A Conglomerate annex in the old magocracy\'s territory disturbed something when they broke ground. The annex has since been incorporated into the creature\'s territory. The Conglomerate is assessing whether it is more cost-effective to exterminate or to route around.',
 ];
 
+const MONSTER_DETAILS = [
+  'gaunt','bloated','scarred','many-eyed','spined','silt-cloaked','crystal-burdened','iron-plated',
+  'moon-blinded','ashen','ragged','feral','staggering','warp-lit','hive-minded','void-sick',
+];
+
+const MONSTER_ORIGINS = [
+  'Ambersoul aftermath','Department of War accident','Unity ritual fallout','Cochumat mutation',
+  'Moonshatter impact zone','Larimar crystal seep','Wastes of Eternity exposure','Varklamon breeding pit',
+  'Chogrove salvage pit','Meridian Order experiment','Far Realm breach','Warclan battlefield',
+];
+
+const MONSTER_BEHAVIOURS = [
+  'hunts in silence until blood is already on the floor',
+  'marks territory with resin, ash, or blood depending on what it was fed last',
+  'reacts to spoken names as though they are weapons',
+  'moves in a stuttering pattern that makes distance hard to judge',
+  'will retreat only if confronted with direct sunlight or saintly authority',
+  'imitates the sounds of nearby prey to draw attention off balance',
+  'fights with unnerving patience, like it expects the room to run out of options first',
+  'prefers to wound and follow rather than kill immediately',
+];
+
+function buildMonsterName(prefix: string, type: string): string {
+  if (chance(0.25)) {
+    return `${type} of the ${prefix}`;
+  }
+  if (chance(0.2)) {
+    return `${prefix} ${type} of ${pick(MONSTER_ORIGINS)}`;
+  }
+  return `${prefix} ${type}`;
+}
+
 export interface Monster {
   name: string;
   size: string;
@@ -445,9 +535,14 @@ export function generateMonster(options: {
   const crNum = parseFloat(cr.includes('/') ? cr.split('/')[0] : cr);
   const baseHp = Math.max(10, crNum * 15 + roll(10, 40));
   const baseAc = Math.min(22, Math.max(10, 10 + Math.floor(crNum / 3) + roll(0, 3)));
+  const traitCount = crNum >= 10 ? roll(3, 5) : crNum >= 4 ? roll(2, 4) : roll(1, 3);
+  const traits = pickUnique(MONSTER_TRAITS, traitCount);
+  const attack = chance(0.25)
+    ? `${pick(MONSTER_ATTACKS)} It ${pick(MONSTER_BEHAVIOURS)}.`
+    : pick(MONSTER_ATTACKS);
 
   return {
-    name:        `${prefix}${type}`,
+    name:        buildMonsterName(prefix.trim(), type),
     size,
     tag,
     cr,
@@ -455,8 +550,8 @@ export function generateMonster(options: {
     environment: pick(MONSTER_ENVIRONMENTS),
     hp:          Math.round(baseHp),
     ac:          baseAc,
-    traits:      pickN(MONSTER_TRAITS, roll(1, 3)),
-    attack:      pick(MONSTER_ATTACKS),
+    traits:      traits,
+    attack,
     lore:        pick(MONSTER_LORE),
   };
 }
@@ -674,6 +769,42 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       family: ['Cindertail','Deepscratch','Dustsnout','Ironclaw','Quicktongue','Redscale','Sootpaw','Sparktooth','Tunnelstep','Underflame'],
     },
   ],
+  'Half-Elf': [
+    {
+      culture: 'Border Concord',
+      style: 'Names that slide between human practicality and elven softness.',
+      male: ['Aeron','Cael','Davin','Eldric','Irian','Lorin','Merek','Saren','Tavian','Veyr'],
+      female: ['Aelia','Calen','Deryn','Elira','Ilyse','Liora','Maren','Selis','Tavianne','Veyla'],
+      family: ['Ashbrook','Brightmere','Dawnwoven','Emberfell','Foamglade','Moonfield','Rainsong','Silverford','Starwell','Thornriver'],
+    },
+  ],
+  Orc: [
+    {
+      culture: 'Steppe Clans',
+      style: 'Direct, forceful names with clan lineages chosen for deeds rather than ancestry.',
+      male: ['Brakka','Draz','Ghor','Karn','Morg','Ruk','Shor','Thrak','Urok','Zhar'],
+      female: ['Brakka','Draxa','Gorra','Karra','Morga','Ruka','Shora','Thraxa','Ura','Zhara'],
+      family: ['Ashfang','Bloodmoss','Gravetusk','Hearthcrusher','Irontrail','Mawbreaker','Redbanner','Skullrain','Stonefang','Warshout'],
+    },
+  ],
+  Lizardfolk: [
+    {
+      culture: 'Marsh Coil',
+      style: 'Names shaped by the sounds of swamp birds, reed beds, and old water.',
+      male: ['Akk','Chirr','Hssik','Kek','Lirr','Ssak','Tshak','Virr','Zekk','Zirr'],
+      female: ['Akki','Chirra','Hssika','Keka','Lirra','Ssaka','Tshaka','Virra','Zekka','Zirra'],
+      family: ['Bogshell','Coldreed','Driftscale','Fensong','Mudcoil','Reedsnap','Shallowskin','Siltjaw','Waterglide','Wetstone'],
+    },
+  ],
+  Goblin: [
+    {
+      culture: 'Undercity Scrappers',
+      style: 'Short, clipped names often paired with place-based surnames in trade towns.',
+      male: ['Bip','Crik','Doom','Fizz','Glim','Nib','Pip','Rask','Skeg','Vrim'],
+      female: ['Bip','Crika','Dooma','Fizza','Glima','Niba','Pipa','Raska','Skega','Vrima'],
+      family: ['Ashcart','Bentpipe','Coppernail','Dripwell','Gutterfoot','Lanternbit','Murkhand','Pouchrat','Scrapline','Tinwhistle'],
+    },
+  ],
 };
 
 export const NAME_SPECIES_OPTIONS = Object.keys(NAME_DATA_BY_SPECIES);
@@ -734,6 +865,8 @@ const NPC_FIRST_NAMES_MALE = [
   'Quillan','Rowan','Saren','Theron','Ulric','Vance','Wren','Xander','Yoren','Zephyr',
   'Nathren','Roland','Brom','Erris','Gwalthen','Taras','Jorek','Nethor',
   'Alexei','Oskoris','Craig','Tavren','Derric','Cairn','Gurn','Marek',
+  'Alistair','Brenner','Corven','Darian','Eamon','Faris','Gideon','Hector',
+  'Ivo','Julian','Kael','Lucan','Merrit','Orsen','Perrin','Quentin',
   // Varkeshi & regional additions
   'Aldren','Caelus','Estren','Halvic','Meren','Stellan','Tycho','Brek','Dronn','Garl',
   'Amren','Beljur','Daelith','Emir','Kalen','Orin','Saben','Torin',
@@ -749,6 +882,8 @@ const NPC_FIRST_NAMES_FEMALE = [
   'Quill','Rosamund','Sable','Thalia','Urien','Vesper','Willa','Xara','Ysara','Zelara',
   'Camellia','Arabella','Elira','Cara','Sylvie','Lira','Sila','Veyla','Fiona','Mina',
   'Taiya','Lyra','Elana','Vasha','Myra','Cirella',
+  'Adelise','Briony','Corra','Delyth','Elen','Frida','Greta','Helene',
+  'Imogen','Jessa','Kelsey','Lysandra','Merrin','Nerida','Odessa','Prim',
   // Varkeshi & regional additions
   'Astra','Celindra','Iselle','Lynnara','Meridia','Selene','Stellara','Vesna','Zephyra',
   'Darra','Fenn','Hessa','Mira','Reen','Tala','Vessa','Wyn',
@@ -766,6 +901,8 @@ const NPC_LAST_NAMES = [
   'Silvertongue','Thorne','Underwick','Voss','Whitlock','Yarrow','Zoldar',
   'Delaque','Stonewake','Hayward','Blackby','Datchley','Thale','Leony',
   'Flatroot','Moonwhisper','Frostleaf','Arafir',
+  'Ashford','Bellmire','Cinderhall','Dawnbrook','Elmwatch','Foxglove','Goldmere','Hearthguard',
+  'Kingsley','Larkspur','Morrowind','Northgate','Oaken','Pell','Quickwater','Redfield',
   // Varkeshi & regional additions
   'Aldenmere','Brightspire','Celesmere','Highmast','Meridon','Starcrest','Stormguard',
   'Bogrest','Deepmaw','Driftmarsh','Gallowbend','Mirefang','Reedwatch',
@@ -789,6 +926,8 @@ const NPC_OCCUPATIONS = [
   'Scribe','Healer','Priest','Guard','Scholar','Sailor','Farmer','Alchemist',
   'Bard','Hunter','Courtier','Spy','Gravedigger','Moneylender','Cartographer',
   'Arcanist','Knight','Harbourmaster','Innkeeper','Fence','Pilgrim',
+  'Road Warden','Dock Foreman','Chandler','Beast Tamer','Stablemaster','Miller',
+  'Beekeeper','Tinker','Librarian','Caravan Guard','Town Crier','Tax Collector',
   'ATC Factor','ATC Marine','Conglomerate Agent','Department of War Officer',
   'Psychic Academy Student','Airship Pilot','Airship Engineer','Siege Ball Player',
   'Unity Survivor','Warclan Deserter','Burnout Handler','Soul-Steel Artificer',
@@ -834,6 +973,10 @@ const NPC_PERSONALITIES = [
   'Chogoran Steppe survivor quiet — speaks carefully, watches exits, and is constitutionally incapable of relaxing indoors since the gnoll raids began increasing.',
 ];
 
+  'Dryly funny in a way that takes most people three sentences to notice. The payoff is rarely worth the wait, but it is always deliberate.',
+  'Earnest to an almost suspicious degree; they are either deeply sincere or hiding something enormous behind the sincerity.',
+  'Practical and warm until crossed, at which point they become frighteningly good at laying out exactly what went wrong.',
+  'Learns every room as if they expect to need the exits later, which is often true.',
 const NPC_SECRETS = [
   'Was a minor Unity functionary before the crusade. Changed their name and moved to a different city.',
   'Is on the payroll of both the ATC and the Conglomerate simultaneously and is terrified of either finding out.',

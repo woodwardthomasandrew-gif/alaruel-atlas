@@ -1,10 +1,11 @@
 # modules/party
 
-Party roster, gear, airship, and companion tracking.
+Party roster, gear, combat airship operations, cargo, and companion tracking.
 
 ## Responsibility
 
 - Owns the `party_members`, `party_member_gear`, `party_airships`, `party_airship_cargo`, and `party_pets` tables
+- Persists airship combat state, crew roster JSON, ship systems JSON, attachment slots JSON, and weapon JSON inside `party_airships`
 - Provides the party module lifecycle and service surface
 
 ## Key Files

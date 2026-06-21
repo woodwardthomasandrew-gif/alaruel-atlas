@@ -2,13 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../components/ui/Icon';
 import { atlas } from '../../bridge/atlas';
 import { useCampaignStore } from '../../store/campaign.store';
-import type {
-  PartyAirship,
-  PartyAirshipCargoItem,
-  PartyGearItem,
-  PartyMember,
-  PartyPet,
-} from '../../types/party';
+import type { PartyGearItem, PartyMember, PartyPet } from '../../types/party';
+import AirshipManagement from './AirshipManagement';
 import styles from './PartyView.module.css';
 
 type PartyTab = 'pcs' | 'airship' | 'pets';
@@ -40,28 +35,6 @@ interface PetRow {
   species: string;
   bonded_to: string;
   notes: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AirshipRow {
-  id: string;
-  name: string;
-  ship_class: string;
-  status: string;
-  current_location: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AirshipCargoRow {
-  id: string;
-  airship_id: string;
-  name: string;
-  quantity: number;
-  weight: number;
-  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -103,40 +76,12 @@ function mapPet(row: PetRow): PartyPet {
   };
 }
 
-function mapAirship(row: AirshipRow): PartyAirship {
-  return {
-    id: row.id,
-    name: row.name,
-    shipClass: row.ship_class,
-    status: row.status,
-    currentLocation: row.current_location,
-    notes: row.notes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function mapAirshipCargoItem(row: AirshipCargoRow): PartyAirshipCargoItem {
-  return {
-    id: row.id,
-    airshipId: row.airship_id,
-    name: row.name,
-    quantity: row.quantity,
-    weight: row.weight,
-    sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
 export default function PartyView() {
-  const campaign = useCampaignStore(s => s.campaign);
+  const campaign = useCampaignStore(state => state.campaign);
   const [activeTab, setActiveTab] = useState<PartyTab>('pcs');
   const [members, setMembers] = useState<PartyMember[]>([]);
   const [pets, setPets] = useState<PartyPet[]>([]);
   const [gear, setGear] = useState<PartyGearItem[]>([]);
-  const [airshipCargo, setAirshipCargo] = useState<PartyAirshipCargoItem[]>([]);
-  const [airship, setAirship] = useState<PartyAirship | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,13 +90,21 @@ export default function PartyView() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!campaign) return;
+    if (!campaign) {
+      setMembers([]);
+      setPets([]);
+      setGear([]);
+      setSelectedMemberId(null);
+      setSelectedPetId(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const [memberRows, petRows, gearRows, airshipRows, airshipCargoRows] = await Promise.all([
+      const [memberRows, petRows, gearRows] = await Promise.all([
         atlas.db.query<MemberRow>(
           'SELECT * FROM party_members WHERE campaign_id = ? ORDER BY name ASC',
           [campaign.id],
@@ -166,16 +119,6 @@ export default function PartyView() {
            ORDER BY sort_order ASC, created_at ASC, name ASC`,
           [campaign.id],
         ),
-        atlas.db.query<AirshipRow>(
-          'SELECT * FROM party_airships WHERE campaign_id = ? LIMIT 1',
-          [campaign.id],
-        ),
-        atlas.db.query<AirshipCargoRow>(
-          `SELECT * FROM party_airship_cargo
-           WHERE campaign_id = ?
-           ORDER BY sort_order ASC, created_at ASC, name ASC`,
-          [campaign.id],
-        ),
       ]);
 
       const nextMembers = memberRows.map(mapPartyMember);
@@ -184,8 +127,6 @@ export default function PartyView() {
       setMembers(nextMembers);
       setPets(nextPets);
       setGear(gearRows.map(mapGearItem));
-      setAirshipCargo(airshipCargoRows.map(mapAirshipCargoItem));
-      setAirship(airshipRows[0] ? mapAirship(airshipRows[0]) : null);
       setSelectedMemberId(current =>
         current && nextMembers.some(member => member.id === current)
           ? current
@@ -204,7 +145,7 @@ export default function PartyView() {
   }, [campaign]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const filteredMembers = useMemo(() => {
@@ -238,10 +179,6 @@ export default function PartyView() {
   const selectedMemberGear = useMemo(
     () => gear.filter(item => item.partyMemberId === selectedMemberId),
     [gear, selectedMemberId],
-  );
-  const selectedAirshipCargo = useMemo(
-    () => airshipCargo.filter(item => item.airshipId === airship?.id),
-    [airshipCargo, airship?.id],
   );
 
   async function createPartyMember() {
@@ -370,115 +307,6 @@ export default function PartyView() {
     }
   }
 
-  async function ensureAirship() {
-    if (!campaign) return;
-
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-
-    try {
-      await atlas.db.run(
-        `INSERT INTO party_airships
-           (id, campaign_id, name, ship_class, status, current_location, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, campaign.id, 'New Airship', '', '', '', '', now, now],
-      );
-      await load();
-      setActiveTab('airship');
-    } catch (airshipError) {
-      setError(airshipError instanceof Error ? airshipError.message : String(airshipError));
-    }
-  }
-
-  async function saveAirship(patch: Partial<PartyAirship>) {
-    if (!airship) return;
-
-    const nextAirship = { ...airship, ...patch };
-    const now = new Date().toISOString();
-
-    setAirship({ ...nextAirship, updatedAt: now });
-
-    try {
-      await atlas.db.run(
-        `UPDATE party_airships
-         SET name = ?, ship_class = ?, status = ?, current_location = ?, notes = ?, updated_at = ?
-         WHERE id = ?`,
-        [
-          nextAirship.name.trim() || 'Unnamed airship',
-          nextAirship.shipClass,
-          nextAirship.status,
-          nextAirship.currentLocation,
-          nextAirship.notes,
-          now,
-          nextAirship.id,
-        ],
-      );
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-      await load();
-    }
-  }
-
-  async function createAirshipCargoItem() {
-    if (!campaign || !airship) return;
-
-    const nextSortOrder =
-      selectedAirshipCargo.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1;
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-
-    try {
-      await atlas.db.run(
-        `INSERT INTO party_airship_cargo
-           (id, airship_id, campaign_id, name, quantity, weight, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, airship.id, campaign.id, 'New cargo', 1, 0, nextSortOrder, now, now],
-      );
-      await load();
-    } catch (cargoError) {
-      setError(cargoError instanceof Error ? cargoError.message : String(cargoError));
-    }
-  }
-
-  async function saveAirshipCargoItem(cargoId: string, patch: Partial<PartyAirshipCargoItem>) {
-    const item = airshipCargo.find(entry => entry.id === cargoId);
-    if (!item) return;
-
-    const nextItem = { ...item, ...patch };
-    const now = new Date().toISOString();
-
-    setAirshipCargo(prev =>
-      prev.map(entry => (entry.id === cargoId ? { ...nextItem, updatedAt: now } : entry)),
-    );
-
-    try {
-      await atlas.db.run(
-        `UPDATE party_airship_cargo
-         SET name = ?, quantity = ?, weight = ?, updated_at = ?
-         WHERE id = ?`,
-        [
-          nextItem.name.trim() || 'Unnamed cargo',
-          Math.max(1, Number(nextItem.quantity) || 1),
-          Math.max(0, Number(nextItem.weight) || 0),
-          now,
-          cargoId,
-        ],
-      );
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : String(saveError));
-      await load();
-    }
-  }
-
-  async function deleteAirshipCargoItem(cargoId: string) {
-    try {
-      await atlas.db.run('DELETE FROM party_airship_cargo WHERE id = ?', [cargoId]);
-      await load();
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : String(deleteError));
-    }
-  }
-
   async function createPet() {
     if (!campaign) return;
 
@@ -566,12 +394,6 @@ export default function PartyView() {
               New PC
             </button>
           )}
-          {activeTab === 'airship' && !airship && (
-            <button className={styles.primaryBtn} onClick={ensureAirship}>
-              <Icon name="plus" size={16} />
-              Create Airship
-            </button>
-          )}
           {activeTab === 'pets' && (
             <button className={styles.primaryBtn} onClick={createPet}>
               <Icon name="plus" size={16} />
@@ -630,7 +452,8 @@ export default function PartyView() {
                 >
                   <span className={styles.listTitle}>{member.name}</span>
                   <span className={styles.listMeta}>
-                    {member.playerName || 'No player'}{member.role ? ` · ${member.role}` : ''}
+                    {member.playerName || 'No player'}
+                    {member.role ? ` · ${member.role}` : ''}
                   </span>
                 </button>
               ))
@@ -750,120 +573,7 @@ export default function PartyView() {
           </div>
         </div>
       ) : activeTab === 'airship' ? (
-        <div className={styles.singlePane}>
-          {!airship ? (
-            <div className={styles.emptyState}>
-              <Icon name="network" size={28} />
-              <p>No airship tracked for this campaign yet.</p>
-            </div>
-          ) : (
-            <div className={styles.detailContent}>
-              <div className={styles.detailHeader}>
-                <div>
-                  <h3 className={styles.detailTitle}>{airship.name}</h3>
-                  <p className={styles.detailSubtitle}>Campaign airship management</p>
-                </div>
-              </div>
-
-              <div className={styles.formGrid}>
-                <label className={styles.field}>
-                  <span>Name</span>
-                  <input
-                    className={styles.input}
-                    value={airship.name}
-                    onChange={event => saveAirship({ name: event.target.value })}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Class / Make</span>
-                  <input
-                    className={styles.input}
-                    value={airship.shipClass}
-                    onChange={event => saveAirship({ shipClass: event.target.value })}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Status</span>
-                  <input
-                    className={styles.input}
-                    value={airship.status}
-                    onChange={event => saveAirship({ status: event.target.value })}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Current Location</span>
-                  <input
-                    className={styles.input}
-                    value={airship.currentLocation}
-                    onChange={event => saveAirship({ currentLocation: event.target.value })}
-                  />
-                </label>
-              </div>
-
-              <label className={styles.field}>
-                <span>Airship Notes</span>
-                <textarea
-                  className={`${styles.input} ${styles.textareaTall}`}
-                  value={airship.notes}
-                  onChange={event => saveAirship({ notes: event.target.value })}
-                />
-              </label>
-
-              <div className={styles.sectionHeader}>
-                <div>
-                  <h4 className={styles.sectionTitle}>Cargo</h4>
-                  <p className={styles.sectionCopy}>Track what is on board and how heavy it is.</p>
-                </div>
-                <button className={styles.secondaryBtn} onClick={createAirshipCargoItem}>
-                  <Icon name="plus" size={15} />
-                  Add Cargo
-                </button>
-              </div>
-
-              {selectedAirshipCargo.length === 0 ? (
-                <div className={styles.emptyList}>
-                  <p>No cargo tracked for this airship yet.</p>
-                </div>
-              ) : (
-                <div className={styles.gearList}>
-                  {selectedAirshipCargo.map(item => (
-                    <div key={item.id} className={styles.gearCard}>
-                      <div className={styles.cargoTopRow}>
-                        <input
-                          className={styles.input}
-                          value={item.name}
-                          onChange={event => saveAirshipCargoItem(item.id, { name: event.target.value })}
-                        />
-                        <input
-                          className={`${styles.input} ${styles.qtyInput}`}
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={event => saveAirshipCargoItem(item.id, { quantity: Number(event.target.value) || 1 })}
-                        />
-                        <input
-                          className={`${styles.input} ${styles.weightInput}`}
-                          type="number"
-                          min={0}
-                          step="0.1"
-                          value={item.weight}
-                          onChange={event => saveAirshipCargoItem(item.id, { weight: Number(event.target.value) || 0 })}
-                        />
-                        <button
-                          className={styles.iconBtn}
-                          onClick={() => deleteAirshipCargoItem(item.id)}
-                          title="Delete cargo item"
-                        >
-                          <Icon name="trash" size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <AirshipManagement />
       ) : (
         <div className={styles.body}>
           <div className={styles.listPane}>
@@ -880,7 +590,8 @@ export default function PartyView() {
                 >
                   <span className={styles.listTitle}>{pet.name}</span>
                   <span className={styles.listMeta}>
-                    {pet.species || 'No species'}{pet.bondedTo ? ` · ${pet.bondedTo}` : ''}
+                    {pet.species || 'No species'}
+                    {pet.bondedTo ? ` · ${pet.bondedTo}` : ''}
                   </span>
                 </button>
               ))

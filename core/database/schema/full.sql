@@ -644,6 +644,8 @@ CREATE TABLE IF NOT EXISTS party_airships (
     ship_class       TEXT    NOT NULL DEFAULT '',
     status           TEXT    NOT NULL DEFAULT '',
     current_location TEXT    NOT NULL DEFAULT '',
+    crew_json        TEXT    NOT NULL DEFAULT '[]',
+    systems_json     TEXT    NOT NULL DEFAULT '[]',
     notes            TEXT    NOT NULL DEFAULT '',
     created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),

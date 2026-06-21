@@ -79,8 +79,9 @@ export function runMigrations(
       module:  migration.module,
     });
 
-    // Execute the migration SQL.
-    db.exec(migration.up);
+    // Execute the migration SQL one statement at a time so we can skip
+    // already-applied ADD COLUMN steps without aborting the rest.
+    executeSqlStatements(db, migration.up, log, migration);
 
     // Record it as applied.
     db.prepare(
@@ -89,4 +90,160 @@ export function runMigrations(
 
     log.info(`Migration v${migration.version} applied successfully`);
   }
+}
+
+function executeSqlStatements(db: MigrationDb, sql: string, log: Logger, migration: Migration): void {
+  for (const statement of splitSqlStatements(sql)) {
+    if (shouldSkipAlreadyAppliedColumnStatement(db, statement)) {
+      log.debug(
+        `Skipping already-applied column during migration v${migration.version}`,
+        {
+          version: migration.version,
+          module:  migration.module,
+          statement,
+        },
+      );
+      continue;
+    }
+
+    try {
+      db.exec(statement);
+    } catch (err) {
+      if (isDuplicateColumnError(err) && isAlterTableAddColumnStatement(statement)) {
+        log.warn(
+          `Skipping already-applied column during migration v${migration.version}`,
+          {
+            version: migration.version,
+            module:  migration.module,
+            statement,
+            error:    err instanceof Error ? err.message : String(err),
+          },
+        );
+        continue;
+      }
+
+      throw err;
+    }
+  }
+}
+
+function splitSqlStatements(sql: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index];
+    const next = sql[index + 1];
+
+    current += char;
+
+    if (char === "'" && !inDoubleQuote) {
+      if (inSingleQuote && next === "'") {
+        current += next;
+        index += 1;
+        continue;
+      }
+
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      if (inDoubleQuote && next === '"') {
+        current += next;
+        index += 1;
+        continue;
+      }
+
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (char === ';' && !inSingleQuote && !inDoubleQuote) {
+      const statement = current.slice(0, -1).trim();
+      if (statement) {
+        parts.push(statement);
+      }
+      current = '';
+    }
+  }
+
+  const tail = current.trim();
+  if (tail) {
+    parts.push(tail);
+  }
+
+  return reassembleTriggerBodies(parts);
+}
+
+function reassembleTriggerBodies(parts: string[]): string[] {
+  const statements: string[] = [];
+  let buffer = '';
+  let inTrigger = false;
+
+  for (const part of parts) {
+    if (!inTrigger) {
+      if (/^\s*CREATE\s+TRIGGER\b/i.test(part)) {
+        buffer = part;
+        inTrigger = true;
+        continue;
+      }
+
+      statements.push(part);
+      continue;
+    }
+
+    buffer += `;${part}`;
+
+    if (/\bEND\s*$/i.test(part.trim())) {
+      statements.push(buffer);
+      buffer = '';
+      inTrigger = false;
+    }
+  }
+
+  if (buffer.trim()) {
+    statements.push(buffer);
+  }
+
+  return statements;
+}
+
+function shouldSkipAlreadyAppliedColumnStatement(db: MigrationDb, statement: string): boolean {
+  const match = statement.match(ALTER_TABLE_ADD_COLUMN_REGEX);
+  if (!match) {
+    return false;
+  }
+
+  const tableName = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5];
+  const columnName = match[6] ?? match[7] ?? match[8] ?? match[9];
+
+  if (!tableName || !columnName) {
+    return false;
+  }
+
+  return hasColumn(db, tableName, columnName);
+}
+
+function isAlterTableAddColumnStatement(statement: string): boolean {
+  return ALTER_TABLE_ADD_COLUMN_REGEX.test(statement);
+}
+
+const ALTER_TABLE_ADD_COLUMN_REGEX =
+  /^\s*ALTER\s+TABLE\s+(?:"([^"]+)"|'([^']+)'|`([^`]+)`|\[([^\]]+)\]|([^\s(]+))\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|'([^']+)'|`([^`]+)`|\[([^\]]+)\]|([^\s(]+))/i;
+
+function hasColumn(db: MigrationDb, tableName: string, columnName: string): boolean {
+  const escapedTableName = tableName.replace(/'/g, "''");
+  const escapedColumnName = columnName.replace(/'/g, "''");
+  const row = db.prepare(
+    `SELECT name FROM pragma_table_info('${escapedTableName}') WHERE name = '${escapedColumnName}' LIMIT 1`,
+  ).all() as unknown as Array<{ present: number }>;
+
+  return row.length > 0;
+}
+
+function isDuplicateColumnError(err: unknown): boolean {
+  return err instanceof Error && /duplicate column name/i.test(err.message);
 }

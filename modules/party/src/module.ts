@@ -25,7 +25,7 @@ export class PartyModule extends BaseModule<PartyRepository, PartyService> {
     version: '1.0.0',
     dependsOn: [],
     required: false,
-    description: 'Party roster, gear, airship, and companion tracking',
+    description: 'Party roster, gear, combat airship, and companion tracking',
   });
 
   protected createRepository(db: IDatabaseManager): PartyRepository {
