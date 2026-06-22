@@ -971,12 +971,12 @@ const NPC_PERSONALITIES = [
   'The guarded pride of someone who grew up in Larimar\'s walls and has very strong feelings about what it means to live under the protection of a god\'s gift.',
   'The blunt efficiency of a Conglomerate company town manager who has long since stopped pretending the company\'s interests and the people\'s interests align.',
   'Chogoran Steppe survivor quiet — speaks carefully, watches exits, and is constitutionally incapable of relaxing indoors since the gnoll raids began increasing.',
-];
-
   'Dryly funny in a way that takes most people three sentences to notice. The payoff is rarely worth the wait, but it is always deliberate.',
   'Earnest to an almost suspicious degree; they are either deeply sincere or hiding something enormous behind the sincerity.',
   'Practical and warm until crossed, at which point they become frighteningly good at laying out exactly what went wrong.',
   'Learns every room as if they expect to need the exits later, which is often true.',
+];
+
 const NPC_SECRETS = [
   'Was a minor Unity functionary before the crusade. Changed their name and moved to a different city.',
   'Is on the payroll of both the ATC and the Conglomerate simultaneously and is terrified of either finding out.',
@@ -1362,7 +1362,7 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
     ],
   },
   'Tavern / Inn': {
-    style: 'Tavern signs in Alaruel lean on old war imagery, trade-house irony, and whatever the last occupant nailed above the door.',
+    style: 'Tavern signs in Alaruel lean on old war imagery, trade-house irony, and whatever the last occupant nailed above the door. Two- or three-part names with a definite article; heavy on the kind of battered optimism that characterises Alaruel\'s drinking establishments.',
     prefixes: [
       'The Broken','The Gilded','The Blind','The Drowned','The Rusted','The Forgotten',
       'The Salted','The Amber','The Cracked','The Hollow','The Wandering','The Grim',
@@ -1383,10 +1383,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       '& Sons','& Daughters','Alehouse','Tavern','Inn','Lodge',
       'House','Rest','Landing','Waystation',
     ],
-    style: 'Two- or three-part names with a definite article; heavy on the kind of battered optimism that characterises Alaruel\'s drinking establishments.',
   },
   'Dungeon / Ruin': {
-    style: 'Ruins in Alaruel tend to be named for what they were, what they did, or what ate the last expedition.',
+    style: 'Ruins in Alaruel tend to be named for what they were, what they did, or what ate the last expedition. Evocative three-part names combining a framing phrase, a quality adjective, and a structural noun.',
     prefixes: [
       'The','','','','', // sometimes just a noun phrase
       'Ruins of','The Depths of','The Vault of','The Tomb of','The Sanctum of',
@@ -1405,10 +1404,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Archive','Laboratory','Forge','Temple','Shrine','Barrow','Warren',
       'Depths','End','Heart','Core','Apex','Breach','Rift',
     ],
-    style: 'Evocative three-part names combining a framing phrase, a quality adjective, and a structural noun.',
   },
   'Wilderness': {
-    style: 'Wild locations in Alaruel are named for what survives there, what doesn\'t, and what the ATC charted before giving up.',
+    style: 'Wild locations in Alaruel are named for what survives there, what doesn\'t, and what the ATC charted before giving up. Geographic descriptors referencing terrain, danger level, or the ATC\'s exhausted attempt to put a name on something that didn\'t want one.',
     prefixes: [
       'The','','',
       'Black','Blighted','Bloodied','Bone','Broken','Burnt','Cold',
@@ -1429,10 +1427,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Run','Way','Path','Trail','Pass','Reach','Fields','Expanse',
       'Crossing','Basin','Hollow','Depths','Fringe','Edge','Wastes',
     ],
-    style: 'Geographic descriptors referencing terrain, danger level, or the ATC\'s exhausted attempt to put a name on something that didn\'t want one.',
   },
   'Landmark': {
-    style: 'Singular structures and natural features with names that stuck from the Unity era, the Shattering, or both.',
+    style: 'Singular structures and natural features with names that stuck from the Unity era, the Shattering, or both. Article + adjective + noun; almost all Alaruel landmarks use the definite article because they are singular and everyone knows which one you mean.',
     prefixes: [
       'The','The','The','The', // landmarks almost always use "The"
     ],
@@ -1450,10 +1447,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Post','Pylon','Relic','Rock','Shard','Spire','Stair','Stone',
       'Throne','Tooth','Tower','Wall','Waystone','Well','Witness',
     ],
-    style: 'Article + adjective + noun; almost all Alaruel landmarks use the definite article because they are singular and everyone knows which one you mean.',
   },
   'Faction HQ': {
-    style: 'Faction headquarters in Alaruel tend toward functional anonymity or deliberate grandiosity, depending on whether they want to be found.',
+    style: 'Faction headquarters in Alaruel tend toward functional anonymity or deliberate grandiosity, depending on whether they want to be found. Faction HQ names alternate between bureaucratic opacity (ATC, Conglomerate) and theatrical weight (Society, Unity-era survivors).',
     prefixes: [
       'The','The','',
       'House','Office of the','Bureau of','Division','Station','Annex',
@@ -1474,10 +1470,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Office','Operations','Post','Registry','Sanctum','Secretariat',
       'Section','Senate','Society','Station','Treasury','Vault',
     ],
-    style: 'Faction HQ names alternate between bureaucratic opacity (ATC, Conglomerate) and theatrical weight (Society, Unity-era survivors).',
   },
   'Street / District': {
-    style: 'Alaruel\'s streets are named for what happened there, who lived there, or what the residents would prefer you not remember.',
+    style: 'Alaruel\'s streets are named for what happened there, who lived there, or what the residents would prefer you not remember. Trade-referencing street names mixed with old house names and post-Unity geography.',
     prefixes: [
       '','','','', // streets rarely have a prefix
       'Lower','Upper','Old','New','North','South','East','West',
@@ -1499,7 +1494,6 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Lane','Market','Passage','Path','Place','Rise','Row','Square',
       'Steps','Street','Terrace','Turn','Walk','Wharf','Yard',
     ],
-    style: 'Trade-referencing street names mixed with old house names and post-Unity geography.',
   },
 };
 
