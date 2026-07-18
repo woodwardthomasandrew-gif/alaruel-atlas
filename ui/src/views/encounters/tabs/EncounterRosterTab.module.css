@@ -1,0 +1,12 @@
+.wrap{display:flex;flex-direction:column;max-width:720px}
+.searchResults{list-style:none;display:flex;flex-direction:column;gap:.25rem;margin-top:.5rem;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden}
+.searchItem{display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .75rem;background:var(--bg-surface);border:none;color:var(--text-primary);cursor:pointer;font-size:.85rem;text-align:left}
+.searchItem:hover{background:var(--bg-hover)}
+.searchMeta{margin-left:auto;font-size:.72rem;color:var(--ink-500);font-family:var(--font-mono)}
+.list{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.row{display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.rowMain{display:flex;flex-direction:column;flex:1;min-width:0}
+.rowName{font-size:.9rem;color:var(--text-primary)}
+.rowMeta{font-size:.72rem;color:var(--ink-500);font-family:var(--font-mono);text-transform:capitalize}
+.qtyInput{width:52px;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);padding:.3rem;text-align:center;font-size:.85rem}
+.groupInput{width:130px;background:var(--bg-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);padding:.3rem .5rem;font-size:.8rem}

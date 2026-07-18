@@ -19,6 +19,7 @@ import BestiaryView      from '../views/bestiary/BestiaryView';
 import MagicItemsView    from '../views/magic-items/MagicItemsView';
 import InspirationView   from '../views/inspiration/InspirationView';
 import MiniCatalogueView from '../views/mini-catalogue/MiniCatalogueView';
+import EncountersView    from '../views/encounters/EncountersView';
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -148,6 +149,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'sparkles',
     route:            '/inspiration',
     component:        InspirationView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'encounters',
+    displayName:      'Encounters',
+    icon:             'sword',
+    route:            '/encounters',
+    component:        EncountersView,
     requiresCampaign: true,
   },
 ];

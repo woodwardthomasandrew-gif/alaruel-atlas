@@ -58,6 +58,14 @@ export type AppEventMap = {
   'mini-catalogue:created': { miniId: string };
   'mini-catalogue:updated': { miniId: string };
 
+  // -- Encounters --
+  'encounter:created':        { encounterId: string };
+  'encounter:updated':        { encounterId: string };
+  'encounter:deleted':        { encounterId: string };
+  'encounter:roster-updated': { encounterId: string };
+  'encounter:minis-updated':  { encounterId: string };
+  'encounter:run':            { encounterId: string };
+
   // -- App lifecycle --
   'app:campaign-opened': { campaignId: string };
   'app:campaign-closed': { campaignId: string };

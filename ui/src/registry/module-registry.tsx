@@ -36,6 +36,7 @@ const BestiaryView      = lazy(() => import('../views/bestiary/BestiaryView'));
 const MagicItemsView    = lazy(() => import('../views/magic-items/MagicItemsView'));
 const InspirationView   = lazy(() => import('../views/inspiration/InspirationView'));
 const MiniCatalogueView = lazy(() => import('../views/mini-catalogue/MiniCatalogueView'));
+const EncountersView    = lazy(() => import('../views/encounters/EncountersView'));
 
 export interface ModuleRegistryEntry {
   id:          string;
@@ -166,6 +167,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'sparkles',
     route:            '/inspiration',
     component:        InspirationView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'encounters',
+    displayName:      'Encounters',
+    icon:             'sword',
+    route:            '/encounters',
+    component:        EncountersView,
     requiresCampaign: true,
   },
 ];

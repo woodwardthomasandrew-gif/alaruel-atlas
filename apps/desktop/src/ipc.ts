@@ -348,6 +348,8 @@ export function registerEventForwards(win: BrowserWindow): void {
     'bestiary:created', 'bestiary:updated',
     'magic-items:created', 'magic-items:updated', 'magic-items:deleted',
     'mini-catalogue:created', 'mini-catalogue:updated',
+    'encounter:created', 'encounter:updated', 'encounter:deleted',
+    'encounter:roster-updated', 'encounter:minis-updated', 'encounter:run',
   ] as const;
 
   for (const eventName of forwarded) {

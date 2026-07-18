@@ -53,6 +53,7 @@ import { BestiaryModule }        from '../../../modules/bestiary/src/index';
 import { MagicItemsModule }      from '../../../modules/magic-items/src/index';
 import { MiniCatalogueModule }   from '../../../modules/mini-catalogue/src/index';
 import { FactionsModule }        from '../../../modules/factions/src/index';
+import { EncountersModule }      from '../../../modules/encounters/src/index';
 
 // ── Desktop-local modules ─────────────────────────────────────────────────────
 import { createMainWindow, isWindowAvailable, focusWindow } from './window';
@@ -141,6 +142,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new NpcsModule());
   moduleLoader.register(new QuestsModule());
   moduleLoader.register(new SessionsModule());
+  moduleLoader.register(new EncountersModule());
   moduleLoader.register(new TimelineModule());
   moduleLoader.register(new GraphModule());
   moduleLoader.register(new AssetsUiModule());

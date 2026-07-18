@@ -1,0 +1,110 @@
+/* =============================================================================
+   encounter-print.css  —  Alaruel Atlas
+   Global print stylesheet for the Encounter Workspace's Encounter Sheet
+   and Miniature Pull List.
+
+   Same architecture as statblock-print.css: EncounterPrintModal mounts a
+   #encounter-print-root outside the React tree. On window.print():
+
+     @media screen  ->  #encounter-print-root stays hidden.
+     @media print   ->  ONLY #encounter-print-root is shown; every other
+                        child of <body> is hidden.
+   ============================================================================= */
+
+@media screen {
+  #encounter-print-root { display: none !important; }
+}
+
+@media print {
+  #encounter-print-root { display: none !important; }
+
+  body.printing-encounter > *:not(#encounter-print-root) { display: none !important; }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.printing-encounter #encounter-print-root {
+    display: block !important;
+    position: static !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 14mm 16mm 14mm 16mm;
+  }
+
+  .ep-card {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    font-family: 'Crimson Pro', Georgia, 'Times New Roman', serif !important;
+    font-size: 9.5pt !important;
+    color: #1a1008 !important;
+    padding: 0 !important;
+  }
+
+  .ep-banner {
+    border-bottom: 2pt solid #7a1f1f !important;
+    padding-bottom: 5pt !important;
+    margin-bottom: 6pt !important;
+  }
+
+  .ep-title {
+    font-family: 'Cinzel', Georgia, serif !important;
+    font-size: 17pt !important;
+    color: #7a1f1f !important;
+    margin: 0 0 2pt !important;
+  }
+
+  .ep-subtitle {
+    font-size: 9pt !important;
+    font-style: italic !important;
+    color: #52452f !important;
+    text-transform: capitalize !important;
+  }
+
+  .ep-section { margin-bottom: 8pt !important; break-inside: avoid; }
+  .ep-heading {
+    font-family: 'Cinzel', Georgia, serif !important;
+    font-size: 8.5pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .1em !important;
+    color: #7a1f1f !important;
+    border-bottom: 1pt solid #7a1f1f !important;
+    padding-bottom: 1pt !important;
+    margin-bottom: 4pt !important;
+    break-after: avoid-page;
+  }
+
+  .ep-body { font-size: 9pt !important; color: #2a2318 !important; line-height: 1.55 !important; }
+
+  table { width: 100% !important; border-collapse: collapse !important; font-size: 8.5pt !important; }
+  th {
+    text-align: left !important;
+    color: #52452f !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 7pt !important;
+    letter-spacing: .06em !important;
+    padding: 2pt 3pt !important;
+    border-bottom: 1pt solid #7a1f1f !important;
+  }
+  td {
+    padding: 2pt 3pt !important;
+    border-bottom: 0.5pt solid #d4c9b8 !important;
+    color: #1a1008 !important;
+  }
+
+  .ep-page-break { break-before: page; page-break-before: always; }
+}

@@ -1,0 +1,30 @@
+/* Screen-only styles for the encounter print preview overlay.
+   Hidden at @media print via the global .noprint rule in encounter-print.css
+   (body > *:not(#encounter-print-root) -> display:none). */
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:flex-start;justify-content:center;z-index:300;padding:1.5rem 1rem;overflow-y:auto}
+
+.modal{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);width:100%;max-width:680px;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);margin-bottom:1.5rem}
+
+.modalHeader{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--border-subtle);flex-shrink:0;gap:.75rem}
+.modalTitle{display:flex;align-items:center;gap:.5rem;font-family:var(--font-display);font-size:.95rem;color:var(--text-accent);letter-spacing:.04em}
+.btnClose{display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;padding:.3rem;transition:all .12s}
+.btnClose:hover{background:var(--bg-raised);border-color:var(--border);color:var(--text-secondary)}
+
+.preview{padding:1.5rem 1.25rem;background:var(--bg-base);overflow-y:auto;max-height:calc(100vh - 200px)}
+.previewPage{background:#f9f5ef;border-radius:3px;box-shadow:0 2px 16px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.15);padding:1.5rem;color:#1a1008;font-family:'Crimson Pro', Georgia, serif}
+
+/* Force the preview into light-mode/print colours so it matches print output */
+.previewPage :global(.ep-card){background:#f9f5ef !important;border:none !important;color:#1a1008 !important}
+.previewPage :global(.ep-title){color:#7a1f1f !important}
+.previewPage :global(.ep-subtitle){color:#52452f !important}
+.previewPage :global(.ep-heading){color:#7a1f1f !important;border-bottom-color:#7a1f1f !important}
+
+.modalFooter{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-top:1px solid var(--border-subtle);flex-shrink:0;gap:.75rem;flex-wrap:wrap}
+.footerHint{display:flex;align-items:center;gap:.35rem;font-size:.75rem;color:var(--text-muted)}
+.footerActions{display:flex;align-items:center;gap:.6rem}
+.btnCancel{padding:.42rem .85rem;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);font-size:.84rem;cursor:pointer;transition:all .12s}
+.btnCancel:hover{border-color:var(--ink-400);color:var(--text-secondary)}
+.btnPrint{display:flex;align-items:center;gap:.4rem;padding:.42rem 1rem;background:var(--gold-600);border:1px solid var(--gold-500);border-radius:var(--radius-sm);color:var(--ink-950);font-family:var(--font-display);font-size:.82rem;letter-spacing:.04em;font-weight:600;cursor:pointer;transition:all .15s}
+.btnPrint:hover{background:var(--gold-500);box-shadow:0 0 10px rgba(196,144,64,.3)}
+.btnPrint:disabled{opacity:.55;cursor:not-allowed}

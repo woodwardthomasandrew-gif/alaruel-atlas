@@ -159,6 +159,19 @@ export type {
   MiniMonsterRef,
 } from './mini';
 
+// ── Encounters ────────────────────────────────────────────────────────────────
+export type {
+  Encounter,
+  EncounterType,
+  EncounterStatus,
+  EncounterDifficulty,
+  EncounterMonsterEntry,
+  EncounterMiniEntry,
+  MiniAssignment,
+  MiniMatchSuggestion,
+  OwnedMiniForMatching,
+} from './encounter';
+
 // ── Plugin system ─────────────────────────────────────────────────────────────
 export type {
   PluginManifest,
