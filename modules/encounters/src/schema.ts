@@ -31,7 +31,7 @@ export const ENCOUNTERS_SCHEMA: SchemaRegistration = {
           notes              TEXT    NOT NULL DEFAULT '',
 
           -- Party information
-          party_id           TEXT    REFERENCES parties(id) ON DELETE SET NULL,
+          party_id           TEXT,
           party_level        INTEGER,
           airship_present    INTEGER NOT NULL DEFAULT 0,
           party_notes        TEXT    NOT NULL DEFAULT '',
@@ -110,6 +110,94 @@ export const ENCOUNTERS_SCHEMA: SchemaRegistration = {
         DROP TABLE IF EXISTS encounter_minis;
         DROP TABLE IF EXISTS encounter_monsters;
         DROP TABLE IF EXISTS encounters;
+      `,
+    },
+    {
+      version: 33,
+      module: 'encounters',
+      description:
+        'Repair encounters.party_id — remove invalid REFERENCES parties(id) ' +
+        '(the Party module has no such table, which made every INSERT fail ' +
+        'with "no such table: main.parties" once foreign_keys enforcement is on)',
+      up: `
+        PRAGMA foreign_keys = OFF;
+
+        CREATE TABLE encounters_v33 (
+          id                 TEXT    PRIMARY KEY,
+          campaign_id        TEXT    NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          name               TEXT    NOT NULL,
+          description        TEXT    NOT NULL DEFAULT '',
+          encounter_type     TEXT    NOT NULL DEFAULT 'combat'
+                                  CHECK (encounter_type IN (
+                                    'combat','social','exploration','skill_challenge',
+                                    'boss','airship'
+                                  )),
+          status             TEXT    NOT NULL DEFAULT 'planned'
+                                  CHECK (status IN ('planned','ready','run','archived')),
+          session_number     INTEGER,
+          session_id         TEXT    REFERENCES sessions(id) ON DELETE SET NULL,
+          dungeon_room_id    TEXT,
+          location           TEXT    NOT NULL DEFAULT '',
+          difficulty         TEXT    NOT NULL DEFAULT 'moderate'
+                                  CHECK (difficulty IN ('trivial','easy','moderate','hard','deadly')),
+          tags               TEXT    NOT NULL DEFAULT '[]',
+          notes              TEXT    NOT NULL DEFAULT '',
+
+          party_id           TEXT,
+          party_level        INTEGER,
+          airship_present    INTEGER NOT NULL DEFAULT 0,
+          party_notes        TEXT    NOT NULL DEFAULT '',
+
+          battle_map_asset_id TEXT,
+          map_notes          TEXT    NOT NULL DEFAULT '',
+          terrain_notes      TEXT    NOT NULL DEFAULT '',
+
+          initiative_presets  TEXT   NOT NULL DEFAULT '[]',
+          environmental_effects TEXT NOT NULL DEFAULT '[]',
+          legendary_actions   TEXT   NOT NULL DEFAULT '[]',
+          lair_actions        TEXT   NOT NULL DEFAULT '[]',
+          conditions          TEXT   NOT NULL DEFAULT '[]',
+
+          loot               TEXT    NOT NULL DEFAULT '',
+          xp_award           INTEGER,
+          story_rewards      TEXT    NOT NULL DEFAULT '',
+          reputation_rewards TEXT    NOT NULL DEFAULT '',
+          reward_notes       TEXT    NOT NULL DEFAULT '',
+
+          created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+          updated_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+
+        INSERT INTO encounters_v33 SELECT
+          id, campaign_id, name, description, encounter_type, status, session_number,
+          session_id, dungeon_room_id, location, difficulty, tags, notes,
+          party_id, party_level, airship_present, party_notes,
+          battle_map_asset_id, map_notes, terrain_notes,
+          initiative_presets, environmental_effects, legendary_actions, lair_actions, conditions,
+          loot, xp_award, story_rewards, reputation_rewards, reward_notes,
+          created_at, updated_at
+        FROM encounters;
+
+        DROP TRIGGER IF EXISTS trg_encounters_updated_at;
+        DROP TABLE encounters;
+        ALTER TABLE encounters_v33 RENAME TO encounters;
+
+        CREATE INDEX IF NOT EXISTS idx_encounters_campaign ON encounters (campaign_id);
+        CREATE INDEX IF NOT EXISTS idx_encounters_session  ON encounters (session_id);
+        CREATE INDEX IF NOT EXISTS idx_encounters_dungeon_room ON encounters (dungeon_room_id);
+        CREATE INDEX IF NOT EXISTS idx_encounters_status   ON encounters (campaign_id, status);
+
+        CREATE TRIGGER IF NOT EXISTS trg_encounters_updated_at
+        AFTER UPDATE ON encounters FOR EACH ROW
+        BEGIN
+          UPDATE encounters SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = NEW.id;
+        END;
+
+        PRAGMA foreign_keys = ON;
+      `,
+      down: `
+        -- Irreversible: the point of this migration is to drop the invalid
+        -- parties FK. Re-adding it would reintroduce the bug it fixes.
       `,
     },
   ],
