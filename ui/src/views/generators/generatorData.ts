@@ -153,6 +153,18 @@ const ITEM_PROPERTIES = [
   'Daeros\'s mark is faintly visible on its surface in direct sunlight; sandworms will not pursue one who carries it openly.',
   'Gnoll-touched items from Yeenoghu\'s Maw occasionally make a sound like distant hyena laughter when left alone.',
   'Those preserved by the Wastes of Eternity carried something like this. The cold of that place never quite leaves the metal.',
+  // Altes & Altesian additions
+  'The Book of Altes has a passage that seems to describe this item — the passage predates the item\'s creation by two centuries.',
+  'Altesian artificers will recognize the engineering philosophy in this item\'s construction. They will not say where it came from.',
+  'It points, faintly and inexplicably, in the direction of the Floating Fortress of Altes — wherever that city happens to be.',
+  'Smells of salt air and cooking fish, the signature scent of the Altesian high decks, no matter how long it has been inland.',
+  // Auric Choir & gods additions
+  'Sheegaar\'s blessing clings to this item — food consumed near it tastes slightly, inexplicably better.',
+  'Skereleth\'s influence makes this item unreliable as a basis for certainty. Those who rely on it too heavily begin to doubt themselves.',
+  'Daeros\'s maker-mark is hidden within the construction — only another craftsman of divine skill would recognise it for what it is.',
+  // Freudenhoffen & wider world
+  'Compasses in the general vicinity drift slightly east when the item is present — a minor Sarseth-adjacent effect no scholar has satisfactorily explained.',
+  'Kestrel Consortium appraisers have listed this item in their catalogue under a different name. The listing has since been redacted.',
 ];
 
 const ITEM_LORE = [
@@ -646,6 +658,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Arga','Diesa','Gunnloda','Helja','Ilde','Kathra','Riswynn','Sannl','Torbera','Vistra'],
       family: ['Anvilborn','Blackvein','Deepbarrel','Forgeheart','Granitehand','Ironshield','Mithforge','Rockseam','Stonewake','Underpick'],
     },
+    {
+      culture: 'Moonshatter Bay Scrapforger',
+      style: 'Dwarves who settled the Moonshatter Bay craters after the Shattering, forging from meteoric iron; practical surnames referencing impact sites, salvage, and the unusually pure iron they work.',
+      male: ['Aldrek','Brond','Durnvik','Forskar','Grettir','Halvard','Kelrik','Njord','Skarn','Ulvrek'],
+      female: ['Aldra','Bronda','Durna','Forska','Gretta','Halvra','Kelra','Njorda','Skarna','Ulvra'],
+      family: ['Craterborn','Deepstrike','Driftmetal','Fallstone','Ironfall','Meteorhew','Scarseam','Skyiron','Strikevein','Warpforge'],
+    },
   ],
   Halfling: [
     {
@@ -654,6 +673,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       male: ['Alton','Bingo','Corrin','Eldon','Finn','Milo','Perrin','Rollo','Tobin','Wellby'],
       female: ['Andry','Callie','Cora','Jillian','Kithri','Lavinia','Marigold','Nedda','Seraphina','Verna'],
       family: ['Brushgather','Goodbarrel','Kettlebrook','Mudford','Puddlewick','Reedway','Shortmead','Underhill','Willowbank','Wormwood'],
+    },
+    {
+      culture: 'Chogrove Deck Crew',
+      style: 'Short contracted names used by halflings working Chogrove pirate ships and the coastal trade; surnames are often dock berth numbers, ship names, or inherited nicknames.',
+      male: ['Bim','Cobby','Danwick','Fixum','Hob','Jip','Nim','Pebb','Rund','Twick'],
+      female: ['Brix','Dalla','Fippa','Hanna','Jinx','Liska','Mip','Nebb','Pippa','Rix'],
+      family: ['Black Mast','Coldberth','Driftnet','Eelmarket','Flatbottom','Ironhold','Keelson','Lowbridge','Nailhead','Saltmere'],
     },
   ],
   Gnome: [
@@ -664,6 +690,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Bimpnottin','Caramip','Ellyjoy','Loopmottin','Nissa','Nyx','Pella','Roywyn','Tana','Zanna'],
       family: ['Cogspinner','Coppercoil','Fizzwrench','Geargrin','Rattlecap','Sprocket','Tinroot','Togglewick','Weldspark','Wizzle'],
     },
+    {
+      culture: 'Psychic Academy Arcanist',
+      style: 'Gnomes who enrolled in — or were recruited by — the Alaruel Psychic Academy; names trend longer and more precise, with family names that often reference a field of study or a founding mentor.',
+      male: ['Aberwick','Caldrix','Delvyn','Erromax','Fenvix','Grimble','Hexturn','Ixmor','Jarvick','Quellix'],
+      female: ['Aelrix','Calindra','Delvara','Errima','Fenva','Grimna','Hextra','Ixara','Jarvina','Quellix'],
+      family: ['Cogsworth','Delvethorn','Errant-Thought','Farreach','Glimward','Hexwhisper','Longponder','Mindcoil','Quelltrace','Rune-Bright'],
+    },
   ],
   Tiefling: [
     {
@@ -673,6 +706,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Akta','Bryseis','Kallista','Lerissa','Makaria','Nemeia','Orianna','Rieta','Vesper','Zara'],
       family: ['Ashmark','Cindershard','Delaque','Emberstone','Hollowsign','Mirebrand','Nightscar','Pactward','Riftwell','Sablecross'],
     },
+    {
+      culture: 'Kewold Understreet',
+      style: 'Tieflings long-settled in Kewold\'s lower districts; they adopted the city\'s courtly naming conventions outwardly, while keeping infernal epithets as private identifiers used only among family.',
+      male: ['Caius','Dorvyn','Emmric','Faustus','Ignar','Lucen','Malarek','Orren','Sarkon','Valdris'],
+      female: ['Caelia','Dorvyna','Emrissa','Fausta','Ignara','Lucena','Malara','Orrena','Sarkona','Valdris'],
+      family: ['Ashbourne','Brimstone','Cindergate','Duskveil','Embercourt','Flamemark','Grimoire','Hellsward','Infernis','Shadowtongue'],
+    },
   ],
   Dragonborn: [
     {
@@ -681,6 +721,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       male: ['Arjhan','Balasar','Bharash','Donaar','Ghesh','Heskan','Kriv','Medrash','Nadarr','Rhogar'],
       female: ['Akra','Biri','Daar','Farideh','Harann','Jheri','Kava','Mishann','Nala','Uadjit'],
       family: ['Bloodscale','Coldmaw','Dreadhorn','Emberclaw','Frostjaw','Ironthroat','Redtalon','Stormfang','Thulekhan','Warbrand'],
+    },
+    {
+      culture: 'Department of War Conscript',
+      style: 'Dragonborn recruited or press-ganged into the Department of War\'s siege divisions; given names are often truncated clan-names, while surnames are DoW unit designations informally adopted as family names after discharge.',
+      male: ['Brax','Durash','Grenn','Harkon','Jevak','Kroth','Marak','Norrash','Skeld','Vrath'],
+      female: ['Braxa','Durasha','Grenna','Harkona','Jevaka','Krotha','Maraka','Norrasha','Skelda','Vratha'],
+      family: ['Ashguard','Bastion-Born','Crestbreak','Dreadward','Forgefire','Grimhold','Ironwall','Siegeborn','Warbrand','Wardmark'],
     },
   ],
   'Half-Orc': [
@@ -725,6 +772,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Chime','Cricket','Hush','Peal','Whistle'],
       family: ['Black Feathers','Broken Bell','Crow Banner','Gray Wing','Rope Perch'],
     },
+    {
+      culture: 'Kewold Spycraft Flock',
+      style: 'Kenku embedded in Kewold\'s information trade; names are mimicked snatches of overheard conversation, often a phrase fragment rather than a word, transliterated by Society clerks who gave up trying to be precise.',
+      male: ['Bolt-Slide','Coin-Drop','Door-Hinge','Glass-Crack','Lock-Turn'],
+      female: ['Chair-Drag','Feather-Fall','Ink-Splash','Paper-Tear','Wax-Seal'],
+      family: ['of the Closed Window','of the Third Floor','of the Unmarked Door','of the Wax Impression','of Twice-Told'],
+    },
   ],
   Firbolg: [
     {
@@ -733,6 +787,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       male: ['Aeron','Bramble','Fenric','Ivor','Kerrin','Mossan','Rhuv','Tarn','Weylin','Yorren'],
       female: ['Asha','Briala','Eirys','Fenna','Ilyse','Merris','Nuala','Rhosyn','Sylra','Tavia'],
       family: ['Amberroot','Briarhand','Greenmantle','Mosswhisper','Oakveil','Reedwalker','Rootbound','Thornbloom','Valefern','Wildbark'],
+    },
+    {
+      culture: 'Aered Northern Grove',
+      style: 'Firbolg from the forested highlands near Aered; names are slower, rounder, and reference seasonal cycles or old Aered geography that predates the city by centuries.',
+      male: ['Aldmoss','Boulden','Celdric','Dawnfern','Eldgrim','Felroot','Greyveil','Hollowstone','Ironbough','Ketmoss'],
+      female: ['Aldfern','Boulda','Celdra','Dawnra','Eldgra','Felra','Greyvra','Hollowra','Ironra','Ketmra'],
+      family: ['Coldbarrow','Deepfern','Elderstone','Frostbough','Greenveil','Highroot','Icemoss','Longbranch','Oldgrave','Stoneleaf'],
     },
   ],
   Goliath: [
@@ -768,6 +829,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Izz','Kez','Lix','Nix','Pik','Rizz','Sik','Tiz','Vix','Zez'],
       family: ['Cindertail','Deepscratch','Dustsnout','Ironclaw','Quicktongue','Redscale','Sootpaw','Sparktooth','Tunnelstep','Underflame'],
     },
+    {
+      culture: 'Cahill Mine-Worker',
+      style: 'Kobolds contracted — usually involuntarily — into House Cahill\'s deep operations; names follow the same clipped monosyllabic pattern but family designations are Cahill work-gang numbers that the kobolds have informally converted into surnames.',
+      male: ['Drek','Grub','Kobb','Nok','Pickk','Robb','Snik','Tobk','Vobb','Zebb'],
+      female: ['Drekka','Grubba','Kobba','Nokka','Pickka','Robba','Snikka','Tobka','Vobba','Zebba'],
+      family: ['Blackvein-Seven','Deepseam-Three','Dustgang-One','Ironpick-Five','Lowshaft-Nine','Rockbreak-Two','Seam-Four','Tunnelgang-Six','Underpick-Eight','Veinworks-Ten'],
+    },
   ],
   'Half-Elf': [
     {
@@ -776,6 +844,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       male: ['Aeron','Cael','Davin','Eldric','Irian','Lorin','Merek','Saren','Tavian','Veyr'],
       female: ['Aelia','Calen','Deryn','Elira','Ilyse','Liora','Maren','Selis','Tavianne','Veyla'],
       family: ['Ashbrook','Brightmere','Dawnwoven','Emberfell','Foamglade','Moonfield','Rainsong','Silverford','Starwell','Thornriver'],
+    },
+    {
+      culture: 'Varkeshi Mixed-House',
+      style: 'Half-elves born into Varkeshi High House merchant families; they carry formal Varkeshi given names but sometimes use a shortened elven form in private. Family names follow the High House pattern — evocative, nautical, or celestial.',
+      male: ['Aldren','Caelus','Esvyn','Halvic','Lysander','Merevyn','Oryn','Stellan','Tyrvyn','Valdris'],
+      female: ['Aelindra','Celindra','Esvyna','Halvindra','Lysindra','Merevyna','Oryndra','Stellindra','Tyrvyna','Valdris'],
+      family: ['Aldenmere','Brightspire','Celesmere','Highmast','Ironwatch','Northhaven','Silverwake','Starcrest','Stormguard','Tidehollow'],
     },
   ],
   Orc: [
@@ -786,6 +861,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Brakka','Draxa','Gorra','Karra','Morga','Ruka','Shora','Thraxa','Ura','Zhara'],
       family: ['Ashfang','Bloodmoss','Gravetusk','Hearthcrusher','Irontrail','Mawbreaker','Redbanner','Skullrain','Stonefang','Warshout'],
     },
+    {
+      culture: 'Kewold Mercenary Company',
+      style: 'Orcs who have served in Kewold\'s licensed mercenary trade long enough to adopt city naming conventions; they keep a short orcish given name but replace clan surnames with company designations or earned epithets in the local style.',
+      male: ['Barg','Drenn','Gont','Harr','Korv','Mack','Nург','Skord','Torv','Urk'],
+      female: ['Barga','Drenna','Gonta','Harra','Korva','Macka','Nurga','Skorda','Torva','Urka'],
+      family: ['Ashblade','Blackpike','Coldstrike','Dreadguard','Grimward','Ironbanner','Mawguard','Redcrest','Stoneguard','Warcrest'],
+    },
   ],
   Lizardfolk: [
     {
@@ -795,6 +877,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       female: ['Akki','Chirra','Hssika','Keka','Lirra','Ssaka','Tshaka','Virra','Zekka','Zirra'],
       family: ['Bogshell','Coldreed','Driftscale','Fensong','Mudcoil','Reedsnap','Shallowskin','Siltjaw','Waterglide','Wetstone'],
     },
+    {
+      culture: 'Carnivora Coastal',
+      style: 'Lizardfolk from the Carnivora coastal spawning grounds; names are percussive and salt-edged, referencing tidal patterns, prey species, or the specific rock shelf a clutch hatched on.',
+      male: ['Brassk','Drattik','Grusk','Hrattik','Krusk','Mrask','Nrattik','Srusk','Trask','Vrattik'],
+      female: ['Brassa','Dratta','Grusa','Hratta','Krusa','Mrasa','Nratta','Srusa','Trasa','Vratta'],
+      family: ['Brinescale','Coldtide','Deepshell','Driftjaw','Hightide','Rockhatch','Saltcoil','Shoreborn','Tidewalker','Waveclaw'],
+    },
   ],
   Goblin: [
     {
@@ -803,6 +892,13 @@ const NAME_DATA_BY_SPECIES: Record<string, NameCultureTable[]> = {
       male: ['Bip','Crik','Doom','Fizz','Glim','Nib','Pip','Rask','Skeg','Vrim'],
       female: ['Bip','Crika','Dooma','Fizza','Glima','Niba','Pipa','Raska','Skega','Vrima'],
       family: ['Ashcart','Bentpipe','Coppernail','Dripwell','Gutterfoot','Lanternbit','Murkhand','Pouchrat','Scrapline','Tinwhistle'],
+    },
+    {
+      culture: 'Altesian Deck Crew',
+      style: 'Goblins who serve aboard the Floating Fortress of Altes, following Skereleth\'s tradition of half-truths and skepticism; names are deliberately slippery — short forms that could mean several things, chosen because precision is considered a liability.',
+      male: ['Bit','Fen','Gobb','Hink','Jott','Kebb','Lox','Mott','Nebb','Orx'],
+      female: ['Bitta','Fenna','Gobba','Hinka','Jotta','Kebba','Loxa','Motta','Nebba','Orxa'],
+      family: ['Above-the-Clouds','Between-Decks','False-Manifest','Half-Listed','Neither-Here','No-Fixed-Port','Off-the-Chart','Twice-Counted','Under-Sail','Unlisted'],
     },
   ],
 };
@@ -1368,7 +1464,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'The Salted','The Amber','The Cracked','The Hollow','The Wandering','The Grim',
       'The Faded','The Lost','The Burned','The Crooked','The Empty','The Silent',
       'The Leaking','The Tarnished','The Lopsided','The Smoked','The Lucky',
-      'The Twice-','The Three-','The Old','The Last',
+      'The Twice-Burned','The Three-Legged','The Old','The Last',
+      'The Sunken','The Painted','The Dented','The Haunted','The Reluctant',
+      'The Pickled','The Listing','The Patched','The Unnamed','The Overdue',
     ],
     middles: [
       'Anchor','Bell','Boot','Candle','Compass','Crown','Cup','Drum',
@@ -1377,6 +1475,10 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Seal','Shield','Sign','Skull','Spar','Stein','Sword','Wheel',
       'ATC Charter','Conglomerate Mark','Warclan Trophy','Siege Ball',
       'Leviton Crystal','Cahill Pick','Ambersoul Shard','DoW Stamp',
+      // Alaruel-world additions
+      'Airship','Burnout','Courier','Factor','Gambit','Harbour',
+      'Ledger','Meridian','Pilgrim','Ratcatcher','Seraph','Stoker',
+      'Tollgate','Undertaker','Vigil','Warrant',
     ],
     suffixes: [
       '','','','', // often no suffix — just "The Broken Compass"
@@ -1387,22 +1489,30 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
   'Dungeon / Ruin': {
     style: 'Ruins in Alaruel tend to be named for what they were, what they did, or what ate the last expedition. Evocative three-part names combining a framing phrase, a quality adjective, and a structural noun.',
     prefixes: [
-      'The','','','','', // sometimes just a noun phrase
-      'Ruins of','The Depths of','The Vault of','The Tomb of','The Sanctum of',
-      'The Catacombs of','The Hold of','The Warrens of','The Pit of','The Spire of',
-      'The Hollow of','The Lair of','The Halls of','The Crypt of','The Archive of',
+      'The','','','','',
+      'Ruins of the','The Depths of the','The Vault of the','The Tomb of the','The Sanctum of the',
+      'The Catacombs of the','The Hold of the','The Warrens of the','The Pit of the','The Spire of the',
+      'The Hollow of the','The Lair of the','The Halls of the','The Crypt of the','The Archive of the',
     ],
     middles: [
       'Ancient','Forgotten','Shattered','Sunken','Buried','Sealed','Cursed','Drowned',
       'Broken','Silent','Hollow','Burning','Frozen','Fallen','Lost','Screaming',
       'Unity','Ambersoul','Far Realm','Warclan','Conglomerate','ATC','Cahill',
       'Undying','Soulbound','Blighted','Ashen','Crumbling',
+      // Alaruel-world additions
+      'Altesian','Larimar','Varklamon','Varkeshi','Formene','Psychic','Daeros',
+      'Leviton','Moonshatter','Sarseth','Evening Glory','Seraph','Kewold',
+      'Saltfire','Chogrove','Mercenary','Crusader','Idol','Department',
     ],
     suffixes: [
       'Throne','Crown','Seal','Gate','Maw','Eye','Flame','Shard',
       'Spire','Tower','Vault','Pit','Well','Hall','Sanctum','Keep',
       'Archive','Laboratory','Forge','Temple','Shrine','Barrow','Warren',
       'Depths','End','Heart','Core','Apex','Breach','Rift',
+      // Alaruel-world additions
+      'Annex','Blacksite','Bunker','Cathedral','Chamber','Cistern',
+      'Dock','Engine','Garrison','Observatory','Platform','Quarters',
+      'Relay','Silo','Station','Works',
     ],
   },
   'Wilderness': {
@@ -1414,18 +1524,25 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Grim','Hollow','Hungry','Iron','Lost','Pale','Scorched','Shadow',
       'Silent','Sunken','Tangled','Twisted','Wandering','Wild',
       'Amber','Crystal','Mist','Storm','Thorn','Vine','Wretched',
+      // Alaruel-world additions
+      'Saltfire','Moonshatter','Chogoran','Marrow','Varklamon','Yorian',
+      'Cochumat','Carnivora','Formene','Larimar',
     ],
     middles: [
       'Ash','Bark','Bone','Briar','Brook','Brush','Cliff','Copse',
       'Creek','Dell','Dune','Fen','Glade','Glen','Grove','Heath',
       'Hill','Lake','Mire','Moor','Pass','Peak','Plain','Ridge',
       'River','Rock','Root','Sand','Shore','Stone','Swamp','Tarn',
-      'Tree','Vale','Fen','Wood','Marsh',
+      'Tree','Vale','Wood','Marsh',
+      // Alaruel-world additions
+      'Crater','Delta','Flat','Glacier','Ice','Jungle','Reef',
+      'Salt','Steppe','Tide','Waste',
     ],
     suffixes: [
-      's','','',
+      '','',
       'Run','Way','Path','Trail','Pass','Reach','Fields','Expanse',
       'Crossing','Basin','Hollow','Depths','Fringe','Edge','Wastes',
+      'Stretch','Span','Rise','Break','Narrows','Verge','Margin',
     ],
   },
   'Landmark': {
@@ -1440,12 +1557,19 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Pale','Pillared','Red','Ruined','Salt','Scorched','Screaming','Second',
       'Shattered','Silent','Silver','Standing','Stone','Three','Twin','Twisted',
       'Unity','Undying','Warding','Watching','White','Wrecked',
+      // Alaruel-world additions
+      'Altesian','AmberSoul','Daeros','Evening Glory','Far Realm',
+      'Larimar','Leviton','Moonshatter','Sarseth','Seraph',
+      'Varkeshi','Warclan',
     ],
     suffixes: [
       'Arch','Blade','Bridge','Column','Crater','Crown','Eye','Face',
       'Gate','Idol','Marker','Menhir','Monolith','Needle','Obelisk','Pillar',
       'Post','Pylon','Relic','Rock','Shard','Spire','Stair','Stone',
       'Throne','Tooth','Tower','Wall','Waystone','Well','Witness',
+      // Alaruel-world additions
+      'Beacon','Bulwark','Compass','Engine','Lens','Mirror',
+      'Platform','Relay','Seal','Signal','Vault',
     ],
   },
   'Faction HQ': {
@@ -1455,6 +1579,9 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'House','Office of the','Bureau of','Division','Station','Annex',
       'Chambers of','Hall of','Court of','Seat of','Lodge of','Circle of',
       'Chapter of','Order of','Conclave of','Company',
+      // Alaruel-world additions
+      'Department of','Directorate of','Exchange of','Factor House of',
+      'Registry of','Secretariat of','Institute of','Academy of',
     ],
     middles: [
       'Amber','Arcane','Black','Celestial','Central','Civil','Crystal',
@@ -1462,6 +1589,11 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Grey','High','Iron','Joint','Northern','Open','Primary',
       'Regional','Royal','Secondary','Shadow','Silent','Southern',
       'Special','Third','Unity','Upper','Western',
+      // Alaruel-world additions
+      'ATC','Admiralty','Alaruel','Ambersoul','Cahill','Chogrove',
+      'Conglomerate','Evening Glory','Formene','Kewold',
+      'Larimar','Leviton','Meridian','Psychic','Seraph','Society',
+      'Varkeshi','Warclan',
     ],
     suffixes: [
       'Administration','Affairs','Annex','Archive','Assembly','Authority',
@@ -1469,6 +1601,10 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Foundation','Guild','Hall','House','Institute','Lodge',
       'Office','Operations','Post','Registry','Sanctum','Secretariat',
       'Section','Senate','Society','Station','Treasury','Vault',
+      // Alaruel-world additions
+      'Accord','Agency','Alliance','Board','Charter','Compact',
+      'Consortium','Directorate','Embassy','Fellowship',
+      'Network','Panel','Partnership','Syndicate','Trust',
     ],
   },
   'Street / District': {
@@ -1488,6 +1624,10 @@ const LOCATION_TABLES: Record<LocationCategory, LocationNameTable> = {
       'Mast','Mill','Nail','Net','Oil','Ox','Pilgrim','Pipe',
       'Plank','Quill','Rope','Salt','Seam','Silk','Silver','Skin',
       'Smoke','Soot','Tar','Tallow','Tide','Timber','Tow','Wax',
+      // Alaruel-world additions
+      'ATC','Airship','Amber','Ambersoul','Boneyard','Charter','Crystal',
+      'DoW','Factor','Fargate','Guild','Inquisitor','Lantern','Leviton',
+      'Meridian','Pact','Pilgrim','Seraph','Sigil','Society','Torch','Unity','Ward',
     ],
     suffixes: [
       'Alley','Avenue','Close','Court','Cross','Cut','Gate','Hill',
