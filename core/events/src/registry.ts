@@ -54,6 +54,14 @@ export type AppEventMap = {
   'magic-items:updated': { magicItemId: string };
   'magic-items:deleted': { magicItemId: string };
 
+  // -- Tome --
+  'tome:created':      { documentId: string };
+  'tome:updated':      { documentId: string };
+  'tome:deleted':      { documentId: string };
+  'tome:folder-created': { folderId: string };
+  'tome:folder-updated': { folderId: string };
+  'tome:folder-deleted': { folderId: string };
+
   // -- Mini Catalogue --
   'mini-catalogue:created': { miniId: string };
   'mini-catalogue:updated': { miniId: string };

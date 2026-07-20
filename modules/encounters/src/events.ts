@@ -4,6 +4,7 @@ export const ENCOUNTERS_EMITTED_EVENTS = [
   'encounter:deleted',
   'encounter:roster-updated',
   'encounter:minis-updated',
+  'encounter:rewards-updated',
   'encounter:run',
 ] as const;
 

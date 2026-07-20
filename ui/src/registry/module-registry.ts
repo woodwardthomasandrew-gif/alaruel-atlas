@@ -17,6 +17,7 @@ import GeneratorsView    from '../views/generators/GeneratorsView';
 import DungeonView       from '../views/dungeon/DungeonView';
 import BestiaryView      from '../views/bestiary/BestiaryView';
 import MagicItemsView    from '../views/magic-items/MagicItemsView';
+import TomeView          from '../views/tome/TomeView';
 import InspirationView   from '../views/inspiration/InspirationView';
 import MiniCatalogueView from '../views/mini-catalogue/MiniCatalogueView';
 import EncountersView    from '../views/encounters/EncountersView';
@@ -109,6 +110,14 @@ export const MODULE_REGISTRY: ModuleRegistryEntry[] = [
     icon:             'sparkles',
     route:            '/magic-items',
     component:        MagicItemsView,
+    requiresCampaign: true,
+  },
+  {
+    id:               'tome',
+    displayName:      'The Tome',
+    icon:             'scroll',
+    route:            '/tome',
+    component:        TomeView,
     requiresCampaign: true,
   },
   {

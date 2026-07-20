@@ -26,6 +26,16 @@ export interface EncounterMiniEntry {
   proxyNotes?:         string | undefined;
 }
 
+/** A reward item card (magic-items module reference) attached to an encounter. */
+export interface EncounterItemEntry {
+  id:          string;
+  itemId:      string;
+  customName?: string | undefined;
+  quantity:    number;
+  notes?:      string | undefined;
+  order:       number;
+}
+
 export interface Encounter {
   id:               string;
   name:             string;
@@ -43,6 +53,7 @@ export interface Encounter {
   // Party information
   partyId?:         string | undefined;
   partyLevel?:       number | undefined;
+  partySize?:        number | undefined;
   airshipPresent:   boolean;
   partyNotes:       string;
   npcAllyIds:       string[];
@@ -53,10 +64,15 @@ export interface Encounter {
   // Miniature assignments
   minis:            EncounterMiniEntry[];
 
+  // Reward item cards
+  items:            EncounterItemEntry[];
+
   // Map information
   battleMapAssetId?: string | undefined;
   mapNotes:         string;
   terrainNotes:     string;
+  /** Ids into the predetermined terrain-modifier catalogue (see utils/encounterDifficulty). */
+  terrainModifierIds: string[];
 
   // Combat information
   initiativePresets:     unknown[];

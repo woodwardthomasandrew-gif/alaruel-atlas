@@ -2,13 +2,18 @@ import { BaseService }             from '../../_framework/src/index';
 import type { EmitFn }             from '../../_framework/src/index';
 import type { Logger }             from '../../../core/logger/src/types';
 import type {
-  Encounter, EncounterMonsterEntry, MiniMatchSuggestion, OwnedMiniForMatching,
+  Encounter, EncounterMonsterEntry, EncounterItemEntry, MiniMatchSuggestion, OwnedMiniForMatching,
 } from '../../../shared/src/types/encounter';
+import {
+  calculateEncounterDifficulty,
+  type DifficultyMonsterInput,
+  type EncounterDifficultyEstimate,
+} from '../../../shared/src/utils/encounterDifficulty';
 import type { EncountersRepository } from './repository';
 import type {
   CreateEncounterInput, UpdateEncounterInput,
   AddEncounterMonsterInput, UpdateEncounterMonsterInput,
-  AssignMiniInput,
+  AssignMiniInput, AddEncounterItemInput, UpdateEncounterItemInput,
 } from './types';
 
 export class EncountersService extends BaseService<EncountersRepository> {
@@ -107,6 +112,34 @@ export class EncountersService extends BaseService<EncountersRepository> {
     this.assertInitialised();
     if (!this.repository.removeMonster(id)) throw new Error(`Encounter monster not found: ${id}`);
     this.emit('encounter:roster-updated', { encounterId });
+  }
+
+  // ── Reward item cards ────────────────────────────────────────────────────
+
+  addItem(input: AddEncounterItemInput): EncounterItemEntry {
+    this.assertInitialised();
+    this.requireString(input.itemId, 'itemId');
+    if (!this.repository.findById(input.encounterId)) {
+      throw new Error(`Encounter not found: ${input.encounterId}`);
+    }
+    const sortOrder = this.repository.nextItemSortOrder(input.encounterId);
+    const entry = this.repository.addItem(input, this.generateId(), sortOrder);
+    this.emit('encounter:rewards-updated', { encounterId: input.encounterId });
+    return entry;
+  }
+
+  updateItem(input: UpdateEncounterItemInput, encounterId: string): EncounterItemEntry {
+    this.assertInitialised();
+    const updated = this.repository.updateItem(input);
+    if (!updated) throw new Error(`Encounter item not found: ${input.id}`);
+    this.emit('encounter:rewards-updated', { encounterId });
+    return updated;
+  }
+
+  removeItem(id: string, encounterId: string): void {
+    this.assertInitialised();
+    if (!this.repository.removeItem(id)) throw new Error(`Encounter item not found: ${id}`);
+    this.emit('encounter:rewards-updated', { encounterId });
   }
 
   // ── NPC allies ───────────────────────────────────────────────────────────
@@ -270,5 +303,34 @@ export class EncountersService extends BaseService<EncountersRepository> {
           notes:    m.proxyNotes,
         };
       });
+  }
+
+  // ── Difficulty estimation ───────────────────────────────────────────────
+
+  /**
+   * Estimates encounter difficulty from CR/XP + the party's level, size, and
+   * selected terrain modifiers. The caller supplies a challengeRating lookup
+   * keyed by monsterId (sourced from the bestiary module) so this module
+   * doesn't need a direct dependency on bestiary internals.
+   */
+  estimateDifficulty(
+    encounterId: string,
+    challengeRatingByMonsterId: Record<string, string | undefined>,
+  ): EncounterDifficultyEstimate {
+    this.assertInitialised();
+    const encounter = this.repository.findById(encounterId);
+    if (!encounter) throw new Error(`Encounter not found: ${encounterId}`);
+
+    const monsters: DifficultyMonsterInput[] = encounter.monsters.map(m => ({
+      challengeRating: challengeRatingByMonsterId[m.monsterId],
+      quantity: m.quantity,
+    }));
+
+    return calculateEncounterDifficulty({
+      partyLevel: encounter.partyLevel ?? 1,
+      partySize: encounter.partySize ?? 4,
+      monsters,
+      terrainModifierIds: encounter.terrainModifierIds,
+    });
   }
 }

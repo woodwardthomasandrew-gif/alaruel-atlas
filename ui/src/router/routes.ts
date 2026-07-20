@@ -13,6 +13,7 @@ export const ROUTES = {
   timeline:   '/timeline',
   graph:      '/graph',
   assets:     '/assets',
+  tome:       '/tome',
   generators: '/generators',
   dungeons:   '/dungeons',
   bestiary:      '/bestiary',

@@ -167,10 +167,29 @@ export type {
   EncounterDifficulty,
   EncounterMonsterEntry,
   EncounterMiniEntry,
+  EncounterItemEntry,
   MiniAssignment,
   MiniMatchSuggestion,
   OwnedMiniForMatching,
 } from './encounter';
+
+// ── Encounter difficulty estimation ───────────────────────────────────────────
+export type {
+  TerrainModifier,
+  TerrainModifierAxis,
+  DifficultyMonsterInput,
+  DifficultyEstimateInput,
+  EncounterDifficultyEstimate,
+} from '../utils/encounterDifficulty';
+export {
+  TERRAIN_MODIFIERS,
+  getTerrainModifier,
+  combinedTerrainMultiplier,
+  monsterCountMultiplier,
+  xpFromChallengeRating,
+  calculateEncounterDifficulty,
+  CR_TO_XP,
+} from '../utils/encounterDifficulty';
 
 // ── Plugin system ─────────────────────────────────────────────────────────────
 export type {

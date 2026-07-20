@@ -51,6 +51,7 @@ import { AssetsUiModule } from '../../../modules/assets-ui/src/index';
 import { DungeonModule }   from '../../../modules/dungeon/src/index';
 import { BestiaryModule }        from '../../../modules/bestiary/src/index';
 import { MagicItemsModule }      from '../../../modules/magic-items/src/index';
+import { TomeModule }            from '../../../modules/tome/src/index';
 import { MiniCatalogueModule }   from '../../../modules/mini-catalogue/src/index';
 import { FactionsModule }        from '../../../modules/factions/src/index';
 import { EncountersModule }      from '../../../modules/encounters/src/index';
@@ -112,7 +113,7 @@ async function boot(): Promise<void> {
 
   // ── Step 1: Paths ──────────────────────────────────────────────────────────
   appPaths = resolveAppPaths();
-  log.debug('Data paths resolved', appPaths);
+  log.debug('Data paths resolved', { ...appPaths });
 
   // ── Step 2: Config ─────────────────────────────────────────────────────────
   const configPath = path.join(appPaths.config, 'user.json');
@@ -149,6 +150,7 @@ async function boot(): Promise<void> {
   moduleLoader.register(new DungeonModule());
   moduleLoader.register(new BestiaryModule());
   moduleLoader.register(new MagicItemsModule());
+  moduleLoader.register(new TomeModule());
   moduleLoader.register(new MiniCatalogueModule());
   moduleLoader.register(new FactionsModule());
 
@@ -299,16 +301,12 @@ function sendToRenderer(channel: string): void {
 
 /** macOS: re-create the window if the app icon is clicked with no open windows. */
 app.on('activate', () => {
-  if (!isWindowAvailable(mainWindow)) {
-    if (mainWindow?.isDestroyed()) {
-      const preloadPath = path.join(__dirname, 'preload.js');
-      const rendererUrl = isDev ? 'http://localhost:5173' : undefined;
-      mainWindow = createMainWindow(preloadPath, rendererUrl);
-      registerIpcHandlers(mainWindow, appPaths);
-      registerEventForwards(mainWindow);
-    } else {
-      app.whenReady().then(() => boot());
-    }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    const preloadPath = path.join(__dirname, 'preload.js');
+    const rendererUrl = isDev ? 'http://localhost:5173' : undefined;
+    mainWindow = createMainWindow(preloadPath, rendererUrl);
+    registerIpcHandlers(mainWindow, appPaths);
+    registerEventForwards(mainWindow);
   } else {
     focusWindow(mainWindow);
   }

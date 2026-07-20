@@ -200,5 +200,38 @@ export const ENCOUNTERS_SCHEMA: SchemaRegistration = {
         -- parties FK. Re-adding it would reintroduce the bug it fixes.
       `,
     },
+    {
+      version: 34,
+      module: 'encounters',
+      description:
+        'Phase 3: encounter_items table for reward item cards, plus ' +
+        'party_size and terrain_modifiers columns on encounters for the ' +
+        'CR/terrain difficulty estimator',
+      up: `
+        ALTER TABLE encounters ADD COLUMN party_size INTEGER;
+        ALTER TABLE encounters ADD COLUMN terrain_modifiers TEXT NOT NULL DEFAULT '[]';
+
+        CREATE TABLE IF NOT EXISTS encounter_items (
+          id              TEXT    PRIMARY KEY,
+          encounter_id    TEXT    NOT NULL REFERENCES encounters(id) ON DELETE CASCADE,
+          item_id         TEXT    NOT NULL,
+          custom_name     TEXT,
+          quantity        INTEGER NOT NULL DEFAULT 1,
+          notes           TEXT,
+          sort_order      INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_encounter_items_encounter ON encounter_items (encounter_id);
+        CREATE INDEX IF NOT EXISTS idx_encounter_items_item      ON encounter_items (item_id);
+      `,
+      down: `
+        DROP INDEX IF EXISTS idx_encounter_items_item;
+        DROP INDEX IF EXISTS idx_encounter_items_encounter;
+        DROP TABLE IF EXISTS encounter_items;
+
+        -- SQLite can't drop columns pre-3.35 without a table rebuild; since
+        -- these are additive nullable/defaulted columns, leaving them in
+        -- place on downgrade is harmless and avoids a risky rebuild here.
+      `,
+    },
   ],
 };

@@ -27,12 +27,14 @@ function rowToEncounter(r: Record<string, unknown>): Encounter {
 
     partyId:          r['party_id'] as string | null,
     partyLevel:       r['party_level'] as number | null,
+    partySize:        r['party_size'] as number | null,
     airshipPresent:   r['airship_present'] === 1,
     partyNotes:       r['party_notes'] as string ?? '',
 
     battleMapAssetId: r['battle_map_asset_id'] as string | null,
     mapNotes:         r['map_notes'] as string ?? '',
     terrainNotes:     r['terrain_notes'] as string ?? '',
+    terrainModifierIds: JSON.parse(r['terrain_modifiers'] as string ?? '[]'),
 
     environmentalEffects: JSON.parse(r['environmental_effects'] as string ?? '[]'),
     legendaryActions:     JSON.parse(r['legendary_actions'] as string ?? '[]'),

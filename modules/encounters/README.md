@@ -40,11 +40,32 @@ statblock" and "create encounter-specific copy" per the design spec.
 
 ## Status / Follow-up Phases
 
-**Phase 1 (backend core) and Phase 2 (UI) are complete.** The Encounter
-Workspace is reachable from the sidebar (`ui/src/views/encounters/`) with a
-list + tabbed detail view: Overview, Enemy Roster (bestiary search/add),
-Miniatures (owned-mini matching + Auto Assign Minis), Map & Terrain, Combat
-Tools, Rewards, Notes, and Printing (Encounter Sheet + Miniature Pull List).
+**Phase 1 (backend core), Phase 2 (UI), and Phase 3 (difficulty estimator +
+tiled monster/item cards) are complete.** The Encounter Workspace is
+reachable from the sidebar (`ui/src/views/encounters/`) with a list +
+tabbed detail view: Overview (incl. live Difficulty Estimate), Enemy Roster
+(bestiary search/add), Miniatures (owned-mini matching + Auto Assign Minis),
+Map & Terrain (incl. terrain modifier toggles), Combat Tools, Rewards (incl.
+magic-item reward cards), Notes, and Printing (Encounter Sheet + Miniature
+Pull List + tiled Monster Cards + tiled Reward Item Cards).
+
+**Difficulty estimation** (`shared/src/utils/encounterDifficulty.ts`) combines
+a standard CR/XP budget (party level × size vs. monster XP, adjusted by the
+DMG monster-count multiplier) with a predetermined terrain-modifier catalogue
+(chokepoints, high ground, low visibility, hazards, etc.), each nudging
+effective monster XP by a fixed percentage that stacks additively before
+being applied as a single multiplier. The result reuses the encounter's own
+`EncounterDifficulty` tiers (trivial/easy/moderate/hard/deadly) so the
+estimate and the manual override live on the same scale.
+
+**Monster/item cards** reuse the full-detail print renderers from the
+Bestiary and Magic Items modules (`StatblockPrintView`, `MagicItemPrintView`)
+rather than a separate simplified renderer, so large statblocks (multiple
+legendary actions, spellcasting, etc.) print in full. Cards are wrapped in
+`.ep-card-tile` and tiled via a two-column CSS multi-column layout
+(`.ep-card-grid` in `encounter-print.css`) — short cards pack tightly, tall
+cards simply take more vertical space in their column, and duplicate roster
+entries collapse into one card with a ×N badge.
 
 Note on architecture: the renderer talks to the database directly via
 `window.atlas.db.query`/`db.run` (see `apps/desktop/src/preload.ts`), the
@@ -58,15 +79,18 @@ over a dedicated IPC channel (mirroring `registerInspirationHandlers` in
 
 Still left for follow-up phases:
 
-- **Phase 3 — Deeper integrations**: Session Planner scene → Encounter
+- **Phase 4 — Deeper integrations**: Session Planner scene → Encounter
   linking UI, Dungeon Generator auto-creating Encounter objects per
   populated room, Combat Tracker consuming `conditions`/`legendaryActions`/
   `lairActions` for live initiative tracking, a real battle-map picker for
   `battle_map_asset_id` (currently a notes field only), drag-and-drop
   roster reordering, "Build Encounter From Miniatures" reverse workflow.
-- **Phase 4 — More print templates**: dedicated Monster Cards (one card per
-  creature with key stats + initiative/HP boxes) and Initiative Cards,
-  beyond the current combined Encounter Sheet + Mini Pull List template.
+- **Phase 5 — Dedicated Initiative Cards**: compact per-creature HP/AC/
+  initiative tracker cards, separate from the full statblock cards added in
+  Phase 3, for use at the table during a running encounter.
+- Party size is currently a manual per-encounter override (`party_size`);
+  wiring it to sum `party_members` for a linked `party_id` would remove the
+  need to re-enter it per encounter.
 
 ## Rules
 

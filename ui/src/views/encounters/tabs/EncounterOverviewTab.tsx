@@ -1,20 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { atlas } from '../../../bridge/atlas';
-import type { Encounter, EncounterType, EncounterDifficulty, EncounterStatus } from '../../../types/encounter';
+import type { Encounter, EncounterType, EncounterDifficulty, EncounterStatus, EncounterMonster } from '../../../types/encounter';
+import { calculateEncounterDifficulty } from '../../../../../shared/src/utils/encounterDifficulty';
 import styles from '../EncounterDetail.module.css';
 
 const TYPES: EncounterType[] = ['combat', 'social', 'exploration', 'skill_challenge', 'boss', 'airship'];
 const DIFFICULTIES: EncounterDifficulty[] = ['trivial', 'easy', 'moderate', 'hard', 'deadly'];
 const STATUSES: EncounterStatus[] = ['planned', 'ready', 'run', 'archived'];
 
-interface Props { encounter: Encounter; campaignId: string; onSaved: () => void; }
+interface Props { encounter: Encounter; monsters: EncounterMonster[]; campaignId: string; onSaved: () => void; }
 
-export function EncounterOverviewTab({ encounter, onSaved }: Props) {
+export function EncounterOverviewTab({ encounter, monsters, onSaved }: Props) {
   const [form, setForm] = useState({
     name: encounter.name, description: encounter.description, encounterType: encounter.encounterType,
     status: encounter.status, difficulty: encounter.difficulty, location: encounter.location,
     sessionNumber: encounter.sessionNumber ?? '', tags: encounter.tags.join(', '),
-    partyLevel: encounter.partyLevel ?? '', airshipPresent: encounter.airshipPresent,
+    partyLevel: encounter.partyLevel ?? '', partySize: encounter.partySize ?? '',
+    airshipPresent: encounter.airshipPresent,
     partyNotes: encounter.partyNotes,
   });
   const [saving, setSaving] = useState(false);
@@ -26,11 +28,19 @@ export function EncounterOverviewTab({ encounter, onSaved }: Props) {
       name: encounter.name, description: encounter.description, encounterType: encounter.encounterType,
       status: encounter.status, difficulty: encounter.difficulty, location: encounter.location,
       sessionNumber: encounter.sessionNumber ?? '', tags: encounter.tags.join(', '),
-      partyLevel: encounter.partyLevel ?? '', airshipPresent: encounter.airshipPresent,
+      partyLevel: encounter.partyLevel ?? '', partySize: encounter.partySize ?? '',
+      airshipPresent: encounter.airshipPresent,
       partyNotes: encounter.partyNotes,
     });
     setSaved(false);
   }, [encounter.id]);
+
+  const estimate = useMemo(() => calculateEncounterDifficulty({
+    partyLevel: Number(form.partyLevel) || 1,
+    partySize: Number(form.partySize) || 4,
+    monsters: monsters.map(m => ({ challengeRating: m.challengeRating, quantity: m.quantity })),
+    terrainModifierIds: encounter.terrainModifierIds,
+  }), [form.partyLevel, form.partySize, monsters, encounter.terrainModifierIds]);
 
   async function handleSave() {
     setSaving(true); setError(null); setSaved(false);
@@ -40,12 +50,13 @@ export function EncounterOverviewTab({ encounter, onSaved }: Props) {
       await atlas.db.run(
         `UPDATE encounters SET
            name=?, description=?, encounter_type=?, status=?, difficulty=?, location=?,
-           session_number=?, tags=?, party_level=?, airship_present=?, party_notes=?, updated_at=?
+           session_number=?, tags=?, party_level=?, party_size=?, airship_present=?, party_notes=?, updated_at=?
          WHERE id=?`,
         [
           form.name.trim(), form.description, form.encounterType, form.status, form.difficulty,
           form.location.trim(), form.sessionNumber === '' ? null : Number(form.sessionNumber),
           JSON.stringify(tags), form.partyLevel === '' ? null : Number(form.partyLevel),
+          form.partySize === '' ? null : Number(form.partySize),
           form.airshipPresent ? 1 : 0, form.partyNotes, now, encounter.id,
         ],
       );
@@ -100,8 +111,10 @@ export function EncounterOverviewTab({ encounter, onSaved }: Props) {
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Party</span>
         <div className={styles.row}>
-          {field('Party Level', <input className={styles.input} type="number" value={form.partyLevel}
+          {field('Party Level', <input className={styles.input} type="number" min={1} max={20} value={form.partyLevel}
             onChange={e => setForm(f => ({ ...f, partyLevel: e.target.value }))} />)}
+          {field('Party Size', <input className={styles.input} type="number" min={1} value={form.partySize}
+            onChange={e => setForm(f => ({ ...f, partySize: e.target.value }))} />)}
           <label className={styles.checkboxRow} style={{ marginTop: '1.4rem' }}>
             <input type="checkbox" checked={form.airshipPresent}
               onChange={e => setForm(f => ({ ...f, airshipPresent: e.target.checked }))} />
@@ -110,6 +123,37 @@ export function EncounterOverviewTab({ encounter, onSaved }: Props) {
         </div>
         {field('Party Notes', <textarea className={`${styles.input} ${styles.textarea}`} rows={3}
           value={form.partyNotes} onChange={e => setForm(f => ({ ...f, partyNotes: e.target.value }))} />)}
+      </div>
+
+      <div className={styles.section}>
+        <span className={styles.sectionTitle}>Difficulty Estimate</span>
+        <div className={styles.diffEstimateBox}>
+          <div className={styles.diffEstimateHeader}>
+            <span className={`${styles.diffTierBadge} ${styles[`tier_${estimate.tier}`]}`}>{estimate.tier}</span>
+            <span className={styles.diffEstimateXp}>{estimate.adjustedXp.toLocaleString()} adjusted XP</span>
+          </div>
+          <div className={styles.diffEstimateBreakdown}>
+            <span>{estimate.monsterCount} creature{estimate.monsterCount === 1 ? '' : 's'} · {estimate.baseMonsterXp.toLocaleString()} base XP</span>
+            <span>× {estimate.countMultiplier} count multiplier</span>
+            <span>× {estimate.terrainMultiplier.toFixed(2)} terrain multiplier{estimate.appliedTerrainModifiers.length > 0 ? ` (${estimate.appliedTerrainModifiers.map(m => m.label).join(', ')})` : ''}</span>
+          </div>
+          <div className={styles.diffEstimateThresholds}>
+            <span>Easy {estimate.thresholds.easy.toLocaleString()}</span>
+            <span>Moderate {estimate.thresholds.medium.toLocaleString()}</span>
+            <span>Hard {estimate.thresholds.hard.toLocaleString()}</span>
+            <span>Deadly {estimate.thresholds.deadly.toLocaleString()}</span>
+          </div>
+          {estimate.tier !== form.difficulty && (
+            <button type="button" className={styles.diffApplyBtn}
+              onClick={() => setForm(f => ({ ...f, difficulty: estimate.tier }))}>
+              Use estimate ({estimate.tier}) as difficulty
+            </button>
+          )}
+        </div>
+        <p className={styles.diffEstimateHint}>
+          Terrain modifiers are set on the Map &amp; Terrain tab. Combining a CR/XP budget with the
+          selected terrain gives an estimate — always sanity-check against your table.
+        </p>
       </div>
 
       <button className={styles.saveBtn} onClick={handleSave} disabled={saving || !form.name.trim()}>

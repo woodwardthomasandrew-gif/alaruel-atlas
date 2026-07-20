@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon }      from '../../components/ui/Icon';
 import { atlas }     from '../../bridge/atlas';
-import type { Encounter, EncounterMonster, EncounterMini } from '../../types/encounter';
+import type { Encounter, EncounterMonster, EncounterMini, EncounterItem } from '../../types/encounter';
 import { EncounterOverviewTab } from './tabs/EncounterOverviewTab';
 import { EncounterRosterTab }   from './tabs/EncounterRosterTab';
 import { EncounterMinisTab }    from './tabs/EncounterMinisTab';
@@ -40,9 +40,11 @@ function rowToEncounter(r: Record<string, unknown>): Encounter {
     difficulty: r['difficulty'] as Encounter['difficulty'], tags: JSON.parse(r['tags'] as string ?? '[]'),
     notes: r['notes'] as string ?? '',
     partyId: r['party_id'] as string | null, partyLevel: r['party_level'] as number | null,
+    partySize: r['party_size'] as number | null,
     airshipPresent: r['airship_present'] === 1, partyNotes: r['party_notes'] as string ?? '',
     battleMapAssetId: r['battle_map_asset_id'] as string | null, mapNotes: r['map_notes'] as string ?? '',
     terrainNotes: r['terrain_notes'] as string ?? '',
+    terrainModifierIds: JSON.parse(r['terrain_modifiers'] as string ?? '[]'),
     environmentalEffects: JSON.parse(r['environmental_effects'] as string ?? '[]'),
     legendaryActions: JSON.parse(r['legendary_actions'] as string ?? '[]'),
     lairActions: JSON.parse(r['lair_actions'] as string ?? '[]'),
@@ -59,6 +61,7 @@ export function EncounterDetail({ encounterId, campaignId, onDeleted, onChanged 
   const [encounter,  setEncounter]  = useState<Encounter | null>(null);
   const [monsters,   setMonsters]   = useState<EncounterMonster[]>([]);
   const [minis,      setMinis]      = useState<EncounterMini[]>([]);
+  const [items,      setItems]      = useState<EncounterItem[]>([]);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
@@ -66,7 +69,7 @@ export function EncounterDetail({ encounterId, campaignId, onDeleted, onChanged 
     if (!encounterId) { setEncounter(null); return; }
     setLoading(true); setError(null);
     try {
-      const [encRows, monsterRows, miniRows] = await Promise.all([
+      const [encRows, monsterRows, miniRows, itemRows] = await Promise.all([
         atlas.db.query<Record<string, unknown>>('SELECT * FROM encounters WHERE id = ?', [encounterId]),
         atlas.db.query<Record<string, unknown>>(
           `SELECT em.*, m.name AS monster_name, m.creature_type, m.challenge_rating
@@ -81,6 +84,14 @@ export function EncounterDetail({ encounterId, campaignId, onDeleted, onChanged 
              FROM encounter_minis emi
              LEFT JOIN minis mn ON mn.id = emi.mini_id
             WHERE emi.encounter_id = ?`,
+          [encounterId],
+        ),
+        atlas.db.query<Record<string, unknown>>(
+          `SELECT ei.*, mi.name AS item_name, mi.item_type, mi.rarity, mi.requires_attunement
+             FROM encounter_items ei
+             LEFT JOIN magic_items mi ON mi.id = ei.item_id
+            WHERE ei.encounter_id = ?
+            ORDER BY ei.sort_order ASC`,
           [encounterId],
         ),
       ]);
@@ -100,6 +111,15 @@ export function EncounterDetail({ encounterId, campaignId, onDeleted, onChanged 
         miniId: r['mini_id'] as string | undefined, miniName: r['mini_name'] as string | undefined,
         quantity: r['quantity'] as number, assignment: r['assignment'] as EncounterMini['assignment'],
         proxyNotes: r['proxy_notes'] as string | undefined,
+      })));
+      setItems(itemRows.map(r => ({
+        id: r['id'] as string, itemId: r['item_id'] as string,
+        itemName: r['item_name'] as string | undefined, itemType: r['item_type'] as string | undefined,
+        rarity: r['rarity'] as string | undefined,
+        requiresAttunement: r['requires_attunement'] === 1,
+        customName: r['custom_name'] as string | undefined,
+        quantity: r['quantity'] as number, notes: r['notes'] as string | undefined,
+        sortOrder: r['sort_order'] as number,
       })));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally     { setLoading(false); }
@@ -165,14 +185,14 @@ export function EncounterDetail({ encounterId, campaignId, onDeleted, onChanged 
       </nav>
 
       <div className={styles.tabBody}>
-        {tab === 'overview' && <EncounterOverviewTab encounter={encounter} campaignId={campaignId} onSaved={refresh}/>}
+        {tab === 'overview' && <EncounterOverviewTab encounter={encounter} monsters={monsters} campaignId={campaignId} onSaved={refresh}/>}
         {tab === 'roster'   && <EncounterRosterTab encounter={encounter} monsters={monsters} campaignId={campaignId} onChanged={refresh}/>}
         {tab === 'minis'    && <EncounterMinisTab encounter={encounter} monsters={monsters} minis={minis} campaignId={campaignId} onChanged={refresh}/>}
         {tab === 'map'      && <EncounterMapTab encounter={encounter} onSaved={refresh}/>}
         {tab === 'combat'   && <EncounterCombatTab encounter={encounter} onSaved={refresh}/>}
-        {tab === 'rewards'  && <EncounterRewardsTab encounter={encounter} onSaved={refresh}/>}
+        {tab === 'rewards'  && <EncounterRewardsTab encounter={encounter} items={items} campaignId={campaignId} onSaved={refresh}/>}
         {tab === 'notes'    && <EncounterNotesTab encounter={encounter} onSaved={refresh}/>}
-        {tab === 'print'    && <EncounterPrintTab encounter={encounter} monsters={monsters} minis={minis}/>}
+        {tab === 'print'    && <EncounterPrintTab encounter={encounter} monsters={monsters} minis={minis} items={items}/>}
       </div>
     </div>
   );

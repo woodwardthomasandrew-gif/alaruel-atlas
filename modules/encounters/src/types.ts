@@ -21,12 +21,14 @@ export interface EncounterRow {
 
   party_id:               string | null;
   party_level:            number | null;
+  party_size:             number | null;
   airship_present:        number;
   party_notes:            string;
 
   battle_map_asset_id:    string | null;
   map_notes:              string;
   terrain_notes:          string;
+  terrain_modifiers:      string;
 
   initiative_presets:     string;
   environmental_effects:  string;
@@ -72,6 +74,16 @@ export interface EncounterNpcAllyRow {
   npc_id:       string;
 }
 
+export interface EncounterItemRow {
+  id:              string;
+  encounter_id:    string;
+  item_id:         string;
+  custom_name:     string | null;
+  quantity:        number;
+  notes:           string | null;
+  sort_order:      number;
+}
+
 // ── Service input DTOs ───────────────────────────────────────────────────────
 
 export interface CreateEncounterInput {
@@ -87,6 +99,7 @@ export interface CreateEncounterInput {
   dungeonRoomId?:  string;
   partyId?:        string;
   partyLevel?:     number;
+  partySize?:      number;
 }
 
 export interface UpdateEncounterInput {
@@ -105,12 +118,14 @@ export interface UpdateEncounterInput {
 
   partyId?:           string | null;
   partyLevel?:        number | null;
+  partySize?:         number | null;
   airshipPresent?:    boolean;
   partyNotes?:        string;
 
   battleMapAssetId?:  string | null;
   mapNotes?:          string;
   terrainNotes?:      string;
+  terrainModifierIds?: string[];
 
   initiativePresets?:    unknown[];
   environmentalEffects?: unknown[];
@@ -152,4 +167,20 @@ export interface AssignMiniInput {
   quantity?:            number;
   assignment?:          MiniAssignment;
   proxyNotes?:          string;
+}
+
+export interface AddEncounterItemInput {
+  encounterId: string;
+  itemId:      string;
+  customName?: string;
+  quantity?:   number;
+  notes?:      string;
+}
+
+export interface UpdateEncounterItemInput {
+  id:          string;
+  customName?: string | null;
+  quantity?:   number;
+  notes?:      string | null;
+  sortOrder?:  number;
 }

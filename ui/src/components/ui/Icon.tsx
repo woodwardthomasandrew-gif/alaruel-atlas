@@ -6,7 +6,8 @@ type IconName =
   | 'network' | 'folder' | 'home' | 'plus' | 'open'
   | 'chevron-right' | 'x' | 'alert' | 'loader' | 'sword'
   | 'image' | 'pin' | 'link' | 'trash' | 'eye' | 'upload'
-  | 'skull' | 'edit' | 'check' | 'chevron-down' | 'sparkles' | 'box' | 'bookmark';
+  | 'skull' | 'edit' | 'check' | 'chevron-down' | 'sparkles' | 'box' | 'bookmark'
+  | 'copy';
 
 const PATHS: Record<IconName, string> = {
   'map':           'M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zm6 3v10M9 4v10',
@@ -38,6 +39,7 @@ const PATHS: Record<IconName, string> = {
   'sparkles':      'M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75L5 17zM19 3l.75 2.25L22 6l-2.25.75L19 9l-.75-2.25L16 6l2.25-.75L19 3z',
   'box':           'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12',
   'bookmark':      'M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z',
+  'copy':          'M9 9h10v10H9zM5 5h10v3H8v7H5z',
 };
 
 interface IconProps {

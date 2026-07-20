@@ -66,11 +66,12 @@ This section summarizes feature behavior and data flow across UI -> bridge -> mo
 ## 7. Bestiary, Mini Catalogue, and Dungeon Generation
 
 - Bestiary UI: `ui/src/views/bestiary/*`
+- Tome UI: `ui/src/views/tome/TomeView.tsx`
 - Mini catalogue UI: `ui/src/views/mini-catalogue/*`
 - Dungeon UI: `ui/src/views/dungeon/DungeonView.tsx`
-- Modules: `modules/bestiary`, `modules/mini-catalogue`, `modules/dungeon`
-- Data tables: `monsters`, `minis`, `mini_monsters`, `dungeons`, `dungeon_rooms`, `dungeon_contents`
-- Events: `bestiary:created`, `bestiary:updated`, `mini-catalogue:created`, `mini-catalogue:updated`, `dungeon:generated`
+- Modules: `modules/bestiary`, `modules/tome`, `modules/mini-catalogue`, `modules/dungeon`
+- Data tables: `monsters`, `tome_folders`, `tome_documents`, `tome_document_links`, `minis`, `mini_monsters`, `dungeons`, `dungeon_rooms`, `dungeon_contents`
+- Events: `bestiary:created`, `bestiary:updated`, `tome:created`, `tome:updated`, `tome:deleted`, `mini-catalogue:created`, `mini-catalogue:updated`, `dungeon:generated`
 
 ## 8. Inspiration and Export
 

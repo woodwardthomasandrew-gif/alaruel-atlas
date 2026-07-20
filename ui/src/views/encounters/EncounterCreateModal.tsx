@@ -34,7 +34,7 @@ export function EncounterCreateModal({ campaignId, onCreated, onClose }: Props) 
       onCreated({
         id, name: name.trim(), description: '', encounterType: type, status: 'planned',
         location: location.trim(), difficulty, tags: [], notes: '',
-        airshipPresent: false, partyNotes: '', mapNotes: '', terrainNotes: '',
+        airshipPresent: false, partyNotes: '', mapNotes: '', terrainNotes: '', terrainModifierIds: [],
         environmentalEffects: [], legendaryActions: [], lairActions: [], conditions: [],
         loot: '', storyRewards: '', reputationRewards: '', rewardNotes: '',
         createdAt: now, updatedAt: now,

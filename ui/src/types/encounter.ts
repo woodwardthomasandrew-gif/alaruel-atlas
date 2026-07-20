@@ -27,6 +27,19 @@ export interface EncounterMini {
   proxyNotes?:         string;
 }
 
+export interface EncounterItem {
+  id:          string;
+  itemId:      string;
+  itemName?:   string;   // joined in from magic_items for display
+  itemType?:   string;
+  rarity?:     string;
+  requiresAttunement?: boolean;
+  customName?: string;
+  quantity:    number;
+  notes?:      string;
+  sortOrder:   number;
+}
+
 export interface Encounter {
   id:               string;
   name:             string;
@@ -43,12 +56,14 @@ export interface Encounter {
 
   partyId?:         string | null;
   partyLevel?:      number | null;
+  partySize?:       number | null;
   airshipPresent:   boolean;
   partyNotes:       string;
 
   battleMapAssetId?: string | null;
   mapNotes:         string;
   terrainNotes:     string;
+  terrainModifierIds: string[];
 
   environmentalEffects: string[];
   legendaryActions:     string[];

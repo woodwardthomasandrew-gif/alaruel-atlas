@@ -24,6 +24,7 @@ Feature modules and module-adjacent packages. Each runtime feature is isolated i
 | `graph` | Narrative relationship graph |
 | `assets-ui` | Asset browser and import UI |
 | `bestiary` | Monster statblock creator and bestiary manager |
+| `tome` | Campaign reference notebook for DM prep |
 | `mini-catalogue` | Physical miniature collection tracking |
 | `dungeon` | Procedural dungeon generation |
 

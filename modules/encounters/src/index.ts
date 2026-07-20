@@ -3,5 +3,5 @@ export { EncountersService } from './service';
 export type {
   CreateEncounterInput, UpdateEncounterInput,
   AddEncounterMonsterInput, UpdateEncounterMonsterInput,
-  AssignMiniInput,
+  AssignMiniInput, AddEncounterItemInput, UpdateEncounterItemInput,
 } from './types';

@@ -21,6 +21,7 @@ Schema sources:
 | Graph | `entity_relationships`, `graph_layout_state`, `graph_node_overlays`, `graph_relationship_overlays` |
 | Assets UI | `assets`, `asset_links` |
 | Bestiary | `monsters` |
+| Tome | `tome_folders`, `tome_documents`, `tome_document_links` |
 | Mini catalogue | `minis`, `mini_monsters` |
 | Dungeon | `dungeons`, `dungeon_rooms`, `dungeon_contents` |
 

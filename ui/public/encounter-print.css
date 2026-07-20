@@ -107,4 +107,51 @@
   }
 
   .ep-page-break { break-before: page; page-break-before: always; }
+
+  /* ── Monster / Item card tiling ─────────────────────────────────────────────
+     Phase 3: full statblock cards (reusing .sb-card, from statblock-print.css)
+     and full item cards (reusing .mi-card, from magic-item-print.css) tile
+     into a masonry-style multi-column layout. Cards vary a lot in height —
+     a 3-line minion and a multi-page legendary boss both need to "just work"
+     — so we use native CSS multi-column flow instead of a fixed grid: short
+     cards pack tightly, tall cards simply take more vertical room in their
+     column, and no card is ever squashed to fit a uniform cell. */
+  .ep-card-grid {
+    column-count: 2 !important;
+    column-gap: 10pt !important;
+    width: 100% !important;
+  }
+
+  .ep-card-tile {
+    break-inside: avoid-column !important;
+    display: block !important;
+    margin: 0 0 10pt !important;
+    position: relative !important;
+  }
+
+  /* A very tall statblock (legendary boss, etc.) is allowed to spill across
+     the column boundary rather than being forced smaller — "avoid" is a
+     hint, not a hard constraint, so oversized cards still print in full. */
+  .ep-card-tile .sb-card,
+  .ep-card-tile .mi-card {
+    border: 0.5pt solid #d4c9b8 !important;
+    break-inside: avoid-column !important;
+  }
+
+  .ep-card-qty {
+    position: absolute !important;
+    top: 4pt !important;
+    right: 6pt !important;
+    z-index: 2 !important;
+    background: #fdf6ee !important;
+    border: 1pt solid #7a1f1f !important;
+    color: #7a1f1f !important;
+    font-family: 'Cinzel', Georgia, serif !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    padding: 1pt 6pt !important;
+    border-radius: 20pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

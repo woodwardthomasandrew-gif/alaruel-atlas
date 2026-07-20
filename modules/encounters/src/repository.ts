@@ -2,13 +2,13 @@ import { BaseRepository }        from '../../_framework/src/index';
 import type { IDatabaseManager } from '../../../core/database/src/types';
 import type { Logger }           from '../../../core/logger/src/types';
 import type {
-  Encounter, EncounterMonsterEntry, EncounterMiniEntry,
+  Encounter, EncounterMonsterEntry, EncounterMiniEntry, EncounterItemEntry,
 } from '../../../shared/src/types/encounter';
 import type {
-  EncounterRow, EncounterMonsterRow, EncounterMiniRow, EncounterNpcAllyRow,
+  EncounterRow, EncounterMonsterRow, EncounterMiniRow, EncounterNpcAllyRow, EncounterItemRow,
   CreateEncounterInput, UpdateEncounterInput,
   AddEncounterMonsterInput, UpdateEncounterMonsterInput,
-  AssignMiniInput,
+  AssignMiniInput, AddEncounterItemInput, UpdateEncounterItemInput,
 } from './types';
 
 function parseJsonArray(value: string | null | undefined): unknown[] {
@@ -34,16 +34,19 @@ function rowToEncounter(row: EncounterRow): Encounter {
 
     partyId:          row.party_id ?? undefined,
     partyLevel:       row.party_level ?? undefined,
+    partySize:        row.party_size ?? undefined,
     airshipPresent:   row.airship_present === 1,
     partyNotes:       row.party_notes,
     npcAllyIds:       [],
 
     monsters:         [],
     minis:            [],
+    items:            [],
 
     battleMapAssetId: row.battle_map_asset_id ?? undefined,
     mapNotes:         row.map_notes,
     terrainNotes:     row.terrain_notes,
+    terrainModifierIds: parseJsonArray(row.terrain_modifiers) as string[],
 
     initiativePresets:    parseJsonArray(row.initiative_presets),
     environmentalEffects: parseJsonArray(row.environmental_effects),
@@ -73,6 +76,17 @@ function rowToMonster(r: EncounterMonsterRow): EncounterMonsterEntry {
     statOverrides:   r.stat_overrides ? JSON.parse(r.stat_overrides) : undefined,
     order:           r.sort_order,
     notes:           r.notes ?? undefined,
+  };
+}
+
+function rowToItem(r: EncounterItemRow): EncounterItemEntry {
+  return {
+    id:         r.id,
+    itemId:     r.item_id,
+    customName: r.custom_name ?? undefined,
+    quantity:   r.quantity,
+    notes:      r.notes ?? undefined,
+    order:      r.sort_order,
   };
 }
 
@@ -134,6 +148,10 @@ export class EncountersRepository extends BaseRepository {
       'SELECT * FROM encounter_minis WHERE encounter_id = ?',
       [e.id],
     ).map(rowToMini);
+    e.items = this.query<EncounterItemRow>(
+      'SELECT * FROM encounter_items WHERE encounter_id = ? ORDER BY sort_order ASC',
+      [e.id],
+    ).map(rowToItem);
     e.npcAllyIds = this.query<EncounterNpcAllyRow>(
       'SELECT npc_id FROM encounter_npc_allies WHERE encounter_id = ?',
       [e.id],
@@ -146,14 +164,14 @@ export class EncountersRepository extends BaseRepository {
       `INSERT INTO encounters (
          id, campaign_id, name, description, encounter_type, location, difficulty,
          tags, notes, session_id, session_number, dungeon_room_id,
-         party_id, party_level, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         party_id, party_level, party_size, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.id, this.campaignId, input.name, input.description ?? '',
         input.encounterType ?? 'combat', input.location ?? '', input.difficulty ?? 'moderate',
         JSON.stringify(input.tags ?? []), input.notes ?? '',
         input.sessionId ?? null, input.sessionNumber ?? null, input.dungeonRoomId ?? null,
-        input.partyId ?? null, input.partyLevel ?? null,
+        input.partyId ?? null, input.partyLevel ?? null, input.partySize ?? null,
         input.createdAt, input.updatedAt,
       ],
     );
@@ -182,12 +200,14 @@ export class EncountersRepository extends BaseRepository {
 
     setIf(input.partyId           !== undefined, 'party_id', input.partyId);
     setIf(input.partyLevel        !== undefined, 'party_level', input.partyLevel);
+    setIf(input.partySize         !== undefined, 'party_size', input.partySize);
     setIf(input.airshipPresent    !== undefined, 'airship_present', input.airshipPresent ? 1 : 0);
     setIf(input.partyNotes        !== undefined, 'party_notes', input.partyNotes ?? null);
 
     setIf(input.battleMapAssetId  !== undefined, 'battle_map_asset_id', input.battleMapAssetId);
     setIf(input.mapNotes          !== undefined, 'map_notes', input.mapNotes ?? null);
     setIf(input.terrainNotes      !== undefined, 'terrain_notes', input.terrainNotes ?? null);
+    setIf(input.terrainModifierIds !== undefined, 'terrain_modifiers', JSON.stringify(input.terrainModifierIds ?? []));
 
     setIf(input.initiativePresets    !== undefined, 'initiative_presets', JSON.stringify(input.initiativePresets ?? []));
     setIf(input.environmentalEffects !== undefined, 'environmental_effects', JSON.stringify(input.environmentalEffects ?? []));
@@ -254,6 +274,48 @@ export class EncountersRepository extends BaseRepository {
 
   removeMonster(id: string): boolean {
     return this.run('DELETE FROM encounter_monsters WHERE id = ?', [id]).changes > 0;
+  }
+
+  // ── Reward item cards ─────────────────────────────────────────────────────
+
+  addItem(input: AddEncounterItemInput, id: string, sortOrder: number): EncounterItemEntry {
+    this.run(
+      `INSERT INTO encounter_items (id, encounter_id, item_id, custom_name, quantity, notes, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, input.encounterId, input.itemId, input.customName ?? null,
+        input.quantity ?? 1, input.notes ?? null, sortOrder,
+      ],
+    );
+    return rowToItem(this.queryOne<EncounterItemRow>('SELECT * FROM encounter_items WHERE id = ?', [id])!);
+  }
+
+  nextItemSortOrder(encounterId: string): number {
+    const row = this.queryOne<{ mx: number | null }>(
+      'SELECT MAX(sort_order) AS mx FROM encounter_items WHERE encounter_id = ?', [encounterId],
+    );
+    return (row?.mx ?? -1) + 1;
+  }
+
+  updateItem(input: UpdateEncounterItemInput): EncounterItemEntry | null {
+    const sets: string[] = [];
+    const params: (string | number | null)[] = [];
+    const setIf = (cond: boolean, col: string, value: string | number | null | undefined) => {
+      if (cond) { sets.push(`${col} = ?`); params.push(value ?? null); }
+    };
+    setIf(input.customName !== undefined, 'custom_name', input.customName);
+    setIf(input.quantity   !== undefined, 'quantity', input.quantity ?? 1);
+    setIf(input.notes      !== undefined, 'notes', input.notes);
+    setIf(input.sortOrder  !== undefined, 'sort_order', input.sortOrder ?? 0);
+    if (sets.length === 0) return rowToItem(this.queryOne<EncounterItemRow>('SELECT * FROM encounter_items WHERE id = ?', [input.id])!);
+    params.push(input.id);
+    this.run(`UPDATE encounter_items SET ${sets.join(', ')} WHERE id = ?`, params);
+    const row = this.queryOne<EncounterItemRow>('SELECT * FROM encounter_items WHERE id = ?', [input.id]);
+    return row ? rowToItem(row) : null;
+  }
+
+  removeItem(id: string): boolean {
+    return this.run('DELETE FROM encounter_items WHERE id = ?', [id]).changes > 0;
   }
 
   // ── Miniature assignments ────────────────────────────────────────────────
